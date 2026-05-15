@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+
+    <uses-feature android:name="android.hardware.audio.output" android:required="true" />
+
+    <application
+        android:label="Androtone"
+        android:allowBackup="true"
+        android:hasCode="true"
+        android:hardwareAccelerated="true"
+        android:largeHeap="true">
+
+        <!--
+            JUCE generates the activity class automatically as part of the Standalone Android build.
+            See platform/android/README.md for the activity wiring; this stanza is filled in once
+            JUCE produces its Java sources into the Gradle build tree.
+        -->
+
+    </application>
+
+</manifest>
