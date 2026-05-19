@@ -9,7 +9,7 @@ time.
 | -------- | ---------- | ------------------------------------------- |
 | Desktop  | VST3       | Windows / macOS / Linux                     |
 | Desktop  | Standalone | `.exe` / `.app` / binary                    |
-| Android  | Standalone | APK, built via Gradle wrapper in `platform/android/` |
+| Android  | Standalone | APK, built via Gradle wrapper in `Builds/android/` |
 
 ## Prerequisites
 
@@ -20,7 +20,7 @@ time.
 Android also needs:
 
 - Android Studio + Android NDK r26+
-- See [`platform/android/README.md`](platform/android/README.md)
+- See [`Builds/android/README.md`](Builds/android/README.md)
 
 ## Build (desktop)
 
@@ -36,7 +36,7 @@ Artifacts:
 
 ## Build (Android)
 
-See [`platform/android/README.md`](platform/android/README.md).
+See [`Builds/android/README.md`](Builds/android/README.md).
 
 ## Repo layout
 
@@ -48,7 +48,7 @@ See [`platform/android/README.md`](platform/android/README.md).
 ├── source/                     # plugin C++
 │   ├── PluginEditor.{h,cpp}
 │   └── PluginProcessor.{h,cpp}
-└── platform/android/           # Gradle wrapper for Android NDK build
+└── Builds/android/           # Gradle wrapper for Android NDK build
 ```
 
 ## Notes on JUCE version

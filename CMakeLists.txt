@@ -19,6 +19,17 @@ CPMAddPackage(
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Android")
     set(ANDROTONE_FORMATS Standalone)
+
+    set(ANDROTONE_JUCE_JAVA_DEST "${CMAKE_SOURCE_DIR}/Builds/android/app/build/generated/juce-java")
+    file(MAKE_DIRECTORY "${ANDROTONE_JUCE_JAVA_DEST}")
+    foreach(juce_java_src IN ITEMS
+        "${JUCE_SOURCE_DIR}/modules/juce_core/native/javacore/app/com"
+        "${JUCE_SOURCE_DIR}/modules/juce_core/native/javacore/init/com"
+        "${JUCE_SOURCE_DIR}/modules/juce_gui_basics/native/java/app/com"
+        "${JUCE_SOURCE_DIR}/modules/juce_gui_basics/native/javaopt/app/com"
+        "${JUCE_SOURCE_DIR}/modules/juce_audio_devices/native/java/app/com")
+        file(COPY "${juce_java_src}" DESTINATION "${ANDROTONE_JUCE_JAVA_DEST}")
+    endforeach()
 else()
     set(ANDROTONE_FORMATS VST3 Standalone)
 endif()

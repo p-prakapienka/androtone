@@ -9,13 +9,13 @@ Targets:
 
 - VST3 — desktop hosts (Windows / macOS / Linux)
 - Standalone — desktop
-- Standalone — Android (via Gradle + NDK wrapper in `platform/android/`)
+- Standalone — Android (via Gradle + NDK wrapper in `Builds/android/`)
 
 ## Layout
 
 - `CMakeLists.txt` — root; CPM bootstrap, JUCE fetch, `juce_add_plugin`
 - `source/` — plugin C++ (`PluginProcessor.{h,cpp}`, `PluginEditor.{h,cpp}`)
-- `platform/android/` — Gradle wrapper invoking the root CMake via `externalNativeBuild`
+- `Builds/android/` — Gradle wrapper invoking the root CMake via `externalNativeBuild`
 - `docs/` — product requirements, design notes, and any Claude design files. **Read everything in
   `docs/` before making non-trivial changes — it is the canonical source of intent for this
   project.**
@@ -32,4 +32,4 @@ VST3 lands in `build/Androtone_artefacts/Release/VST3/`; the standalone executab
 
 ## Build (Android)
 
-See `platform/android/README.md`.
+See `Builds/android/README.md`.

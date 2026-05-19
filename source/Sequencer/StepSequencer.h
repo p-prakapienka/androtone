@@ -84,7 +84,7 @@ public:
             if (sampleCounter >= samplesPerStep) {
                 sampleCounter = 0;
 
-                int previousStep = currentStep;
+                const int previousStep = currentStep;
                 midi.addEvent(juce::MidiMessage::noteOff(1, notes[previousStep].number), sample);
 
                 currentStep = (currentStep + 1) % numSteps;
