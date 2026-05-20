@@ -1,0 +1,2 @@
+rootProject.name = 'androtone'
+include ':app'

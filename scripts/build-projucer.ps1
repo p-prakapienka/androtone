@@ -26,8 +26,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$juceSrc     = Join-Path $projectRoot 'cmake-build-debug-visual-studio\_deps\juce-src'
-$buildDir    = Join-Path $projectRoot 'cmake-build-debug-visual-studio\projucer'
+$juceSrc     = Join-Path $projectRoot 'Builds\desktop\cmake-build-debug-visual-studio\_deps\juce-src'
+$buildDir    = Join-Path $projectRoot 'Builds\desktop\cmake-build-debug-visual-studio\projucer'
 
 if (-not (Test-Path $juceSrc)) {
     throw "JUCE source not found at '$juceSrc'. Run 'cmake -S . -B build' from the project root first so CPM fetches JUCE."
