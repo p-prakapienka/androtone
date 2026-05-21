@@ -5,6 +5,8 @@
   <MAINGROUP id="A6WODd" name="androtone">
     <GROUP id="{AC9F732C-84AA-B9D6-2B86-0C32DE9FB345}" name="Sequencer">
       <FILE id="J9ddjD" name="StepSequencer.h" compile="0" resource="0" file="Source/Sequencer/StepSequencer.h"/>
+      <FILE id="TrackH1" name="Track.h" compile="0" resource="0" file="Source/Sequencer/Track.h"/>
+      <FILE id="PattnH1" name="Pattern.h" compile="0" resource="0" file="Source/Sequencer/Pattern.h"/>
     </GROUP>
     <GROUP id="{9D83D883-3F8D-B4C1-A907-B5C482CB7707}" name="SoundSources">
       <FILE id="kaEIoy" name="SineSound.h" compile="0" resource="0" file="Source/SoundSources/SineSound.h"/>

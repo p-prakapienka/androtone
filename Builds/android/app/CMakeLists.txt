@@ -37,6 +37,8 @@ add_library( ${BINARY_NAME}
     SHARED
 
     "../../../Source/Sequencer/StepSequencer.h"
+    "../../../Source/Sequencer/Track.h"
+    "../../../Source/Sequencer/Pattern.h"
     "../../../Source/SoundSources/SineSound.h"
     "../../../Source/SoundSources/SineVoice.h"
     "../../../Source/PluginProcessor.cpp"
@@ -2629,6 +2631,8 @@ add_library( ${BINARY_NAME}
 
 set_source_files_properties(
     "../../../Source/Sequencer/StepSequencer.h"
+    "../../../Source/Sequencer/Track.h"
+    "../../../Source/Sequencer/Pattern.h"
     "../../../Source/SoundSources/SineSound.h"
     "../../../Source/SoundSources/SineVoice.h"
     "../../../Source/PluginProcessor.h"
