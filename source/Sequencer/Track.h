@@ -7,37 +7,8 @@
 
 class Track {
 public:
-    Track() = default;
-
-    void setChannel(int newChannel) {
-        channel = newChannel;
-    }
-
-    template<typename Container>
-    void setPattern(const Container& newPattern) {
-        pattern.assign(newPattern.begin(), newPattern.end());
-        if (currentStep >= getNumSteps()) {
-            currentStep = 0;
-        }
-    }
-
-    int getNumSteps() const {
-        return static_cast<int>(pattern.size());
-    }
-
-    void reset() {
-        currentStep = 0;
-        sampleCounter = 0.0;
-        samplesPerStep = 0.0;
-        hasHeldNote = false;
-        heldNoteNumber = 0;
-    }
-
-    void releaseHeldNote(juce::MidiBuffer& midi, int samplePosition) {
-        if (hasHeldNote) {
-            midi.addEvent(juce::MidiMessage::noteOff(channel, heldNoteNumber), samplePosition);
-            hasHeldNote = false;
-        }
+    Track() {
+        notesPlaying.reserve(1);
     }
 
     void processBlock(juce::MidiBuffer& midi, int numSamples, double bpm, double sampleRate) {
@@ -45,15 +16,19 @@ public:
             return;
         }
 
-        updateSamplesPerStep(bpm, sampleRate);
+        if (currentStep >= 0) {
+            updateSamplesPerStep(bpm, sampleRate);
+        }
 
         for (int sample = 0; sample < numSamples; sample++) {
             if (sampleCounter >= samplesPerStep) {
                 sampleCounter = 0;
 
-                if (hasHeldNote) {
-                    midi.addEvent(juce::MidiMessage::noteOff(channel, heldNoteNumber), sample);
-                    hasHeldNote = false;
+                //TODO need to implement polyphonic notes support here, ex. when multiple notes of different length
+                if (!notesPlaying.empty()) {
+                    const Note prevNote = notesPlaying.back();
+                    notesPlaying.pop_back();
+                    midi.addEvent(juce::MidiMessage::noteOff(channel, prevNote.number), sample);
                 }
 
                 currentStep = (currentStep + 1) % getNumSteps();
@@ -63,8 +38,7 @@ public:
                         juce::MidiMessage::noteOn(channel, nextNote.number, static_cast<juce::uint8>(nextNote.velocity)),
                         sample
                     );
-                    heldNoteNumber = nextNote.number;
-                    hasHeldNote = true;
+                    notesPlaying.push_back(nextNote);
                 }
 
                 updateSamplesPerStep(bpm, sampleRate);
@@ -73,14 +47,39 @@ public:
         }
     }
 
+    // TODO: add pause support — drain notes but preserve currentStep/sampleCounter so playback can resume
+    void stop(juce::MidiBuffer& midi, int samplePosition) {
+        for (auto& note : notesPlaying) {
+            midi.addEvent(juce::MidiMessage::noteOff(channel, note.number), samplePosition);
+        }
+        notesPlaying.clear();
+        currentStep = -1;
+        sampleCounter = 0.0;
+    }
+
+    void setChannel(int newChannel) {
+        channel = newChannel;
+    }
+
+    template<typename Container>
+    void setPattern(const Container& newPattern) {
+        pattern.assign(newPattern.begin(), newPattern.end());
+        if (currentStep >= getNumSteps()) {
+            currentStep = -1;
+        }
+    }
+
+    int getNumSteps() const {
+        return static_cast<int>(pattern.size());
+    }
+
 private:
     int channel = 1;
     std::vector<Note> pattern;
-    int currentStep = 0;
+    int currentStep = -1;
     double sampleCounter = 0.0;
     double samplesPerStep = 0.0;
-    bool hasHeldNote = false;
-    int heldNoteNumber = 0;
+    std::vector<Note> notesPlaying;
 
     void updateSamplesPerStep(double bpm, double sampleRate) {
         const double beatsPerSecond = bpm / 60.0;

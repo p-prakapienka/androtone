@@ -40,7 +40,7 @@ public:
 
         if (!shouldPlay && lastPlayingState) {
             for (auto& track : tracks) {
-                track.releaseHeldNote(midi, 0);
+                track.stop(midi, 0);
             }
             lastPlayingState = false;
         }
