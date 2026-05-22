@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Sequencer/StepSequencer.h"
+#include <array>
 #include <atomic>
 
 class AndrotoneAudioProcessor : public juce::AudioProcessor {
@@ -41,7 +42,7 @@ public:
     float getVolume() const { return volume.load(); }
 
 private:
-    juce::Synthesiser synth;
+    std::array<juce::Synthesiser, StepSequencer::numTracks> synths;
     StepSequencer sequencer;
     std::atomic<float> volume { 0.75f };
     double currentSampleRate { 44100.0 };

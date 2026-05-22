@@ -2,20 +2,29 @@
 #include "PluginEditor.h"
 #include "SoundSources/SineSound.h"
 #include "SoundSources/SineVoice.h"
+#include "SoundSources/SawSound.h"
+#include "SoundSources/SawVoice.h"
 
 AndrotoneAudioProcessor::AndrotoneAudioProcessor() :
     AudioProcessor(
         BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)
     ) {
-    for (int i = 0; i < 8; ++i)
-        synth.addVoice(new SineVoice());
+        for (int i = 0; i < 8; ++i) {
+            synths[0].addVoice(new SineVoice());
+        }
+        synths[0].addSound(new SineSound(1));
 
-    synth.addSound(new SineSound());
-}
+        for (int i = 0; i < 8; ++i) {
+            synths[1].addVoice(new SawVoice());
+        }
+        synths[1].addSound(new SawSound(2));
+    }
 
 void AndrotoneAudioProcessor::prepareToPlay(double sampleRate, int /*samplesPerBlock*/) {
     currentSampleRate = sampleRate;
-    synth.setCurrentPlaybackSampleRate(sampleRate);
+    for (auto& synth : synths) {
+        synth.setCurrentPlaybackSampleRate(sampleRate);
+    }
     sequencer.prepareToPlay(sampleRate);
 }
 
@@ -31,7 +40,9 @@ void AndrotoneAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     buffer.clear();
 
     sequencer.processBlock(midi, buffer.getNumSamples());
-    synth.renderNextBlock(buffer, midi, 0, buffer.getNumSamples());
+    for (auto& synth : synths) {
+        synth.renderNextBlock(buffer, midi, 0, buffer.getNumSamples());
+    }
 
     buffer.applyGain(volume.load());
 }
