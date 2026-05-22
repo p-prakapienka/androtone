@@ -9,23 +9,28 @@ AndrotoneAudioProcessor::AndrotoneAudioProcessor() :
     AudioProcessor(
         BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)
     ) {
-        for (int i = 0; i < 8; ++i) {
+        for (int i = 0; i < 8; i++) {
             synths[0].addVoice(new SineVoice());
         }
         synths[0].addSound(new SineSound(1));
 
-        for (int i = 0; i < 8; ++i) {
+        for (int i = 0; i < 8; i++) {
             synths[1].addVoice(new SawVoice());
         }
         synths[1].addSound(new SawSound(2));
     }
 
-void AndrotoneAudioProcessor::prepareToPlay(double sampleRate, int /*samplesPerBlock*/) {
+void AndrotoneAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     currentSampleRate = sampleRate;
     for (auto& synth : synths) {
         synth.setCurrentPlaybackSampleRate(sampleRate);
     }
     sequencer.prepareToPlay(sampleRate);
+
+    const int numChannels = getTotalNumOutputChannels();
+    for (auto& buf : trackBuffers) {
+        buf.setSize(numChannels, samplesPerBlock, false, false, true);
+    }
 }
 
 void AndrotoneAudioProcessor::releaseResources() {}
@@ -37,14 +42,16 @@ bool AndrotoneAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts)
 
 void AndrotoneAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
     juce::ScopedNoDenormals noDenormals;
-    buffer.clear();
+    const int numSamples = buffer.getNumSamples();
 
-    sequencer.processBlock(midi, buffer.getNumSamples());
-    for (auto& synth : synths) {
-        synth.renderNextBlock(buffer, midi, 0, buffer.getNumSamples());
+    sequencer.processBlock(midi, numSamples);
+
+    for (int t = 0; t < StepSequencer::numTracks; t++) {
+        trackBuffers[t].clear(0, numSamples);
+        synths[t].renderNextBlock(trackBuffers[t], midi, 0, numSamples);
     }
 
-    buffer.applyGain(volume.load());
+    mixer.mix(buffer, trackBuffers);
 }
 
 juce::AudioProcessorEditor* AndrotoneAudioProcessor::createEditor() {

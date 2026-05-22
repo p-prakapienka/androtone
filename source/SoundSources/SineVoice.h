@@ -36,7 +36,7 @@ public:
             return;
         }
 
-        for (int i = 0; i < numSamples; ++i) {
+        for (int i = 0; i < numSamples; i++) {
             const auto sample = (float) (std::sin(currentAngle) * level * (tailOff > 0.0 ? tailOff : 1.0));
 
             for (int ch = buffer.getNumChannels(); --ch >= 0;) {

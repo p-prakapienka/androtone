@@ -8,11 +8,18 @@
       <FILE id="TrackH1" name="Track.h" compile="0" resource="0" file="Source/Sequencer/Track.h"/>
       <FILE id="PattnH1" name="Pattern.h" compile="0" resource="0" file="Source/Sequencer/Pattern.h"/>
     </GROUP>
+    <GROUP id="{6A0E14F2-8C2F-4F0C-9A3B-5D7E91B22F11}" name="Mixer">
+      <FILE id="MixrH1" name="Mixer.h" compile="0" resource="0" file="Source/Mixer/Mixer.h"/>
+    </GROUP>
     <GROUP id="{9D83D883-3F8D-B4C1-A907-B5C482CB7707}" name="SoundSources">
       <FILE id="kaEIoy" name="SineSound.h" compile="0" resource="0" file="Source/SoundSources/SineSound.h"/>
       <FILE id="S5Yf95" name="SineVoice.h" compile="0" resource="0" file="Source/SoundSources/SineVoice.h"/>
       <FILE id="SawSn1" name="SawSound.h" compile="0" resource="0" file="Source/SoundSources/SawSound.h"/>
       <FILE id="SawVc1" name="SawVoice.h" compile="0" resource="0" file="Source/SoundSources/SawVoice.h"/>
+    </GROUP>
+    <GROUP id="{1D5E3F88-2C7B-4A11-9C8D-3B6E45F1A902}" name="Ui">
+      <FILE id="MainTb1" name="MainTab.h" compile="0" resource="0" file="Source/Ui/MainTab.h"/>
+      <FILE id="MixrTb1" name="MixerTab.h" compile="0" resource="0" file="Source/Ui/MixerTab.h"/>
     </GROUP>
     <GROUP id="{ACFDF822-1E83-D591-2970-22670814E748}" name="Source">
       <FILE id="O3VyWL" name="PluginProcessor.cpp" compile="1" resource="0"

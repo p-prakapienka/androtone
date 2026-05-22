@@ -1,42 +1,20 @@
 #include "PluginEditor.h"
 
-AndrotoneAudioProcessorEditor::AndrotoneAudioProcessorEditor(AndrotoneAudioProcessor& p) : AudioProcessorEditor(&p),
-    processorRef(p) {
+#include "Ui/MainTab.h"
+#include "Ui/MixerTab.h"
 
-    setSize(400, 300);
+AndrotoneAudioProcessorEditor::AndrotoneAudioProcessorEditor(AndrotoneAudioProcessor& p) :
+    AudioProcessorEditor(&p), processorRef(p) {
 
-    playButton.setButtonText("Play");
-    playButton.onClick = [this]() {
-        processorRef.setPlaying(!processorRef.isPlaying());
-        playButton.setButtonText(processorRef.isPlaying() ? "Stop" : "Play");
-    };
-    addAndMakeVisible(playButton);
+    setSize(500, 360);
 
-    tempoSlider.setRange(60.0, 200.0);
-    tempoSlider.setValue(processorRef.getTempo());
-    tempoSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    tempoSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-    tempoSlider.onValueChange = [this]() {
-        processorRef.setTempo(tempoSlider.getValue());
-    };
-    addAndMakeVisible(tempoSlider);
+    mainTab = std::make_unique<MainTab>(processorRef);
+    mixerTab = std::make_unique<MixerTab>(processorRef);
 
-    tempoLabel.setText("Tempo (BPM):", juce::dontSendNotification);
-    tempoLabel.attachToComponent(&tempoSlider, true);
-    addAndMakeVisible(tempoLabel);
-
-    volumeSlider.setRange(0.0, 1.0);
-    volumeSlider.setValue(processorRef.getVolume());
-    volumeSlider.setSliderStyle(juce::Slider::LinearHorizontal);
-    volumeSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 50, 20);
-    volumeSlider.onValueChange = [this]() {
-        processorRef.setVolume((float) volumeSlider.getValue());
-    };
-    addAndMakeVisible(volumeSlider);
-
-    volumeLabel.setText("Volume:", juce::dontSendNotification);
-    volumeLabel.attachToComponent(&volumeSlider, true);
-    addAndMakeVisible(volumeLabel);
+    const auto tabColour = getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId);
+    tabs.addTab("Main", tabColour, mainTab.get(), false);
+    tabs.addTab("Mixer", tabColour, mixerTab.get(), false);
+    addAndMakeVisible(tabs);
 }
 
 void AndrotoneAudioProcessorEditor::paint(juce::Graphics& g) {
@@ -48,16 +26,7 @@ void AndrotoneAudioProcessorEditor::paint(juce::Graphics& g) {
 
 void AndrotoneAudioProcessorEditor::resized() {
     auto bounds = getLocalBounds().reduced(10);
-
-    auto titleArea = bounds.removeFromTop(40);
-    bounds.removeFromTop(10);
-
-    auto buttonArea = bounds.removeFromTop(50);
-    playButton.setBounds(buttonArea.getCentreX() - 50, buttonArea.getY(), 100, 40);
-
-    bounds.removeFromTop(10);
-    tempoSlider.setBounds(bounds.removeFromTop(50).withTrimmedLeft(100));
-
+    bounds.removeFromTop(40);
     bounds.removeFromTop(5);
-    volumeSlider.setBounds(bounds.removeFromTop(50).withTrimmedLeft(100));
+    tabs.setBounds(bounds);
 }

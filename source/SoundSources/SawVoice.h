@@ -57,7 +57,7 @@ public:
             return;
         }
 
-        for (int i = 0; i < numSamples; ++i) {
+        for (int i = 0; i < numSamples; i++) {
             auto sample = (2.0 * phase - 1.0) * level * (tailOff > 0.0 ? tailOff : 1.0);
             sample = filter.process(sample);
 

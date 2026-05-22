@@ -2,6 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Sequencer/StepSequencer.h"
+#include "Mixer/Mixer.h"
 #include <array>
 #include <atomic>
 
@@ -34,17 +35,21 @@ public:
     void setStateInformation(const void*, int) override;
 
     void setTempo(double bpm) { sequencer.setTempo(bpm); }
-    void setVolume(float vol) { volume.store(vol); }
+    void setVolume(float vol) { mixer.setMasterVolume(vol); }
     void setPlaying(bool shouldPlay) { sequencer.setPlaying(shouldPlay); }
+    void setTrackVolume(int trackIndex, float vol) { mixer.setTrackVolume(trackIndex, vol); }
 
     bool isPlaying() const { return sequencer.isPlaying(); }
     double getTempo() const { return sequencer.getTempo(); }
-    float getVolume() const { return volume.load(); }
+    float getVolume() const { return mixer.getMasterVolume(); }
+    float getTrackVolume(int trackIndex) const { return mixer.getTrackVolume(trackIndex); }
+    static constexpr int getNumTracks() { return StepSequencer::numTracks; }
 
 private:
     std::array<juce::Synthesiser, StepSequencer::numTracks> synths;
+    std::array<juce::AudioBuffer<float>, StepSequencer::numTracks> trackBuffers;
     StepSequencer sequencer;
-    std::atomic<float> volume { 0.75f };
+    Mixer mixer;
     double currentSampleRate { 44100.0 };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AndrotoneAudioProcessor)

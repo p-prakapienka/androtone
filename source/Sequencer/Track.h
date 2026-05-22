@@ -43,7 +43,7 @@ public:
 
                 updateSamplesPerStep(bpm, sampleRate);
             }
-            ++sampleCounter;
+            sampleCounter++;
         }
     }
 
