@@ -18,6 +18,7 @@
       <FILE id="SawVc1" name="SawVoice.h" compile="0" resource="0" file="Source/SoundSources/SawVoice.h"/>
     </GROUP>
     <GROUP id="{1D5E3F88-2C7B-4A11-9C8D-3B6E45F1A902}" name="Ui">
+      <FILE id="AndrLF1" name="AndrotoneLookAndFeel.h" compile="0" resource="0" file="Source/Ui/AndrotoneLookAndFeel.h"/>
       <FILE id="MainTb1" name="MainTab.h" compile="0" resource="0" file="Source/Ui/MainTab.h"/>
       <FILE id="MixrTb1" name="MixerTab.h" compile="0" resource="0" file="Source/Ui/MixerTab.h"/>
     </GROUP>

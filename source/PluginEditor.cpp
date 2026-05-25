@@ -6,15 +6,21 @@
 AndrotoneAudioProcessorEditor::AndrotoneAudioProcessorEditor(AndrotoneAudioProcessor& p) :
     AudioProcessorEditor(&p), processorRef(p) {
 
+    setLookAndFeel(&lookAndFeel);
+
     setSize(500, 360);
 
     mainTab = std::make_unique<MainTab>(processorRef);
     mixerTab = std::make_unique<MixerTab>(processorRef);
 
-    const auto tabColour = getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId);
+    const auto tabColour = lookAndFeel.findColour(juce::ResizableWindow::backgroundColourId);
     tabs.addTab("Main", tabColour, mainTab.get(), false);
     tabs.addTab("Mixer", tabColour, mixerTab.get(), false);
     addAndMakeVisible(tabs);
+}
+
+AndrotoneAudioProcessorEditor::~AndrotoneAudioProcessorEditor() {
+    setLookAndFeel(nullptr);
 }
 
 void AndrotoneAudioProcessorEditor::paint(juce::Graphics& g) {
