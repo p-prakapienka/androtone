@@ -17,6 +17,7 @@ private:
     AndrotoneAudioProcessor& processorRef;
     AndrotoneLookAndFeel lookAndFeel;
     std::unique_ptr<juce::Component> mainTab;
+    std::unique_ptr<juce::Component> sessionTab;
     std::unique_ptr<juce::Component> mixerTab;
     juce::TabbedComponent tabs { juce::TabbedButtonBar::TabsAtTop };
 

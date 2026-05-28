@@ -18,9 +18,12 @@ public:
         lastPlayingState = false;
 
         tracks[0].setChannel(1);
-        tracks[0].setClip(ClipPresets::strangerThingsArp, 0);
+        tracks[0].updateClip(ClipPresets::strangerThingsArp, 0);
+        tracks[0].updateClip(ClipPresets::softArp, 1);
+
         tracks[1].setChannel(2);
-        tracks[1].setClip(ClipPresets::strangerThingsBass, 0);
+        tracks[1].updateClip(ClipPresets::strangerThingsBass, 0);
+        tracks[1].updateClip(ClipPresets::softBass, 1);
     }
 
     void prepareToPlay(double sampleRate) {
@@ -47,6 +50,18 @@ public:
         for (auto& track : tracks) {
             track.processBlock(midi, numSamples, currentBpm, currentSampleRate);
         }
+    }
+
+    int getCurrentClip(int trackIndex) const {
+        return tracks[trackIndex].getCurrentClipIndex();
+    }
+
+    int getNextClip(int trackIndex) const {
+        return tracks[trackIndex].getNextClipIndex();
+    }
+
+    void setCurrentClip(int trackIndex, int clipIndex) {
+        tracks[trackIndex].setCurrentClip(clipIndex);
     }
 
     void setTempo(double newBpm) {

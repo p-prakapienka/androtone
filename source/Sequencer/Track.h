@@ -10,7 +10,7 @@ public:
     static constexpr int maxClips = 32;
 
     void processBlock(juce::MidiBuffer& midi, int numSamples, double bpm, double sampleRate) {
-        if (currentClipIndex < 0 || currentClipIndex >= maxClips || clips[currentClipIndex].isEmpty()) {
+        if (clips[currentClipIndex].isEmpty()) {
             return;
         }
 
@@ -22,10 +22,10 @@ public:
             return;
         }
 
-        currentClipIndex = nextClipIndex;
+        currentClipIndex.store(nextClipIndex);
         nextClipIndex = -1;
 
-        if (currentClipIndex < 0 || currentClipIndex >= maxClips || clips[currentClipIndex].isEmpty()) {
+        if (clips[currentClipIndex].isEmpty()) {
             return;
         }
 
@@ -35,18 +35,8 @@ public:
     }
 
     void stop(juce::MidiBuffer& midi, int samplePosition) {
-        if (currentClipIndex >= 0 && currentClipIndex < maxClips) {
-            clips[currentClipIndex].stop(midi, samplePosition, channel);
-        }
+        clips[currentClipIndex].stop(midi, samplePosition, channel);
         nextClipIndex = -1;
-    }
-
-    void setNextClip(int index) {
-        if (index == currentClipIndex) {
-            nextClipIndex = -1;
-        } else {
-            nextClipIndex = index;
-        }
     }
 
     void setChannel(int newChannel) {
@@ -54,7 +44,11 @@ public:
     }
 
     template<typename Container>
-    void setClip(const Container& notes, int clipIndex) {
+    void updateClip(const Container& notes, int clipIndex) {
+        if (clipIndex < 0 || clipIndex >= maxClips) {
+            return;
+        }
+
         clips[clipIndex].setNotes(notes);
     }
 
@@ -64,6 +58,19 @@ public:
 
     const Clip& getCurrentClip() const {
         return clips[currentClipIndex];
+    }
+
+    void setCurrentClip(int clipIndex) {
+        if (clipIndex < 0 || clipIndex >= maxClips) {
+            return;
+        }
+
+        if (clips[currentClipIndex].isPlaying()) {
+            nextClipIndex = clipIndex;
+        } else {
+            currentClipIndex = clipIndex;
+            nextClipIndex = -1;
+        }
     }
 
     int getCurrentClipIndex() const {
@@ -77,6 +84,6 @@ public:
 private:
     int channel = 1;
     std::array<Clip, maxClips> clips;
-    int currentClipIndex = 0;
-    int nextClipIndex = -1;
+    std::atomic<int> currentClipIndex = 0;
+    std::atomic<int> nextClipIndex = -1;
 };

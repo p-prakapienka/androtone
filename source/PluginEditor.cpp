@@ -2,6 +2,7 @@
 
 #include "Ui/MainTab.h"
 #include "Ui/MixerTab.h"
+#include "Ui/SessionTab.h"
 
 AndrotoneAudioProcessorEditor::AndrotoneAudioProcessorEditor(AndrotoneAudioProcessor& p) :
     AudioProcessorEditor(&p), processorRef(p) {
@@ -11,10 +12,12 @@ AndrotoneAudioProcessorEditor::AndrotoneAudioProcessorEditor(AndrotoneAudioProce
     setSize(500, 360);
 
     mainTab = std::make_unique<MainTab>(processorRef);
+    sessionTab = std::make_unique<SessionTab>(processorRef);
     mixerTab = std::make_unique<MixerTab>(processorRef);
 
     const auto tabColour = lookAndFeel.findColour(juce::ResizableWindow::backgroundColourId);
     tabs.addTab("Main", tabColour, mainTab.get(), false);
+    tabs.addTab("Session", tabColour, sessionTab.get(), false);
     tabs.addTab("Mixer", tabColour, mixerTab.get(), false);
     addAndMakeVisible(tabs);
 }

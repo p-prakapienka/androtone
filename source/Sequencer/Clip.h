@@ -109,9 +109,13 @@ public:
         return getNumSteps() > 0 && currentStep == getNumSteps() - 1;
     }
 
+    bool isPlaying() const {
+        return currentStep > -1;
+    }
+
 private:
     std::vector<Note> notes;
-    int currentStep = -1;
+    std::atomic<int> currentStep = -1;
     double sampleCounter = 0.0;
     double samplesPerStep = 0.0;
     std::vector<Note> notesPlaying;
