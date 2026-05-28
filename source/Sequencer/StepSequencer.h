@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Pattern.h"
+#include "ClipPresets.h"
 #include "Track.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -14,21 +14,13 @@ public:
     StepSequencer() {
         bpm = 80.0;
         playing = false;
-        numSteps = 0;
         currentSampleRate = 44100.0;
         lastPlayingState = false;
 
         tracks[0].setChannel(1);
-        tracks[0].setPattern(Pattern::strangerThingsArp);
+        tracks[0].setClip(ClipPresets::strangerThingsArp, 0);
         tracks[1].setChannel(2);
-        tracks[1].setPattern(Pattern::strangerThingsBass);
-
-        for (auto& track : tracks) {
-            auto trackNumSteps = track.getNumSteps();
-            if (trackNumSteps > numSteps) {
-                numSteps = trackNumSteps;
-            }
-        }
+        tracks[1].setClip(ClipPresets::strangerThingsBass, 0);
     }
 
     void prepareToPlay(double sampleRate) {
@@ -51,6 +43,7 @@ public:
         }
 
         const double currentBpm = bpm.load();
+
         for (auto& track : tracks) {
             track.processBlock(midi, numSamples, currentBpm, currentSampleRate);
         }
@@ -80,7 +73,6 @@ private:
     std::array<Track, numTracks> tracks;
     std::atomic<double> bpm;
     std::atomic<bool> playing;
-    std::atomic<int> numSteps;
     double currentSampleRate;
     bool lastPlayingState;
 };

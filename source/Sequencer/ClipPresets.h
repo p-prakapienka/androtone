@@ -1,17 +1,11 @@
 #pragma once
 
-#include <algorithm>
+#include "Clip.h"
+
 #include <array>
 
-struct Note {
-    int number;
-    double length;
-    int velocity;
-};
-
-class Pattern {
-public:
-    static constexpr std::array<Note, 32> strangerThingsArp = {{
+namespace ClipPresets {
+    constexpr std::array<Note, 32> strangerThingsArp = {{
         //  Bar1
         { 60, 0.25, 100 }, //C4
         { 64, 0.25, 100 }, //E4
@@ -48,7 +42,7 @@ public:
         { 64, 0.25, 100 }, //E4
     }};
 
-    static constexpr std::array<Note, 32> strangerThingsBass = {{
+    constexpr std::array<Note, 32> strangerThingsBass = {{
         //  Bar1 — C2 with a 4-step velocity ramp
         { 36, 0.25, 20  }, //C2
         { 36, 0.25, 60  }, //C2
@@ -84,11 +78,4 @@ public:
         { 40, 0.25, 85  }, //E2
         { 40, 0.25, 100 }, //E2
     }};
-
-    static constexpr int numSteps = std::max(
-        static_cast<int>(strangerThingsArp.size()),
-        static_cast<int>(strangerThingsBass.size())
-    );
-
-    Pattern() = delete;
-};
+}

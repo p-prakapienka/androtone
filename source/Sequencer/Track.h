@@ -1,60 +1,52 @@
 #pragma once
 
-#include "Pattern.h"
+#include "Clip.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
-#include <vector>
+#include <array>
 
 class Track {
 public:
-    Track() {
-        notesPlaying.reserve(1);
-    }
+    static constexpr int maxClips = 32;
 
     void processBlock(juce::MidiBuffer& midi, int numSamples, double bpm, double sampleRate) {
-        if (pattern.empty()) {
+        if (currentClipIndex < 0 || currentClipIndex >= maxClips || clips[currentClipIndex].isEmpty()) {
             return;
         }
 
-        if (currentStep >= 0) {
-            updateSamplesPerStep(bpm, sampleRate);
+        const int processedSamples = clips[currentClipIndex].processBlock(
+            midi, numSamples, channel, bpm, sampleRate, /*stopOnBarLastStep=*/nextClipIndex >= 0
+        );
+
+        if (processedSamples >= numSamples) {
+            return;
         }
 
-        for (int sample = 0; sample < numSamples; sample++) {
-            if (sampleCounter >= samplesPerStep) {
-                sampleCounter = 0;
+        currentClipIndex = nextClipIndex;
+        nextClipIndex = -1;
 
-                //TODO need to implement polyphonic notes support here, ex. when multiple notes of different length
-                if (!notesPlaying.empty()) {
-                    const Note prevNote = notesPlaying.back();
-                    notesPlaying.pop_back();
-                    midi.addEvent(juce::MidiMessage::noteOff(channel, prevNote.number), sample);
-                }
-
-                currentStep = (currentStep + 1) % getNumSteps();
-                const Note& nextNote = pattern[currentStep];
-                if (nextNote.velocity > 0) {
-                    midi.addEvent(
-                        juce::MidiMessage::noteOn(channel, nextNote.number, static_cast<juce::uint8>(nextNote.velocity)),
-                        sample
-                    );
-                    notesPlaying.push_back(nextNote);
-                }
-
-                updateSamplesPerStep(bpm, sampleRate);
-            }
-            sampleCounter++;
+        if (currentClipIndex < 0 || currentClipIndex >= maxClips || clips[currentClipIndex].isEmpty()) {
+            return;
         }
+
+        clips[currentClipIndex].processBlock(
+            midi, numSamples - processedSamples, channel, bpm, sampleRate, false, processedSamples
+        );
     }
 
-    // TODO: add pause support — drain notes but preserve currentStep/sampleCounter so playback can resume
     void stop(juce::MidiBuffer& midi, int samplePosition) {
-        for (auto& note : notesPlaying) {
-            midi.addEvent(juce::MidiMessage::noteOff(channel, note.number), samplePosition);
+        if (currentClipIndex >= 0 && currentClipIndex < maxClips) {
+            clips[currentClipIndex].stop(midi, samplePosition, channel);
         }
-        notesPlaying.clear();
-        currentStep = -1;
-        sampleCounter = 0.0;
+        nextClipIndex = -1;
+    }
+
+    void setNextClip(int index) {
+        if (index == currentClipIndex) {
+            nextClipIndex = -1;
+        } else {
+            nextClipIndex = index;
+        }
     }
 
     void setChannel(int newChannel) {
@@ -62,29 +54,29 @@ public:
     }
 
     template<typename Container>
-    void setPattern(const Container& newPattern) {
-        pattern.assign(newPattern.begin(), newPattern.end());
-        if (currentStep >= getNumSteps()) {
-            currentStep = -1;
-        }
+    void setClip(const Container& notes, int clipIndex) {
+        clips[clipIndex].setNotes(notes);
     }
 
-    int getNumSteps() const {
-        return static_cast<int>(pattern.size());
+    const Clip& getClip(int index) const {
+        return clips[index];
+    }
+
+    const Clip& getCurrentClip() const {
+        return clips[currentClipIndex];
+    }
+
+    int getCurrentClipIndex() const {
+        return currentClipIndex;
+    }
+
+    int getNextClipIndex() const {
+        return nextClipIndex;
     }
 
 private:
     int channel = 1;
-    std::vector<Note> pattern;
-    int currentStep = -1;
-    double sampleCounter = 0.0;
-    double samplesPerStep = 0.0;
-    std::vector<Note> notesPlaying;
-
-    void updateSamplesPerStep(double bpm, double sampleRate) {
-        const double beatsPerSecond = bpm / 60.0;
-        const double stepLength = pattern[currentStep].length;
-        const double secondsPerStep = stepLength / beatsPerSecond;
-        samplesPerStep = secondsPerStep * sampleRate;
-    }
+    std::array<Clip, maxClips> clips;
+    int currentClipIndex = 0;
+    int nextClipIndex = -1;
 };

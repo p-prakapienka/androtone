@@ -6,7 +6,8 @@
     <GROUP id="{AC9F732C-84AA-B9D6-2B86-0C32DE9FB345}" name="Sequencer">
       <FILE id="J9ddjD" name="StepSequencer.h" compile="0" resource="0" file="Source/Sequencer/StepSequencer.h"/>
       <FILE id="TrackH1" name="Track.h" compile="0" resource="0" file="Source/Sequencer/Track.h"/>
-      <FILE id="PattnH1" name="Pattern.h" compile="0" resource="0" file="Source/Sequencer/Pattern.h"/>
+      <FILE id="ClipH01" name="Clip.h" compile="0" resource="0" file="Source/Sequencer/Clip.h"/>
+      <FILE id="ClipPr1" name="ClipPresets.h" compile="0" resource="0" file="Source/Sequencer/ClipPresets.h"/>
     </GROUP>
     <GROUP id="{6A0E14F2-8C2F-4F0C-9A3B-5D7E91B22F11}" name="Mixer">
       <FILE id="MixrH1" name="Mixer.h" compile="0" resource="0" file="Source/Mixer/Mixer.h"/>

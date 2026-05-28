@@ -4,7 +4,6 @@
 #include "Sequencer/StepSequencer.h"
 #include "Mixer/Mixer.h"
 #include <array>
-#include <atomic>
 
 class AndrotoneAudioProcessor : public juce::AudioProcessor {
 public:
