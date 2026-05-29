@@ -60,6 +60,7 @@ public:
                 if (stopOnBarLastStep && prevStep >= 0 && (prevStep + 1) % stepsPerBar == 0) {
                     currentStep = -1;
                     sampleCounter = 0.0;
+                    samplesPerStep = 0.0; // so the next entry fires step 0 on its first sample
                     return sample;
                 }
 
@@ -87,6 +88,7 @@ public:
         notesPlaying.clear();
         currentStep = -1;
         sampleCounter = 0.0;
+        samplesPerStep = 0.0; // so the next entry fires step 0 on its first sample
     }
 
     template<typename Container>
