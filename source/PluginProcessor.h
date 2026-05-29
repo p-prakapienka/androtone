@@ -38,12 +38,14 @@ public:
     void setPlaying(bool shouldPlay) { sequencer.setPlaying(shouldPlay); }
     void setTrackVolume(int trackIndex, float vol) { mixer.setTrackVolume(trackIndex, vol); }
     void setCurrentClip(int trackIndex, int clipIndex) { sequencer.setCurrentClip(trackIndex, clipIndex); }
+    void setCurrentScene(int sceneIndex) { sequencer.setCurrentScene(sceneIndex); }
 
     bool isPlaying() const { return sequencer.isPlaying(); }
     double getTempo() const { return sequencer.getTempo(); }
     float getVolume() const { return mixer.getMasterVolume(); }
     float getTrackVolume(int trackIndex) const { return mixer.getTrackVolume(trackIndex); }
     int getCurrentClip(int trackIndex) const { return sequencer.getCurrentClip(trackIndex); }
+    int getCurrentScene() const { return sequencer.getCurrentClip(1); }
     int getNextClip(int trackIndex) const { return sequencer.getNextClip(trackIndex); }
     static constexpr int getNumTracks() { return StepSequencer::numTracks; }
 

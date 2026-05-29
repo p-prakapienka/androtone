@@ -56,28 +56,40 @@ public:
         return tracks[trackIndex].getCurrentClipIndex();
     }
 
-    int getNextClip(int trackIndex) const {
-        return tracks[trackIndex].getNextClipIndex();
-    }
-
     void setCurrentClip(int trackIndex, int clipIndex) {
         tracks[trackIndex].setCurrentClip(clipIndex);
     }
 
-    void setTempo(double newBpm) {
-        bpm.store(newBpm);
+    int getNextClip(int trackIndex) const {
+        return tracks[trackIndex].getNextClipIndex();
     }
 
-    void setPlaying(bool shouldPlay) {
-        playing.store(shouldPlay);
+    int getCurrentScene() const {
+        //TODO move to scene manager
+        return tracks[0].getCurrentClipIndex();
+    }
+
+    void setCurrentScene(int sceneIndex) {
+        //TODO move to scene manager
+        for (auto& track : tracks) {
+            track.setCurrentClip(sceneIndex);
+        }
     }
 
     bool isPlaying() const {
         return playing.load();
     }
 
+    void setPlaying(bool shouldPlay) {
+        playing.store(shouldPlay);
+    }
+
     double getTempo() const {
         return bpm.load();
+    }
+
+    void setTempo(double newBpm) {
+        bpm.store(newBpm);
     }
 
     Track& getTrack(int trackIndex) {
