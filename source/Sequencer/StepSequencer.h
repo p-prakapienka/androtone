@@ -45,10 +45,10 @@ public:
             return;
         }
 
-        const double currentBpm = bpm.load();
+        const double samplesPerBeat = currentSampleRate * 60.0 / bpm.load();
 
         for (auto& track : tracks) {
-            track.processBlock(midi, numSamples, currentBpm, currentSampleRate);
+            track.processBlock(midi, numSamples, samplesPerBeat);
         }
     }
 

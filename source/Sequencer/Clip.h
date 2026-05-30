@@ -5,8 +5,14 @@
 
 struct Note {
     int number;
-    double length;
+    double length; // note duration in beats: from the step start it sounds this long, then noteOff
     int velocity;
+};
+
+struct PlayingNote {
+    int number;
+    double length;
+    double lengthInSamples;
 };
 
 class Clip {
@@ -15,6 +21,11 @@ public:
     // expected to be at least this many steps — a shorter clip never reaches a bar boundary
     // and so would never hand off to a queued clip.
     static constexpr int stepsPerBar = 16;
+
+    // The fixed grid resolution: every step lasts this many beats (a 16th note), independent of the
+    // notes on it. A bar is stepsPerBar of these (16 × 0.25 = 4 beats). A note's own duration comes
+    // from Note.length.
+    static constexpr double stepLength = 0.25;
 
     Clip() {
         notesPlaying.reserve(1);
@@ -30,8 +41,7 @@ public:
         juce::MidiBuffer& midi,
         int numSamples,
         int channel,
-        double bpm,
-        double sampleRate,
+        double samplesPerBeat,
         bool stopOnBarLastStep = false,
         int sampleOffset = 0
     ) {
@@ -40,19 +50,23 @@ public:
         }
 
         if (currentStep >= 0) {
-            updateSamplesPerStep(bpm, sampleRate);
+            updateSamplesPerStep(samplesPerBeat);
         }
 
         for (int sample = 0; sample < numSamples; sample++) {
+            //TODO handle notes longer than one step
+            if (!notesPlaying.empty()) {
+                for (int i = 0; i < notesPlaying.size(); i++) {
+                    if (sampleCounter >= notesPlaying[i].lengthInSamples) {
+                        midi.addEvent(juce::MidiMessage::noteOff(channel, notesPlaying[i].number), sample + sampleOffset);
+                        notesPlaying.erase(notesPlaying.begin() + i);
+                        i--;
+                    }
+                }
+            }
+
             if (sampleCounter >= samplesPerStep) {
                 sampleCounter = 0;
-
-                //TODO need to implement polyphonic notes support here, ex. when multiple notes of different length
-                if (!notesPlaying.empty()) {
-                    const Note prevNote = notesPlaying.back();
-                    notesPlaying.pop_back();
-                    midi.addEvent(juce::MidiMessage::noteOff(channel, prevNote.number), sample + sampleOffset);
-                }
 
                 const int prevStep = currentStep;
                 currentStep = (currentStep + 1) % getNumSteps();
@@ -70,10 +84,12 @@ public:
                         juce::MidiMessage::noteOn(channel, nextNote.number, static_cast<juce::uint8>(nextNote.velocity)),
                         sample + sampleOffset
                     );
-                    notesPlaying.push_back(nextNote);
+                    notesPlaying.push_back(
+                        PlayingNote { nextNote.number, nextNote.length, nextNote.length * samplesPerBeat }
+                    );
                 }
 
-                updateSamplesPerStep(bpm, sampleRate);
+                updateSamplesPerStep(samplesPerBeat);
             }
             sampleCounter++;
         }
@@ -120,12 +136,17 @@ private:
     std::atomic<int> currentStep = -1;
     double sampleCounter = 0.0;
     double samplesPerStep = 0.0;
-    std::vector<Note> notesPlaying;
+    std::vector<PlayingNote> notesPlaying;
 
-    void updateSamplesPerStep(double bpm, double sampleRate) {
-        const double beatsPerSecond = bpm / 60.0;
-        const double stepLength = notes[currentStep].length;
-        const double secondsPerStep = stepLength / beatsPerSecond;
-        samplesPerStep = secondsPerStep * sampleRate;
+    void updateSamplesPerStep(double samplesPerBeat) {
+        auto newSamplesPerStep = stepLength * samplesPerBeat;
+
+        if (samplesPerStep != newSamplesPerStep) {
+            samplesPerStep = newSamplesPerStep;
+
+            for (auto & note : notesPlaying) {
+                note.lengthInSamples = note.length * samplesPerBeat;
+            }
+        }
     }
 };

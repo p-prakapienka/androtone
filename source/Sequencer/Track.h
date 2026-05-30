@@ -9,13 +9,13 @@ class Track {
 public:
     static constexpr int maxClips = 32;
 
-    void processBlock(juce::MidiBuffer& midi, int numSamples, double bpm, double sampleRate) {
+    void processBlock(juce::MidiBuffer& midi, int numSamples, double samplesPerBeat) {
         if (clips[currentClipIndex].isEmpty()) {
             return;
         }
 
         const int processedSamples = clips[currentClipIndex].processBlock(
-            midi, numSamples, channel, bpm, sampleRate, /*stopOnBarLastStep=*/nextClipIndex >= 0
+            midi, numSamples, channel, samplesPerBeat, /*stopOnBarLastStep=*/nextClipIndex >= 0
         );
 
         if (processedSamples >= numSamples) {
@@ -30,7 +30,7 @@ public:
         }
 
         clips[currentClipIndex].processBlock(
-            midi, numSamples - processedSamples, channel, bpm, sampleRate, false, processedSamples
+            midi, numSamples - processedSamples, channel, samplesPerBeat, false, processedSamples
         );
     }
 
