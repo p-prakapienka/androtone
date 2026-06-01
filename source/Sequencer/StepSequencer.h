@@ -7,6 +7,8 @@
 #include <array>
 #include <atomic>
 
+#include "SceneManager.h"
+
 class StepSequencer {
 public:
     static constexpr int numTracks = 2;
@@ -37,6 +39,7 @@ public:
             for (auto& track : tracks) {
                 track.stop(midi, 0);
             }
+            sceneManager.reset();
             lastPlayingState = false;
         }
         lastPlayingState = shouldPlay;
@@ -50,6 +53,8 @@ public:
         for (auto& track : tracks) {
             track.processBlock(midi, numSamples, samplesPerBeat);
         }
+
+        sceneManager.update();
     }
 
     int getCurrentClip(int trackIndex) const {
@@ -65,15 +70,23 @@ public:
     }
 
     int getCurrentScene() const {
-        //TODO move to scene manager
-        return tracks[0].getCurrentClipIndex();
+        return sceneManager.getCurrentScene();
+    }
+
+    int getNextScene() const {
+        return sceneManager.getNextScene();
     }
 
     void setCurrentScene(int sceneIndex) {
-        //TODO move to scene manager
-        for (auto& track : tracks) {
-            track.setCurrentClip(sceneIndex);
-        }
+        sceneManager.setCurrentScene(sceneIndex);
+    }
+
+    bool isSongMode() const {
+        return sceneManager.isSongMode();
+    }
+
+    void setSongMode(bool enabled) {
+        sceneManager.setSongMode(enabled);
     }
 
     bool isPlaying() const {
@@ -98,6 +111,7 @@ public:
 
 private:
     std::array<Track, numTracks> tracks;
+    SceneManager<numTracks> sceneManager { tracks };
     std::atomic<double> bpm;
     std::atomic<bool> playing;
     double currentSampleRate;

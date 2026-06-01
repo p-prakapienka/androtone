@@ -39,13 +39,16 @@ public:
     void setTrackVolume(int trackIndex, float vol) { mixer.setTrackVolume(trackIndex, vol); }
     void setCurrentClip(int trackIndex, int clipIndex) { sequencer.setCurrentClip(trackIndex, clipIndex); }
     void setCurrentScene(int sceneIndex) { sequencer.setCurrentScene(sceneIndex); }
+    void setSongMode(bool enabled) { sequencer.setSongMode(enabled); }
 
     bool isPlaying() const { return sequencer.isPlaying(); }
+    bool isSongMode() const { return sequencer.isSongMode(); }
     double getTempo() const { return sequencer.getTempo(); }
     float getVolume() const { return mixer.getMasterVolume(); }
     float getTrackVolume(int trackIndex) const { return mixer.getTrackVolume(trackIndex); }
     int getCurrentClip(int trackIndex) const { return sequencer.getCurrentClip(trackIndex); }
-    int getCurrentScene() const { return sequencer.getCurrentClip(1); }
+    int getCurrentScene() const { return sequencer.getCurrentScene(); }
+    int getNextScene() const { return sequencer.getNextScene(); }
     int getNextClip(int trackIndex) const { return sequencer.getNextClip(trackIndex); }
     static constexpr int getNumTracks() { return StepSequencer::numTracks; }
 

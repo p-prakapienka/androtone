@@ -14,6 +14,15 @@ public:
         };
         addAndMakeVisible(playButton);
 
+        // Loop on (default) means song mode off: each track just loops its current clip.
+        loopButton.setButtonText("Loop");
+        loopButton.setClickingTogglesState(true);
+        loopButton.setToggleState(!processorRef.isSongMode(), juce::dontSendNotification);
+        loopButton.onClick = [this]() {
+            processorRef.setSongMode(!loopButton.getToggleState());
+        };
+        addAndMakeVisible(loopButton);
+
         tempoSlider.setRange(60.0, 200.0);
         tempoSlider.setValue(processorRef.getTempo());
         tempoSlider.setSliderStyle(juce::Slider::LinearHorizontal);
@@ -33,6 +42,7 @@ public:
 
         auto buttonArea = bounds.removeFromTop(50);
         playButton.setBounds(buttonArea.getCentreX() - 50, buttonArea.getY(), 100, 40);
+        loopButton.setBounds(playButton.getRight() + 10, buttonArea.getY(), 70, 40);
 
         bounds.removeFromTop(10);
         tempoSlider.setBounds(bounds.removeFromTop(50).withTrimmedLeft(100));
@@ -41,6 +51,7 @@ public:
 private:
     AndrotoneAudioProcessor& processorRef;
     juce::TextButton playButton;
+    juce::TextButton loopButton;
     juce::Slider tempoSlider;
     juce::Label tempoLabel;
 };

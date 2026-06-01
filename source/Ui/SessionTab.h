@@ -79,8 +79,6 @@ private:
         // ~2.5 Hz blink at 15 Hz timer (toggle every 3 ticks ≈ 200 ms)
         const bool blinkOn = (blinkTick / 3) % 2 == 0;
 
-        const int currentScene = processorRef.getCurrentScene();
-
         for (int trackIdx = 0; trackIdx < numTracks; trackIdx++) {
             const int activeClip = processorRef.getCurrentClip(trackIdx);
             const int queuedClip = processorRef.getNextClip(trackIdx);
@@ -90,8 +88,17 @@ private:
                     on = blinkOn;
                 }
                 buttons[clipIdx * numTracks + trackIdx].setToggleState(on, juce::dontSendNotification);
-                sceneButtons[clipIdx].setToggleState(clipIdx == currentScene, juce::dontSendNotification);
             }
+        }
+
+        const int currentScene = processorRef.getCurrentScene();
+        const int nextScene = processorRef.getNextScene();
+        for (int clipIdx = 0; clipIdx < numClips; clipIdx++) {
+            bool on = (clipIdx == currentScene);
+            if (clipIdx == nextScene) {
+                on = blinkOn;
+            }
+            sceneButtons[clipIdx].setToggleState(on, juce::dontSendNotification);
         }
     }
 };
