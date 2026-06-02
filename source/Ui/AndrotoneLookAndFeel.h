@@ -4,13 +4,23 @@
 
 class AndrotoneLookAndFeel : public juce::LookAndFeel_V4 {
 public:
+    // Shared palette (ARGB), so components can reference the same colours the look and feel uses.
+    struct Palette {
+        static constexpr juce::uint32 background = 0xFF07100F;  // canvas (#07100F)
+        static constexpr juce::uint32 surface    = 0xFF0B1517;  // app surface (#0B1517)
+        static constexpr juce::uint32 outline    = 0xFF1C3136;  // hairline border (#1C3136)
+        static constexpr juce::uint32 accent     = 0xFF0097A7;  // teal 500 (#0097A7)
+        static constexpr juce::uint32 text       = 0xFFE6F0F1;  // primary text (#E6F0F1)
+        static constexpr juce::uint32 textMuted  = 0xFF6E8A8F;  // secondary text (#6E8A8F)
+    };
+
     AndrotoneLookAndFeel() {
-        const juce::Colour background { 0xFF07100F };  // canvas (#07100F)
-        const juce::Colour surface    { 0xFF0B1517 };  // app surface (#0B1517)
-        const juce::Colour outline    { 0xFF1C3136 };  // hairline border (#1C3136)
-        const juce::Colour accent     { 0xFF0097A7 };  // teal 500 (#0097A7)
-        const juce::Colour text       { 0xFFE6F0F1 };  // primary text (#E6F0F1)
-        const juce::Colour textMuted  { 0xFF6E8A8F };  // secondary text (#6E8A8F)
+        const juce::Colour background { Palette::background };
+        const juce::Colour surface    { Palette::surface };
+        const juce::Colour outline    { Palette::outline };
+        const juce::Colour accent     { Palette::accent };
+        const juce::Colour text       { Palette::text };
+        const juce::Colour textMuted  { Palette::textMuted };
 
         setColour(juce::ResizableWindow::backgroundColourId, background);
 
@@ -19,7 +29,7 @@ public:
         setColour(juce::TabbedButtonBar::tabOutlineColourId, outline);
         setColour(juce::TabbedButtonBar::frontOutlineColourId, accent);
         setColour(juce::TabbedButtonBar::tabTextColourId, textMuted);
-        setColour(juce::TabbedButtonBar::frontTextColourId, text);
+        setColour(juce::TabbedButtonBar::frontTextColourId, accent);  // selected tab text (same as buttonOnColourId)
 
         setColour(juce::TextButton::buttonColourId, surface);
         setColour(juce::TextButton::buttonOnColourId, accent);
@@ -42,5 +52,29 @@ public:
         setColour(juce::PopupMenu::textColourId, text);
         setColour(juce::PopupMenu::highlightedBackgroundColourId, accent);
         setColour(juce::PopupMenu::highlightedTextColourId, background);
+    }
+
+    int getTabButtonBestWidth(juce::TabBarButton& button, int /*tabDepth*/) override {
+        return button.getTabbedButtonBar().getWidth() / 4;  // 4 equal-width tabs
+    }
+
+    // Tabs are always on top: fill every tab with the same background and draw the text,
+    // using frontTextColourId for the selected tab and tabTextColourId for the rest.
+    void drawTabButton(juce::TabBarButton& button, juce::Graphics& g, bool, bool) override {
+        g.setColour(button.getTabBackgroundColour());
+        g.fillRect(button.getActiveArea());
+
+        const auto colourId = button.isFrontTab()
+            ? juce::TabbedButtonBar::frontTextColourId
+            : juce::TabbedButtonBar::tabTextColourId;
+
+        g.setColour(findColour(colourId));
+        g.setFont(getTabButtonFont(button, (float) button.getTextArea().getHeight()));
+        g.drawFittedText(
+            button.getButtonText().trim(),
+            button.getTextArea(),
+            juce::Justification::centred,
+            1
+        );
     }
 };
