@@ -152,4 +152,47 @@ namespace ClipPresets {
         { 41, 0.25, 85  }, //F2
         { 41, 0.25, 100 }, //F2
     }};
+
+    // Kick patterns play the sample at its natural pitch: note 60 matches
+    // SamplePlayerSound's default root note, so the one-shot is not repitched.
+    // Rests are velocity 0 (Clip skips note-ons with zero velocity).
+    constexpr std::array<Note, 16> kickStraight = {{
+        //  four on the floor (a hit on every beat)
+        { 60, 0.25, 100 }, //hit
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 100 }, //hit
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 100 }, //hit
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 100 }, //hit
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+    }};
+
+    constexpr std::array<Note, 16> kickHalfTime = {{
+        //  a hit on beats 1 and 3 only
+        { 60, 0.25, 100 }, //hit
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 100 }, //hit
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+        { 60, 0.25, 0   },
+    }};
 }

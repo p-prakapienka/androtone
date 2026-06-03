@@ -4,20 +4,36 @@
 #include "SoundSources/SineVoice.h"
 #include "SoundSources/SawSound.h"
 #include "SoundSources/SawVoice.h"
+#include "SoundSources/SamplePlayerSound.h"
+#include "SoundSources/SamplePlayerVoice.h"
+// BinaryData lives in the Projucer-generated JuceLibraryCode folder, which isn't
+// on the desktop CMake include path; reference it relatively so both builds resolve it.
+#include "../JuceLibraryCode/BinaryData.h"
 
 AndrotoneAudioProcessor::AndrotoneAudioProcessor() :
     AudioProcessor(
         BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)
     ) {
         for (int i = 0; i < 8; i++) {
-            synths[0].addVoice(new SineVoice());
+            synths[0].addVoice(new SamplePlayerVoice());
         }
-        synths[0].addSound(new SineSound(1));
+        synths[0].addSound(
+            SamplePlayerSound::fromMemory(
+                1,
+                BinaryData::wa_free_ldrum_kick_06_t1_wav,
+                BinaryData::wa_free_ldrum_kick_06_t1_wavSize
+            )
+        );
 
         for (int i = 0; i < 8; i++) {
             synths[1].addVoice(new SawVoice());
         }
         synths[1].addSound(new SawSound(2));
+
+        for (int i = 0; i < 8; i++) {
+            synths[2].addVoice(new SineVoice());
+        }
+        synths[2].addSound(new SineSound(3));
     }
 
 void AndrotoneAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {

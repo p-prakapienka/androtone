@@ -11,7 +11,7 @@
 
 class StepSequencer {
 public:
-    static constexpr int numTracks = 2;
+    static constexpr int numTracks = 3;
 
     StepSequencer() {
         bpm = 80.0;
@@ -20,12 +20,16 @@ public:
         lastPlayingState = false;
 
         tracks[0].setChannel(1);
-        tracks[0].updateClip(ClipPresets::strangerThingsArp, 0);
-        tracks[0].updateClip(ClipPresets::softArp, 1);
+        tracks[0].updateClip(ClipPresets::kickStraight, 0);
+        tracks[0].updateClip(ClipPresets::kickHalfTime, 1);
 
         tracks[1].setChannel(2);
         tracks[1].updateClip(ClipPresets::strangerThingsBass, 0);
         tracks[1].updateClip(ClipPresets::softBass, 1);
+
+        tracks[2].setChannel(3);
+        tracks[2].updateClip(ClipPresets::strangerThingsArp, 0);
+        tracks[2].updateClip(ClipPresets::softArp, 1);
     }
 
     void prepareToPlay(double sampleRate) {

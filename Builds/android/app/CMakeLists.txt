@@ -36,6 +36,7 @@ add_library( ${BINARY_NAME}
 
     SHARED
 
+    "../../../../../Downloads/wa_linndrum_tape/wa_free_ldrum_kick_06_t1.wav"
     "../../../Source/Sequencer/StepSequencer.h"
     "../../../Source/Sequencer/Track.h"
     "../../../Source/Sequencer/Clip.h"
@@ -45,10 +46,14 @@ add_library( ${BINARY_NAME}
     "../../../Source/SoundSources/SineVoice.h"
     "../../../Source/SoundSources/SawSound.h"
     "../../../Source/SoundSources/SawVoice.h"
+    "../../../Source/SoundSources/SamplePlayerSound.h"
+    "../../../Source/SoundSources/SamplePlayerVoice.h"
     "../../../Source/Ui/AndrotoneLookAndFeel.h"
-    "../../../Source/Ui/MainTab.h"
+    "../../../Source/Ui/ControlPanel.h"
+    "../../../Source/Ui/ProjectTab.h"
     "../../../Source/Ui/MixerTab.h"
     "../../../Source/Ui/SessionTab.h"
+    "../../../Source/Ui/SettingsTab.h"
     "../../../Source/PluginProcessor.cpp"
     "../../../Source/PluginProcessor.h"
     "../../../Source/PluginEditor.cpp"
@@ -2614,6 +2619,8 @@ add_library( ${BINARY_NAME}
     "../../desktop/cmake-build-debug-visual-studio/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.cpp"
     "../../desktop/cmake-build-debug-visual-studio/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm"
     "../../desktop/cmake-build-debug-visual-studio/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h"
+    "../../../JuceLibraryCode/BinaryData.cpp"
+    "../../../JuceLibraryCode/BinaryData.h"
     "../../../JuceLibraryCode/include_juce_audio_basics.cpp"
     "../../../JuceLibraryCode/include_juce_audio_devices.cpp"
     "../../../JuceLibraryCode/include_juce_audio_formats.cpp"
@@ -2638,6 +2645,7 @@ add_library( ${BINARY_NAME}
 )
 
 set_source_files_properties(
+    "../../../../../Downloads/wa_linndrum_tape/wa_free_ldrum_kick_06_t1.wav"
     "../../../Source/Sequencer/StepSequencer.h"
     "../../../Source/Sequencer/Track.h"
     "../../../Source/Sequencer/Clip.h"
@@ -2647,10 +2655,14 @@ set_source_files_properties(
     "../../../Source/SoundSources/SineVoice.h"
     "../../../Source/SoundSources/SawSound.h"
     "../../../Source/SoundSources/SawVoice.h"
+    "../../../Source/SoundSources/SamplePlayerSound.h"
+    "../../../Source/SoundSources/SamplePlayerVoice.h"
     "../../../Source/Ui/AndrotoneLookAndFeel.h"
-    "../../../Source/Ui/MainTab.h"
+    "../../../Source/Ui/ControlPanel.h"
+    "../../../Source/Ui/ProjectTab.h"
     "../../../Source/Ui/MixerTab.h"
     "../../../Source/Ui/SessionTab.h"
+    "../../../Source/Ui/SettingsTab.h"
     "../../../Source/PluginProcessor.h"
     "../../../Source/PluginEditor.h"
     "../../desktop/cmake-build-debug-visual-studio/_deps/juce-src/modules/juce_audio_basics/audio_play_head/juce_AudioPlayHead.cpp"
@@ -5214,6 +5226,7 @@ set_source_files_properties(
     "../../desktop/cmake-build-debug-visual-studio/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.cpp"
     "../../desktop/cmake-build-debug-visual-studio/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.mm"
     "../../desktop/cmake-build-debug-visual-studio/_deps/juce-src/modules/juce_gui_extra/juce_gui_extra.h"
+    "../../../JuceLibraryCode/BinaryData.h"
     "../../../JuceLibraryCode/JuceHeader.h"
     "../../../JuceLibraryCode/JucePluginDefines.h"
     PROPERTIES HEADER_FILE_ONLY TRUE)
