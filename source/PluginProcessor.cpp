@@ -1,11 +1,11 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-#include "SoundSources/SineSound.h"
-#include "SoundSources/SineVoice.h"
-#include "SoundSources/SawSound.h"
-#include "SoundSources/SawVoice.h"
-#include "SoundSources/SamplePlayerSound.h"
-#include "SoundSources/SamplePlayerVoice.h"
+#include "Engine/SoundSources/SineSound.h"
+#include "Engine/SoundSources/SineVoice.h"
+#include "Engine/SoundSources/SawSound.h"
+#include "Engine/SoundSources/SawVoice.h"
+#include "Engine/SoundSources/SamplePlayerSound.h"
+#include "Engine/SoundSources/SamplePlayerVoice.h"
 // BinaryData lives in the Projucer-generated JuceLibraryCode folder, which isn't
 // on the desktop CMake include path; reference it relatively so both builds resolve it.
 #include "../JuceLibraryCode/BinaryData.h"
@@ -47,9 +47,13 @@ void AndrotoneAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlo
     for (auto& buf : trackBuffers) {
         buf.setSize(numChannels, samplesPerBlock, false, false, true);
     }
+
+    mixer.prepare(sampleRate);
 }
 
-void AndrotoneAudioProcessor::releaseResources() {}
+void AndrotoneAudioProcessor::releaseResources() {
+    mixer.reset();
+}
 
 bool AndrotoneAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
     const auto& main = layouts.getMainOutputChannelSet();

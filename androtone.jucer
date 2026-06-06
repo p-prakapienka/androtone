@@ -16,15 +16,21 @@
     <GROUP id="{6A0E14F2-8C2F-4F0C-9A3B-5D7E91B22F11}" name="Mixer">
       <FILE id="MixrH1" name="Mixer.h" compile="0" resource="0" file="Source/Mixer/Mixer.h"/>
     </GROUP>
-    <GROUP id="{9D83D883-3F8D-B4C1-A907-B5C482CB7707}" name="SoundSources">
-      <FILE id="kaEIoy" name="SineSound.h" compile="0" resource="0" file="Source/SoundSources/SineSound.h"/>
-      <FILE id="S5Yf95" name="SineVoice.h" compile="0" resource="0" file="Source/SoundSources/SineVoice.h"/>
-      <FILE id="SawSn1" name="SawSound.h" compile="0" resource="0" file="Source/SoundSources/SawSound.h"/>
-      <FILE id="SawVc1" name="SawVoice.h" compile="0" resource="0" file="Source/SoundSources/SawVoice.h"/>
-      <FILE id="SmplSn1" name="SamplePlayerSound.h" compile="0" resource="0"
-            file="Source/SoundSources/SamplePlayerSound.h"/>
-      <FILE id="SmplVc1" name="SamplePlayerVoice.h" compile="0" resource="0"
-            file="Source/SoundSources/SamplePlayerVoice.h"/>
+    <GROUP id="{1A2B3C4D-5E6F-4A1B-8C2D-3E4F5A6B7C8D}" name="Engine">
+      <GROUP id="{9D83D883-3F8D-B4C1-A907-B5C482CB7707}" name="SoundSources">
+        <FILE id="kaEIoy" name="SineSound.h" compile="0" resource="0" file="Source/Engine/SoundSources/SineSound.h"/>
+        <FILE id="S5Yf95" name="SineVoice.h" compile="0" resource="0" file="Source/Engine/SoundSources/SineVoice.h"/>
+        <FILE id="SawSn1" name="SawSound.h" compile="0" resource="0" file="Source/Engine/SoundSources/SawSound.h"/>
+        <FILE id="SawVc1" name="SawVoice.h" compile="0" resource="0" file="Source/Engine/SoundSources/SawVoice.h"/>
+        <FILE id="SmplSn1" name="SamplePlayerSound.h" compile="0" resource="0"
+              file="Source/Engine/SoundSources/SamplePlayerSound.h"/>
+        <FILE id="SmplVc1" name="SamplePlayerVoice.h" compile="0" resource="0"
+              file="Source/Engine/SoundSources/SamplePlayerVoice.h"/>
+      </GROUP>
+      <GROUP id="{2B3C4D5E-6F7A-4B2C-9D3E-4F5A6B7C8D9E}" name="Processors">
+        <FILE id="ProcH1" name="Processor.h" compile="0" resource="0" file="Source/Engine/Processors/Processor.h"/>
+        <FILE id="RvrbH1" name="Reverb.h" compile="0" resource="0" file="Source/Engine/Processors/Reverb.h"/>
+      </GROUP>
     </GROUP>
     <GROUP id="{1D5E3F88-2C7B-4A11-9C8D-3B6E45F1A902}" name="Ui">
       <FILE id="AndrLF1" name="AndrotoneLookAndFeel.h" compile="0" resource="0"

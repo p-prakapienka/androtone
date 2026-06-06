@@ -22,7 +22,7 @@ public:
     bool acceptsMidi() const override { return true; }
     bool producesMidi() const override { return false; }
     bool isMidiEffect() const override { return false; }
-    double getTailLengthSeconds() const override { return 0.0; }
+    double getTailLengthSeconds() const override { return 5.0; } // reverb send tail
 
     int getNumPrograms() override { return 1; }
     int getCurrentProgram() override { return 0; }
@@ -37,6 +37,7 @@ public:
     void setVolume(float vol) { mixer.setMasterVolume(vol); }
     void setPlaying(bool shouldPlay) { sequencer.setPlaying(shouldPlay); }
     void setTrackVolume(int trackIndex, float vol) { mixer.setTrackVolume(trackIndex, vol); }
+    void setTrackReverbSend(int trackIndex, float amount) { mixer.setTrackReverbSend(trackIndex, amount); }
     void setCurrentClip(int trackIndex, int clipIndex) { sequencer.setCurrentClip(trackIndex, clipIndex); }
     void setCurrentScene(int sceneIndex) { sequencer.setCurrentScene(sceneIndex); }
     void setSongMode(bool enabled) { sequencer.setSongMode(enabled); }
@@ -46,6 +47,7 @@ public:
     double getTempo() const { return sequencer.getTempo(); }
     float getVolume() const { return mixer.getMasterVolume(); }
     float getTrackVolume(int trackIndex) const { return mixer.getTrackVolume(trackIndex); }
+    float getTrackReverbSend(int trackIndex) const { return mixer.getTrackReverbSend(trackIndex); }
     int getCurrentClip(int trackIndex) const { return sequencer.getCurrentClip(trackIndex); }
     int getCurrentScene() const { return sequencer.getCurrentScene(); }
     int getNextScene() const { return sequencer.getNextScene(); }

@@ -26,7 +26,9 @@ Targets:
 - `source/` — plugin C++
   - `PluginProcessor.{h,cpp}`, `PluginEditor.{h,cpp}`
   - `Sequencer/` — step sequencer (e.g. `StepSequencer.h`)
-  - `SoundSources/` — voices and sounds (e.g. `SineSound.h`, `SineVoice.h`)
+  - `Engine/` — audio engine
+    - `SoundSources/` — voices and sounds (e.g. `SineSound.h`, `SineVoice.h`)
+    - `Processors/` — audio processors / effects that consume and produce audio
 - `scripts/` — helper scripts (e.g. `build-projucer.ps1` builds Projucer itself from the JUCE
   that CPM fetched into the desktop build tree)
 - `docs/` — product requirements, design notes, and any Claude design files. **Read everything in

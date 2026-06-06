@@ -28,6 +28,23 @@ public:
             label->setJustificationType(juce::Justification::centred);
             addAndMakeVisible(*label);
             trackLabels.push_back(std::move(label));
+
+            auto reverbSlider = std::make_unique<juce::Slider>();
+            reverbSlider->setRange(0.0, 1.0);
+            reverbSlider->setValue(processorRef.getTrackReverbSend(t));
+            reverbSlider->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+            reverbSlider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+            reverbSlider->onValueChange = [this, t]() {
+                processorRef.setTrackReverbSend(t, (float) reverbSliders[t]->getValue());
+            };
+            addAndMakeVisible(*reverbSlider);
+            reverbSliders.push_back(std::move(reverbSlider));
+
+            auto reverbLabel = std::make_unique<juce::Label>();
+            reverbLabel->setText("Rev", juce::dontSendNotification);
+            reverbLabel->setJustificationType(juce::Justification::centred);
+            addAndMakeVisible(*reverbLabel);
+            reverbLabels.push_back(std::move(reverbLabel));
         }
 
         masterSlider.setRange(0.0, 1.0);
@@ -56,6 +73,12 @@ public:
             auto col = bounds.removeFromLeft(columnWidth);
             auto labelArea = col.removeFromTop(20);
             trackLabels[t]->setBounds(labelArea);
+
+            auto reverbArea = col.removeFromTop(90);
+            auto reverbLabelArea = reverbArea.removeFromTop(20);
+            reverbLabels[t]->setBounds(reverbLabelArea);
+            reverbSliders[t]->setBounds(reverbArea);
+
             trackSliders[t]->setBounds(col);
         }
 
@@ -69,6 +92,8 @@ private:
     AndrotoneAudioProcessor& processorRef;
     std::vector<std::unique_ptr<juce::Slider>> trackSliders;
     std::vector<std::unique_ptr<juce::Label>> trackLabels;
+    std::vector<std::unique_ptr<juce::Slider>> reverbSliders;
+    std::vector<std::unique_ptr<juce::Label>> reverbLabels;
     juce::Slider masterSlider;
     juce::Label masterLabel;
 };
