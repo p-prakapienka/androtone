@@ -1,39 +1,53 @@
 #pragma once
 
-#include "ClipPresets.h"
+#include "Clip.h"
 #include "Track.h"
+#include "SceneManager.h"
+#include "../Project/Projects.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <array>
 #include <atomic>
-
-#include "SceneManager.h"
+#include <vector>
 
 class StepSequencer {
 public:
     static constexpr int numTracks = 3;
 
     StepSequencer() {
-        bpm = 80.0;
         playing = false;
         currentSampleRate = 44100.0;
         lastPlayingState = false;
 
         tracks[0].setChannel(1);
-        tracks[0].updateClip(ClipPresets::kickStraight, 0);
-        tracks[0].updateClip(ClipPresets::kickHalfTime, 1);
-
         tracks[1].setChannel(2);
-        tracks[1].updateClip(ClipPresets::strangerThingsBass, 0);
-        tracks[1].updateClip(ClipPresets::softBass, 1);
-
         tracks[2].setChannel(3);
-        tracks[2].updateClip(ClipPresets::strangerThingsArp, 0);
-        tracks[2].updateClip(ClipPresets::softArp, 1);
+
+        loadProject(ProjectPresets::createDefaultProject());
     }
 
     void prepareToPlay(double sampleRate) {
         currentSampleRate = sampleRate;
+    }
+
+    void loadProject(const Project& project) {
+        setTempo(project.tempo);
+
+        for (int trackIndex = 0; trackIndex < numTracks && trackIndex < static_cast<int>(project.tracks.size()); ++trackIndex) {
+            const auto& projectTrack = project.tracks[trackIndex];
+
+            for (int clipIndex = 0; clipIndex < static_cast<int>(projectTrack.clips.size()); ++clipIndex) {
+                const auto& projectClip = projectTrack.clips[clipIndex];
+                std::vector<Note> notes;
+                notes.reserve(projectClip.notes.size());
+
+                for (const auto& projectNote : projectClip.notes) {
+                    notes.push_back({ projectNote.noteNumber, projectNote.length, projectNote.velocity });
+                }
+
+                tracks[trackIndex].updateClip(notes, clipIndex);
+            }
+        }
     }
 
     void processBlock(juce::MidiBuffer& midi, int numSamples) {
