@@ -7,8 +7,7 @@
 #include <atomic>
 #include <memory>
 
-#include "Engine/Processors/Processor.h"
-#include "Engine/Processors/Reverb.h"
+#include "../Engine/Processors/Reverb.h"
 
 class Mixer {
 public:
@@ -44,8 +43,8 @@ public:
         juce::AudioBuffer<float>& output,
         const std::array<juce::AudioBuffer<float>, numTracks>& tracks
     ) {
-        std::array<float, numTracks> volumes;
-        std::array<float, numTracks> sends;
+        std::array<float, numTracks> volumes = {};
+        std::array<float, numTracks> sends = {};
 
         for (int t = 0; t < numTracks; t++) {
             volumes[t] = trackVolumes[t].load();

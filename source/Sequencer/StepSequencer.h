@@ -12,18 +12,18 @@
 
 class StepSequencer {
 public:
-    static constexpr int numTracks = 3;
+    static constexpr int numTracks = 8;
 
     StepSequencer() {
         playing = false;
         currentSampleRate = 44100.0;
         lastPlayingState = false;
 
-        tracks[0].setChannel(1);
-        tracks[1].setChannel(2);
-        tracks[2].setChannel(3);
+        for (int trackIndex = 0; trackIndex < numTracks; trackIndex++) {
+            tracks[trackIndex].setChannel(trackIndex + 1);
+        }
 
-        loadProject(ProjectPresets::createDefaultProject());
+        loadProject(ProjectPresets::defaultProject);
     }
 
     void prepareToPlay(double sampleRate) {
@@ -33,21 +33,35 @@ public:
     void loadProject(const Project& project) {
         setTempo(project.tempo);
 
-        for (int trackIndex = 0; trackIndex < numTracks && trackIndex < static_cast<int>(project.tracks.size()); ++trackIndex) {
-            const auto& projectTrack = project.tracks[trackIndex];
+        numActiveTracks = juce::jmin(static_cast<int>(project.tracks.size()), numTracks);
+        numActiveClips = 0;
 
-            for (int clipIndex = 0; clipIndex < static_cast<int>(projectTrack.clips.size()); ++clipIndex) {
+        for (int trackIndex = 0; trackIndex < numTracks && trackIndex < static_cast<int>(project.tracks.size()); trackIndex++) {
+            const auto& projectTrack = project.tracks[trackIndex];
+            numActiveClips = juce::jmax(numActiveClips, juce::jmin(static_cast<int>(projectTrack.clips.size()), Track::maxClips));
+
+            for (int clipIndex = 0; clipIndex < static_cast<int>(projectTrack.clips.size()); clipIndex++) {
                 const auto& projectClip = projectTrack.clips[clipIndex];
                 std::vector<Note> notes;
-                notes.reserve(projectClip.notes.size());
 
-                for (const auto& projectNote : projectClip.notes) {
-                    notes.push_back({ projectNote.noteNumber, projectNote.length, projectNote.velocity });
+                if (projectClip.notes.empty()) {
+                    // An empty project clip maps to one bar of zero-velocity rests so it still
+                    // carries timing and stays bar-quantized on scene switches. A zero-note clip
+                    // never advances, so it can't align its switch to a bar boundary.
+                    notes.assign(Clip::stepsPerBar, Note { 60, Clip::stepLength, 0 });
+                } else {
+                    notes.reserve(projectClip.notes.size());
+
+                    for (const auto& projectNote : projectClip.notes) {
+                        notes.push_back({ projectNote.noteNumber, projectNote.length, projectNote.velocity });
+                    }
                 }
 
                 tracks[trackIndex].updateClip(notes, clipIndex);
             }
         }
+
+        sceneManager.setNumScenes(numActiveClips);
     }
 
     void processBlock(juce::MidiBuffer& midi, int numSamples) {
@@ -77,6 +91,10 @@ public:
 
     int getCurrentClip(int trackIndex) const {
         return tracks[trackIndex].getCurrentClipIndex();
+    }
+
+    bool isClipEmpty(int trackIndex, int clipIndex) const {
+        return tracks[trackIndex].getClip(clipIndex).isEmpty();
     }
 
     void setCurrentClip(int trackIndex, int clipIndex) {
@@ -127,6 +145,14 @@ public:
         return tracks[trackIndex];
     }
 
+    int getNumActiveTracks() const {
+        return numActiveTracks;
+    }
+
+    int getNumActiveClips() const {
+        return numActiveClips;
+    }
+
 private:
     std::array<Track, numTracks> tracks;
     SceneManager<numTracks> sceneManager { tracks };
@@ -134,4 +160,6 @@ private:
     std::atomic<bool> playing;
     double currentSampleRate;
     bool lastPlayingState;
+    int numActiveTracks = 0;
+    int numActiveClips = 0;
 };

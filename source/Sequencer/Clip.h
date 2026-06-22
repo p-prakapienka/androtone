@@ -119,8 +119,15 @@ public:
         return static_cast<int>(notes.size());
     }
 
+    // True when the clip produces no audible output — no notes, or every step a zero-velocity rest
+    // (how an empty project clip is loaded). The UI uses this to render empty slots distinctly.
     bool isEmpty() const {
-        return notes.empty();
+        for (const auto& note : notes) {
+            if (note.velocity > 0) {
+                return false;
+            }
+        }
+        return true;
     }
 
     bool isLastStep() const {

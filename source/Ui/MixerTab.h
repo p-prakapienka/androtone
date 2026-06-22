@@ -9,7 +9,7 @@
 class MixerTab : public juce::Component {
 public:
     explicit MixerTab(AndrotoneAudioProcessor& p) : processorRef(p) {
-        const int numTracks = AndrotoneAudioProcessor::getNumTracks();
+        const int numTracks = processorRef.getNumActiveTracks();
 
         for (int t = 0; t < numTracks; t++) {
             auto slider = std::make_unique<juce::Slider>();

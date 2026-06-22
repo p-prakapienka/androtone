@@ -10,10 +10,6 @@ public:
     static constexpr int maxClips = 32;
 
     void processBlock(juce::MidiBuffer& midi, int numSamples, double samplesPerBeat) {
-        if (clips[currentClipIndex].isEmpty()) {
-            return;
-        }
-
         const int processedSamples = clips[currentClipIndex].processBlock(
             midi, numSamples, channel, samplesPerBeat, /*stopOnBarLastStep=*/nextClipIndex >= 0
         );
@@ -24,10 +20,6 @@ public:
 
         currentClipIndex.store(nextClipIndex);
         nextClipIndex = -1;
-
-        if (clips[currentClipIndex].isEmpty()) {
-            return;
-        }
 
         clips[currentClipIndex].processBlock(
             midi, numSamples - processedSamples, channel, samplesPerBeat, false, processedSamples

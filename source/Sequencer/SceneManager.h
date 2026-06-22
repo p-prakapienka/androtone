@@ -21,7 +21,7 @@ public:
         const Clip* longest = getLongestPlayingClip();
         const bool onLastStep = longest != nullptr && longest->isLastStep();
 
-        if (!longestWasOnLastStep && onLastStep) {
+        if (!longestWasOnLastStep && onLastStep && numScenes > 0) {
             setCurrentScene((currentScene + 1) % numScenes);
         }
         longestWasOnLastStep = onLastStep;
@@ -31,6 +31,10 @@ public:
     // starts clean.
     void reset() {
         longestWasOnLastStep = false;
+    }
+
+    void setNumScenes(int newNumScenes) {
+        numScenes = newNumScenes;
     }
 
     void setSongMode(bool enabled) {
@@ -62,7 +66,7 @@ private:
     std::array<Track, N>& tracks;
     std::atomic<bool> songMode { false };
     std::atomic<int> currentScene = 0;
-    static constexpr int numScenes = 2;
+    int numScenes = 1;
     bool longestWasOnLastStep = false;
 
     void updateTracks() {

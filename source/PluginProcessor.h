@@ -49,17 +49,20 @@ public:
     float getTrackVolume(int trackIndex) const { return mixer.getTrackVolume(trackIndex); }
     float getTrackReverbSend(int trackIndex) const { return mixer.getTrackReverbSend(trackIndex); }
     int getCurrentClip(int trackIndex) const { return sequencer.getCurrentClip(trackIndex); }
+    bool isClipEmpty(int trackIndex, int clipIndex) const { return sequencer.isClipEmpty(trackIndex, clipIndex); }
     int getCurrentScene() const { return sequencer.getCurrentScene(); }
     int getNextScene() const { return sequencer.getNextScene(); }
     int getNextClip(int trackIndex) const { return sequencer.getNextClip(trackIndex); }
     static constexpr int getNumTracks() { return StepSequencer::numTracks; }
+    int getNumActiveTracks() const { return sequencer.getNumActiveTracks(); }
+    int getNumActiveClips() const { return sequencer.getNumActiveClips(); }
 
 private:
     std::array<juce::Synthesiser, StepSequencer::numTracks> synths;
     std::array<juce::AudioBuffer<float>, StepSequencer::numTracks> trackBuffers;
     StepSequencer sequencer;
     Mixer mixer;
-    double currentSampleRate { 44100.0 };
+    double currentSampleRate = 44100.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AndrotoneAudioProcessor)
 };

@@ -2,17 +2,37 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <juce_gui_basics/juce_gui_basics.h>
-#include <array>
+#include <vector>
 
 #include "../PluginProcessor.h"
+#include "AndrotoneLookAndFeel.h"
 
 class SessionTab : public juce::Component, private juce::Timer {
 public:
     explicit SessionTab(AndrotoneAudioProcessor& p) : processorRef(p) {
+        numTracks = processorRef.getNumActiveTracks();
+        numClips = processorRef.getNumActiveClips();
+
+        buttons = std::vector<juce::TextButton>(numTracks * numClips);
+        sceneButtons = std::vector<juce::TextButton>(numClips);
+
         for (int i = 0; i < numClips; i++) {
             for (int j = 0; j < numTracks; j++) {
                 auto& button = buttons[i * numTracks + j];
-                button.setButtonText(juce::String(i + 1));
+
+                if (processorRef.isClipEmpty(j, i)) {
+                    // Empty slots read as an outlined "+" with no fill, distinct from real clips.
+                    const juce::Colour muted = juce::Colour(AndrotoneLookAndFeel::Palette::textMuted);
+                    button.setButtonText("+");
+                    button.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+                    button.setColour(juce::TextButton::buttonOnColourId, juce::Colours::transparentBlack);
+                    button.setColour(juce::TextButton::textColourOffId, muted);
+                    button.setColour(juce::TextButton::textColourOnId, muted);
+                    button.setColour(juce::ComboBox::outlineColourId, muted);
+                } else {
+                    button.setButtonText(juce::String(i + 1));
+                }
+
                 button.onClick = [this, j, i]() {
                     processorRef.setCurrentClip(j, i);
                 };
@@ -37,6 +57,9 @@ public:
 
     void resized() override {
         auto bounds = getLocalBounds().reduced(10);
+        if (numTracks == 0 || numClips == 0) {
+            return;
+        }
         const int sceneCellW = bounds.getWidth() / (2 * numTracks + 1);
         const int trackCellW = sceneCellW * 2;
         const int cellH = bounds.getHeight() / numClips;
@@ -65,13 +88,12 @@ public:
     }
 
 private:
-    static constexpr int numTracks = AndrotoneAudioProcessor::getNumTracks();
-    static constexpr int numClips = 2;
-
     AndrotoneAudioProcessor& processorRef;
+    int numTracks = 0;
+    int numClips = 0;
 
-    std::array<juce::TextButton, numTracks * numClips> buttons;
-    std::array<juce::TextButton, numClips> sceneButtons;
+    std::vector<juce::TextButton> buttons;
+    std::vector<juce::TextButton> sceneButtons;
 
     int blinkTick = 0;
 
@@ -83,11 +105,17 @@ private:
             const int activeClip = processorRef.getCurrentClip(trackIdx);
             const int queuedClip = processorRef.getNextClip(trackIdx);
             for (int clipIdx = 0; clipIdx < numClips; clipIdx++) {
+                auto& button = buttons[clipIdx * numTracks + trackIdx];
+                if (processorRef.isClipEmpty(trackIdx, clipIdx)) {
+                    // Empty slots never fill or blink — they stay an outlined "+".
+                    button.setToggleState(false, juce::dontSendNotification);
+                    continue;
+                }
                 bool on = (clipIdx == activeClip);
                 if (clipIdx == queuedClip) {
                     on = blinkOn;
                 }
-                buttons[clipIdx * numTracks + trackIdx].setToggleState(on, juce::dontSendNotification);
+                button.setToggleState(on, juce::dontSendNotification);
             }
         }
 
