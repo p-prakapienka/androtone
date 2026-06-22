@@ -45,6 +45,23 @@ public:
             reverbLabel->setJustificationType(juce::Justification::centred);
             addAndMakeVisible(*reverbLabel);
             reverbLabels.push_back(std::move(reverbLabel));
+
+            auto delaySlider = std::make_unique<juce::Slider>();
+            delaySlider->setRange(0.0, 1.0);
+            delaySlider->setValue(processorRef.getTrackDelaySend(t));
+            delaySlider->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+            delaySlider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, 60, 20);
+            delaySlider->onValueChange = [this, t]() {
+                processorRef.setTrackDelaySend(t, (float) delaySliders[t]->getValue());
+            };
+            addAndMakeVisible(*delaySlider);
+            delaySliders.push_back(std::move(delaySlider));
+
+            auto delayLabel = std::make_unique<juce::Label>();
+            delayLabel->setText("Dly", juce::dontSendNotification);
+            delayLabel->setJustificationType(juce::Justification::centred);
+            addAndMakeVisible(*delayLabel);
+            delayLabels.push_back(std::move(delayLabel));
         }
 
         masterSlider.setRange(0.0, 1.0);
@@ -74,6 +91,11 @@ public:
             auto labelArea = col.removeFromTop(20);
             trackLabels[t]->setBounds(labelArea);
 
+            auto delayArea = col.removeFromTop(90);
+            auto delayLabelArea = delayArea.removeFromTop(20);
+            delayLabels[t]->setBounds(delayLabelArea);
+            delaySliders[t]->setBounds(delayArea);
+
             auto reverbArea = col.removeFromTop(90);
             auto reverbLabelArea = reverbArea.removeFromTop(20);
             reverbLabels[t]->setBounds(reverbLabelArea);
@@ -94,6 +116,8 @@ private:
     std::vector<std::unique_ptr<juce::Label>> trackLabels;
     std::vector<std::unique_ptr<juce::Slider>> reverbSliders;
     std::vector<std::unique_ptr<juce::Label>> reverbLabels;
+    std::vector<std::unique_ptr<juce::Slider>> delaySliders;
+    std::vector<std::unique_ptr<juce::Label>> delayLabels;
     juce::Slider masterSlider;
     juce::Label masterLabel;
 };

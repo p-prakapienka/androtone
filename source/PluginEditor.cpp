@@ -27,7 +27,7 @@ AndrotoneAudioProcessorEditor::AndrotoneAudioProcessorEditor(AndrotoneAudioProce
     controlPanel = std::make_unique<ControlPanel>(processorRef);
     addAndMakeVisible(*controlPanel);
 
-    setSize(500, 360);
+    setSize(500, 450);
 }
 
 AndrotoneAudioProcessorEditor::~AndrotoneAudioProcessorEditor() {

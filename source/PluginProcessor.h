@@ -38,6 +38,7 @@ public:
     void setPlaying(bool shouldPlay) { sequencer.setPlaying(shouldPlay); }
     void setTrackVolume(int trackIndex, float vol) { mixer.setTrackVolume(trackIndex, vol); }
     void setTrackReverbSend(int trackIndex, float amount) { mixer.setTrackReverbSend(trackIndex, amount); }
+    void setTrackDelaySend(int trackIndex, float amount) { mixer.setTrackDelaySend(trackIndex, amount); }
     void setCurrentClip(int trackIndex, int clipIndex) { sequencer.setCurrentClip(trackIndex, clipIndex); }
     void setCurrentScene(int sceneIndex) { sequencer.setCurrentScene(sceneIndex); }
     void setSongMode(bool enabled) { sequencer.setSongMode(enabled); }
@@ -48,6 +49,7 @@ public:
     float getVolume() const { return mixer.getMasterVolume(); }
     float getTrackVolume(int trackIndex) const { return mixer.getTrackVolume(trackIndex); }
     float getTrackReverbSend(int trackIndex) const { return mixer.getTrackReverbSend(trackIndex); }
+    float getTrackDelaySend(int trackIndex) const { return mixer.getTrackDelaySend(trackIndex); }
     int getCurrentClip(int trackIndex) const { return sequencer.getCurrentClip(trackIndex); }
     bool isClipEmpty(int trackIndex, int clipIndex) const { return sequencer.isClipEmpty(trackIndex, clipIndex); }
     int getCurrentScene() const { return sequencer.getCurrentScene(); }
