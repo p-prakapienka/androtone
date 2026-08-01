@@ -6,7 +6,7 @@
 #include <vector>
 
 namespace ProjectPresets {
-    inline Project defaultProject = {
+    inline const Project strangerThings = {
         {
             // track 1 kick
             {
@@ -261,4 +261,58 @@ namespace ProjectPresets {
         },
         80.0
     };
+
+    inline Project makeNightcall() {
+        Project project = strangerThings;
+
+        // Kavinsky's Nightcall intro is at roughly 92 BPM. Keep the same three-track and
+        // three-scene layout as Stranger Things, replacing each bass and arp clip with the
+        // four-bar Am | G/B | F | Dm intro progression.
+        project.tempo = 92.0;
+
+        const std::array<int, 4> bassNotes { 45, 47, 41, 38 }; // A2, B2, F2, D2
+        ProjectClip nightcallBass;
+        for (const int note : bassNotes) {
+            nightcallBass.notes.push_back({ 0.0, 4.0, note, 100 });
+            for (int step = 1; step < 16; ++step) {
+                nightcallBass.notes.push_back({ 0.0, 0.25, note, 0 });
+            }
+        }
+
+        const std::array<std::array<int, 8>, 4> arpeggios {{
+            {{ 57, 64, 69, 72, 69, 64, 60, 64 }}, // Am
+            {{ 55, 62, 67, 71, 67, 62, 59, 62 }}, // G/B
+            {{ 53, 60, 65, 69, 65, 60, 57, 60 }}, // F
+            {{ 50, 57, 62, 65, 62, 57, 53, 57 }}  // Dm
+        }};
+        ProjectClip nightcallArp;
+        for (const auto& bar : arpeggios) {
+            for (int repeat = 0; repeat < 2; ++repeat) {
+                for (const int note : bar) {
+                    nightcallArp.notes.push_back({ 0.0, 0.25, note, 100 });
+                }
+            }
+        }
+
+        for (auto& clip : project.tracks[1].clips) {
+            clip = nightcallBass;
+        }
+        for (auto& clip : project.tracks[2].clips) {
+            clip = nightcallArp;
+        }
+
+        return project;
+    }
+
+    inline const Project nightcall = makeNightcall();
+
+    struct NamedProject {
+        const char* name;
+        const Project* project;
+    };
+
+    inline const std::array<NamedProject, 2> all {{
+        { "Stranger Things", &strangerThings },
+        { "Nightcall", &nightcall }
+    }};
 }
