@@ -6,9 +6,7 @@
 #include "Engine/SoundSources/SawVoice.h"
 #include "Engine/SoundSources/SamplePlayerSound.h"
 #include "Engine/SoundSources/SamplePlayerVoice.h"
-// BinaryData lives in the Projucer-generated JuceLibraryCode folder, which isn't
-// on the desktop CMake include path; reference it relatively so both builds resolve it.
-#include "../JuceLibraryCode/BinaryData.h"
+#include "../resources/BinaryData.h"
 
 AndrotoneAudioProcessor::AndrotoneAudioProcessor() :
     AudioProcessor(

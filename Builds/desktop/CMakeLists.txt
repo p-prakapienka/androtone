@@ -36,10 +36,8 @@ target_sources(Androtone
     PRIVATE
         ../../source/PluginEditor.cpp
         ../../source/PluginProcessor.cpp
-        # Projucer-generated embedded resources (the kick sample). BinaryData is
-        # checked in (see .gitignore) even though the rest of JuceLibraryCode is
-        # not; re-save the .jucer in Projucer to regenerate it when resources change.
-        ../../JuceLibraryCode/BinaryData.cpp)
+        # Embedded kick sample shared by the CMake and Projucer build paths.
+        ../../resources/BinaryData.cpp)
 
 target_include_directories(Androtone
     PRIVATE
