@@ -5,7 +5,7 @@ def ndkVersionString = "28.1.13356709"
 android {
     compileSdk 35
     ndkVersion ndkVersionString
-    namespace "com.yourcompany.androtone"
+    namespace "com.restrictedspace.androtone"
     externalNativeBuild {
         cmake {
             path "CMakeLists.txt"
@@ -23,7 +23,7 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.yourcompany.androtone"
+        applicationId "com.restrictedspace.androtone"
         minSdkVersion    24
         targetSdkVersion 35
         externalNativeBuild {
@@ -91,9 +91,9 @@ android {
 
     sourceSets {
         main.java.srcDirs +=
-            ["../../desktop/cmake-build-debug-visual-studio/_deps/juce-src/modules/juce_core/native/javacore/init",
-             "../../desktop/cmake-build-debug-visual-studio/_deps/juce-src/modules/juce_core/native/javacore/app",
-             "../../desktop/cmake-build-debug-visual-studio/_deps/juce-src/modules/juce_gui_basics/native/javaopt/app"]
+            ["../../../juce/modules/juce_core/native/javacore/init",
+             "../../../juce/modules/juce_core/native/javacore/app",
+             "../../../juce/modules/juce_gui_basics/native/javaopt/app"]
 
         main.res.srcDirs +=
             []

@@ -1,0 +1,7 @@
+Builds/desktop/cmake-build-*/
+Builds/android/.gradle/
+Builds/android/app/.cxx/
+Builds/android/app/build/
+Builds/android/local.properties
+JuceLibraryCode/
+juce/
