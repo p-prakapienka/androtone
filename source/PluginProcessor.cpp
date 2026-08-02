@@ -81,6 +81,31 @@ juce::AudioProcessorEditor* AndrotoneAudioProcessor::createEditor() {
 void AndrotoneAudioProcessor::getStateInformation(juce::MemoryBlock&) {}
 void AndrotoneAudioProcessor::setStateInformation(const void*, int) {}
 
+void AndrotoneAudioProcessor::loadProject(int projectIndex) {
+    if (projectIndex < 0 || projectIndex >= getNumProjects()
+        || projectIndex == currentProjectIndex.load()) {
+        return;
+    }
+
+    // Project changes are initiated by the UI thread. Suspend the audio callback while replacing
+    // clip data, and explicitly silence voices so the previous project cannot ring into the new one.
+    sequencer.setPlaying(false);
+    suspendProcessing(true);
+    for (auto& synth : synths) {
+        synth.allNotesOff(0, false);
+    }
+    sequencer.loadProject(*ProjectPresets::all[static_cast<std::size_t>(projectIndex)].project);
+    currentProjectIndex.store(projectIndex);
+    suspendProcessing(false);
+}
+
+juce::String AndrotoneAudioProcessor::getProjectName(int projectIndex) const {
+    if (projectIndex < 0 || projectIndex >= getNumProjects()) {
+        return {};
+    }
+    return ProjectPresets::all[static_cast<std::size_t>(projectIndex)].name;
+}
+
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() {
     return new AndrotoneAudioProcessor();
 }

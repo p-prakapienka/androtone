@@ -31,6 +31,16 @@ public:
         nextClipIndex = -1;
     }
 
+    void reset(juce::MidiBuffer& midi) {
+        stop(midi, 0);
+        const std::array<Note, 0> noNotes {};
+        for (auto& clip : clips) {
+            clip.setNotes(noNotes);
+        }
+        currentClipIndex = 0;
+        nextClipIndex = -1;
+    }
+
     void setChannel(int newChannel) {
         channel = newChannel;
     }
