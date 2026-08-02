@@ -31,6 +31,9 @@
         <FILE id="RvrbH1" name="Reverb.h" compile="0" resource="0" file="Source/Engine/Processors/Reverb.h"/>
         <FILE id="DlayH1" name="Delay.h" compile="0" resource="0" file="Source/Engine/Processors/Delay.h"/>
       </GROUP>
+      <GROUP id="{4F6A8C20-3B5D-47E1-9A2C-6D8E0F1B3A5C}" name="Modulators">
+        <FILE id="AdsrH1" name="ADSR.h" compile="0" resource="0" file="Source/Engine/Modulators/ADSR.h"/>
+      </GROUP>
     </GROUP>
     <GROUP id="{1D5E3F88-2C7B-4A11-9C8D-3B6E45F1A902}" name="Ui">
       <FILE id="AndrLF1" name="AndrotoneLookAndFeel.h" compile="0" resource="0"
