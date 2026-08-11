@@ -30,6 +30,7 @@
         <FILE id="ProcH1" name="Processor.h" compile="0" resource="0" file="Source/Engine/Processors/Processor.h"/>
         <FILE id="RvrbH1" name="Reverb.h" compile="0" resource="0" file="Source/Engine/Processors/Reverb.h"/>
         <FILE id="DlayH1" name="Delay.h" compile="0" resource="0" file="Source/Engine/Processors/Delay.h"/>
+        <FILE id="PhsrH1" name="Phaser.h" compile="0" resource="0" file="Source/Engine/Processors/Phaser.h"/>
       </GROUP>
     </GROUP>
     <GROUP id="{1D5E3F88-2C7B-4A11-9C8D-3B6E45F1A902}" name="Ui">
