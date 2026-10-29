@@ -11,7 +11,7 @@ namespace FactorySounds
     {
         juce::String id;
         juce::String name;
-        juce::String category; // "Kick", "Snare", "Hat", "Perc", "Tom", "Cymbal", "Tonal", "FX"
+        juce::String category; // "Kick", "Snare", "Clap", "Hat", "Tom", "Perc", "Cymbal", "FX", "Tonal"
     };
 
     const std::vector<Info>& list();

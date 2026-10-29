@@ -176,6 +176,24 @@ public:
             expectEquals (loaded.nextTrackId, set.nextTrackId);
         }
 
+        beginTest ("Drum kit Pad FX is fully wet; type-only effect presets get factory values");
+        {
+            for (auto& preset : getFactoryPresets())
+            {
+                Track t;
+                applyPreset (t, preset);
+                if (t.isDrum() && t.effects[0].type != (int) EffectType::none)
+                {
+                    const int mix = getEffectSpec ((EffectType) t.effects[0].type).indexOf ("mix");
+                    if (mix >= 0)
+                        expectEquals (t.effects[0].values[(size_t) mix], 1.0f, preset.name);
+                }
+                for (auto& fx : t.effects)
+                    if (fx.type != (int) EffectType::none)
+                        expect (fx.presetName.isNotEmpty(), preset.name);
+            }
+        }
+
         beginTest ("Undo and redo restore whole set states (GLB-1)");
         {
             SessionProcessor session;

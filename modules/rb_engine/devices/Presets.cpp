@@ -75,12 +75,28 @@ static ParamValues valuesTo (const DeviceSpec& spec, const std::vector<float>& v
     return result;
 }
 
-void applyEffectPreset (Track& track, int slot, const EffectPreset& preset)
+void applyEffectPreset (Track& track, int slot, const EffectPreset& requested)
 {
+    // A preset that only names an effect type gets that type's first factory preset.
+    EffectPreset preset = requested;
+    if (preset.values.empty() && preset.type != EffectType::none)
+        for (auto& factory : getFactoryEffectPresets())
+            if (factory.type == preset.type && (factory.name == preset.name || preset.name == getEffectDisplayName (preset.type)
+                                                || preset.name.isEmpty()))
+            {
+                preset = factory;
+                break;
+            }
+
     auto& fx = track.effects[(size_t) juce::jlimit (0, 1, slot)];
     fx.type = (int) preset.type;
     fx.presetName = preset.name;
     fx.values = valuesFrom (getEffectSpec (preset.type), preset.values);
+
+    // A drum kit's Pad FX is a send return (DEV-21): only the effected signal comes back.
+    if (track.isDrum() && slot == 0)
+        if (const int mix = getEffectSpec (preset.type).indexOf ("mix"); mix >= 0)
+            fx.values[(size_t) mix] = 1.0f;
 
     // Automation of the replaced effect no longer applies.
     const int device = slot == 0 ? ParamTarget::effect1 : ParamTarget::effect2;
