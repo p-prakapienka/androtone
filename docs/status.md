@@ -19,15 +19,21 @@ still needs a pass on a real phone.
 | Automation | DEV-30..DEV-32 | Done: record while playing, Add commits, insert/delete, playback tested. |
 | Pads | PAD-1..PAD-8 | Done (drum 4x4, single, 5x5 Fourths/Sequential, keys, In Key, octave, repeat with transport-locked grid). Repeat tested. |
 | Capture | CAP-1..CAP-7 | Done: free capture with tempo detection, create clip while running, fixed length, overdub Add, clear, timeout. Tested. |
-| MIDI editor | EDIT-1..EDIT-12 | Done: preview (pending notes, automation lines), full-screen editor with draw/select/move/resize/velocity gestures, loop brace, note-edit menu (Operations, Transpose, Quantization, Velocity, Pitches), remembered state. Gaps: "Create clip" in the preview menu, automation lines in the expanded grid. Two-finger gestures untested. |
+| MIDI editor | EDIT-1..EDIT-12 | Done: preview (pending notes, automation lines), full-screen editor with draw/select/move/resize/velocity gestures, loop brace, note-edit menu (Operations, Transpose, Quantization, Velocity, Pitches), remembered state. Long-press on an empty preview creates a clip; automation draws in preview and full-screen grid. Two-finger gestures untested on a device. |
 | Samples | SMP-1..SMP-8 | Done: sample browser (factory, recordings, this set), waveform with start/gain drags and pinch zoom, mic and resample recording with trim/normalise, record-into-next-pad, choke/mode/save/swap options, input monitoring. Recording paths tested headless; mic needs a device test. |
-| MIDI input | MIDI-1..MIDI-3 | Done (USB/BLE devices, active track, learn mappings). Not tested with hardware. |
+| MIDI input | MIDI-1..MIDI-3 | Done (USB/BLE devices, active track, learn mappings, pitch bend ±2 st, poly/channel pressure to filter). Bend and pressure measured in rendered audio; not tested with hardware. |
 | Export | EXP-1..EXP-3 | Done (WAV 16/24, FLAC; progress, preview, share). Render tested. |
 | App settings | APP-1..APP-8 | Done |
 | Global | GLB-1..GLB-3 | Undo/redo tested; Oboe low-latency output via JUCE; mic permission requested on first record. |
 
 ## Known gaps
 
-- No pitch bend / aftertouch from MIDI controllers; instrument LFOs are free-running (no tempo sync).
 - Ableton Link, Cloud, `.ablbundle`: out of scope (see spec).
-- Not yet run on a physical Android device: latency, touch feel and performance on phones need a hands-on pass.
+- Not yet run on a physical Android device: latency, touch feel, two-finger gestures, microphone
+  and Bluetooth MIDI, and CPU load on phones need a hands-on pass.
+
+## Beyond the spec
+
+- Master peak limiter (-1 dBFS).
+- Factory sounds render on a background thread at startup, so opening a set never stalls.
+- `Tests/RealtimeTests.cpp` fails on any heap allocation or free in the audio callback.

@@ -111,6 +111,16 @@ private:
     void post (Command::Type, int trackId = 0, int slot = 0, int pitch = 0, float velocity = 0.0f);
 
     AudioEngine engine;
+
+    // Renders the factory sounds at startup so opening a set never waits for one.
+    struct WarmUp : public juce::Thread
+    {
+        explicit WarmUp (SampleLibrary& l) : juce::Thread ("Factory sounds"), library (l) {}
+        ~WarmUp() override { stopThread (10000); }
+        void run() override { library.warmUpFactorySounds ([this] { return threadShouldExit(); }); }
+        SampleLibrary& library;
+    };
+    std::unique_ptr<WarmUp> warmUp;
     SetLibrary library;
     AppSettings settings;
     CaptureBuffer capture;

@@ -228,3 +228,46 @@ public:
 };
 
 static BrowserSampleTests browserSampleTests;
+
+// Factory sound warm-up runs on a background thread while the message thread also asks for
+// samples: both must end up sharing one buffer per sound, with nothing rendered twice into
+// the cache.
+class SampleLibraryThreadingTests : public juce::UnitTest
+{
+public:
+    SampleLibraryThreadingTests() : juce::UnitTest ("Sample library threading", "samples") {}
+
+    void runTest() override
+    {
+        beginTest ("Warm-up fills the cache; concurrent requests share one buffer");
+        rb::SampleLibrary library;
+        const auto& sounds = rb::FactorySounds::list();
+
+        std::thread background ([&] { library.warmUpFactorySounds (nullptr); });
+
+        // Meanwhile, request the same sounds in reverse order from this thread.
+        std::vector<rb::SamplePtr> mine;
+        for (auto it = sounds.rbegin(); it != sounds.rend(); ++it)
+            mine.push_back (library.get ("factory:" + it->id, {}));
+
+        background.join();
+
+        for (auto& info : sounds)
+            expect (library.isCached ("factory:" + info.id), info.id);
+
+        size_t i = 0;
+        for (auto it = sounds.rbegin(); it != sounds.rend(); ++it, ++i)
+            expect (mine[i] == library.get ("factory:" + it->id, {}), "shared buffer for " + it->id);
+
+        beginTest ("Warm-up stops when asked");
+        rb::SampleLibrary fresh;
+        int calls = 0;
+        fresh.warmUpFactorySounds ([&] { return ++calls > 3; });
+        int cached = 0;
+        for (auto& info : sounds)
+            cached += fresh.isCached ("factory:" + info.id) ? 1 : 0;
+        expectEquals (cached, 3);
+    }
+};
+
+static SampleLibraryThreadingTests sampleLibraryThreadingTests;

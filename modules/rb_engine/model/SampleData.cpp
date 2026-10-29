@@ -25,8 +25,11 @@ SamplePtr SampleLibrary::get (const juce::String& ref, const juce::File& setFold
         return nullptr;
 
     const auto key = cacheKey (ref, setFolder);
-    if (auto it = cache.find (key); it != cache.end())
-        return it->second;
+    {
+        const std::lock_guard<std::mutex> lock (cacheMutex);
+        if (auto it = cache.find (key); it != cache.end())
+            return it->second;
+    }
 
     SamplePtr sample;
 
@@ -37,15 +40,36 @@ SamplePtr SampleLibrary::get (const juce::String& ref, const juce::File& setFold
     else if (ref.startsWith ("user:"))
         sample = loadFile (userFolder.getChildFile (ref.fromFirstOccurrenceOf (":", false, false)), formats);
 
-    if (sample != nullptr)
-        cache[key] = sample;
+    if (sample == nullptr)
+        return nullptr;
 
-    return sample;
+    // Another thread may have produced the same sample meanwhile: keep the first one, so
+    // every user of a reference shares one buffer.
+    const std::lock_guard<std::mutex> lock (cacheMutex);
+    auto [it, inserted] = cache.emplace (key, sample);
+    return it->second;
 }
 
 void SampleLibrary::put (const juce::String& ref, const juce::File& setFolder, SamplePtr sample)
 {
+    const std::lock_guard<std::mutex> lock (cacheMutex);
     cache[cacheKey (ref, setFolder)] = std::move (sample);
+}
+
+bool SampleLibrary::isCached (const juce::String& ref, const juce::File& setFolder) const
+{
+    const std::lock_guard<std::mutex> lock (cacheMutex);
+    return cache.count (cacheKey (ref, setFolder)) > 0;
+}
+
+void SampleLibrary::warmUpFactorySounds (const std::function<bool()>& shouldStop)
+{
+    for (auto& info : FactorySounds::list())
+    {
+        if (shouldStop != nullptr && shouldStop())
+            return;
+        get ("factory:" + info.id, {});
+    }
 }
 
 SamplePtr SampleLibrary::loadFile (const juce::File& file, juce::AudioFormatManager& formatManager)

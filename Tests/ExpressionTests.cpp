@@ -117,11 +117,11 @@ public:
             const double reference = brightness (1000.0f, 0, 0.0f);
             const double poly = brightness (250.0f, 48, 1.0f);
             const double channel = brightness (250.0f, -1, 1.0f);
-            const auto name = getInstrumentDisplayName (type);
+            const auto label = getInstrumentDisplayName (type);
 
-            expect (reference > dark * 1.5, name + ": the reference is brighter");
-            expectWithinAbsoluteError (poly / reference, 1.0, 0.1, name + ": poly pressure");
-            expectWithinAbsoluteError (channel / reference, 1.0, 0.1, name + ": channel pressure");
+            expect (reference > dark * 1.5, label + ": the reference is brighter");
+            expectWithinAbsoluteError (poly / reference, 1.0, 0.1, label + ": poly pressure");
+            expectWithinAbsoluteError (channel / reference, 1.0, 0.1, label + ": channel pressure");
         }
 
         beginTest ("Tempo-synced LFO follows the tempo");

@@ -104,7 +104,7 @@ Working name: **Riffbook** (rename freely; nothing depends on it).
 | ID | Requirement |
 | --- | --- |
 | DEV-10 | Knobs: drag up/down (or left/right) to change; double-tap resets to default; single tap opens options: reset, insert automation, delete automation. |
-| DEV-11 | **Analog** tabs: Macros (up to 8 preset-chosen parameters), Osc, Filter, Env, LFO, Mod, Global. All tabs are available (no paywall). |
+| DEV-11 | **Analog** tabs: Macros (up to 8 preset-chosen parameters), Osc, Filter, Env, LFO, Mod, Global. All tabs are available (no paywall). LFOs run free in Hz or sync to the tempo (4 bars .. 1/32, with triplets); the same applies to Wave. |
 | DEV-12 | **Drum Kit** (per selected pad), page 1: Transpose (semitones), Filter type (LP12, LP24, HP24, Peak) with cutoff and resonance/gain on an XY display, Detune (cents), Attack, Hold (with Trig/Gate mode), Decay. |
 | DEV-13 | **Drum Kit** page 2: Pan; FX type (Stretch, Loop, Pitch Env, Punch, 8-Bit, FM, Ring Mod, Sub Osc, Noise) with two FX parameters on an XY pad; Velocity → target (Filter, Attack, Hold, Decay, FX1, FX2); Velocity → Volume. |
 | DEV-14 | **Sampler**: Filter freq with type (LP, BP, HP), Transpose, Detune, Attack, Decay (Trig/Gate), Release, Filter LFO amount. |
@@ -189,7 +189,7 @@ Working name: **Riffbook** (rename freely; nothing depends on it).
 | ID | Requirement |
 | --- | --- |
 | MIDI-1 | USB and Bluetooth MIDI devices are listed with enable toggles; enabled devices are remembered. |
-| MIDI-2 | Incoming notes play the track open in the instrument view (or the selected track) and feed the capture buffer like the pads. |
+| MIDI-2 | Incoming notes play the track open in the instrument view (or the selected track) and feed the capture buffer like the pads. Pitch bend bends the active track by ±2 semitones; poly aftertouch and channel pressure open the filter of Analog, Wave and Sampler by up to two octaves. |
 | MIDI-3 | MIDI mapping: up to 8 macro knobs, plus Capture, Clear Capture, Start/Stop, Quantize, Undo, Redo, by "tap the target, then move the control". |
 
 ## 10. Export (`EXP`)

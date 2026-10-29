@@ -6,6 +6,8 @@ Studio::Studio (const juce::File& dataRoot)
       settings (dataRoot.getChildFile ("settings.xml"))
 {
     engine.getSamples().setUserFolder (library.getUserSamplesFolder());
+    warmUp = std::make_unique<WarmUp> (engine.getSamples());
+    warmUp->startThread (juce::Thread::Priority::background);
     engine.start (false);
     engine.getSession().setMonitorInput (settings.getMonitorInput());
     library.ensureDemos();
@@ -19,6 +21,7 @@ Studio::Studio (const juce::File& dataRoot)
 Studio::~Studio()
 {
     stopTimer();
+    warmUp = nullptr; // stops and joins before the library goes away
     midiInputs = nullptr;
     getDocument().removeListener (this);
     getDocument().close();
