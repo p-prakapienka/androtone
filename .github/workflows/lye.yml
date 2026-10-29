@@ -1,0 +1,29 @@
+name: lye
+
+on:
+  push:
+    paths:
+      - "lye/**"
+      - ".github/workflows/lye.yml"
+  pull_request:
+    paths:
+      - "lye/**"
+      - ".github/workflows/lye.yml"
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Configure
+        run: cmake -S lye -B lye/build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build tests
+        run: cmake --build lye/build --target LyeTests
+
+      - name: Run tests
+        run: ctest --test-dir lye/build --output-on-failure

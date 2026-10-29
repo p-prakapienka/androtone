@@ -1,0 +1,8 @@
+/build*/
+/cmake-build-*/
+/external/
+/Builds/Android/.gradle/
+/Builds/Android/local.properties
+/Builds/Android/app/build/
+/Builds/Android/app/.cxx/
+/Builds/Android/build/

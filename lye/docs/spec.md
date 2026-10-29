@@ -1,0 +1,86 @@
+# Reference spec: Caustic 3
+
+Lye is a clean-room recreation of **Caustic 3** (Single Cell Software), the rack-based
+music-making app for Android. This file is the feature inventory we build against. It is the
+canonical answer to "how should this behave?" — when unsure, check Caustic and update this file.
+
+## Ground rules
+
+- **Clean room.** Work only from observed behaviour, the public user manual, and tutorials. Never
+  decompile, disassemble, or copy assets (samples, presets, graphics) from the Caustic APK.
+- **Own names and assets.** Machine names below are Caustic's and are used here only as
+  reference labels; Lye ships its own names, artwork, samples, and presets.
+- **Unverified items are marked `(verify)`.** This inventory was written from memory of the public
+  manual. Before building a feature, check it against the running app and fix this file first.
+
+## 1. Rack
+
+- A song is a rack of up to **14 machines**. Each machine is an instrument with its own pattern
+  sequencer, mixer channel, and effect slots.
+- Machines are added, removed, renamed, and reordered; each has a preset browser (load/save).
+
+### Machine types
+
+| Caustic machine | What it is | Key controls |
+| --------------- | ---------- | ------------ |
+| SubSynth   | 2-osc subtractive synth | osc waveforms, mix, detune, LFO, filter (cutoff/res/type), filter + amp ADSR |
+| PCMSynth   | multi-sample player | up to many samples mapped by key range, loop points, filter, ADSR, LFO |
+| BassLine   | TB-303 style mono bass | saw/square, tune, cutoff, res, env mod, decay, accent, slide; own step editor with accent/slide |
+| BeatBox    | 8-slot drum sampler | per-slot sample, tune, decay, pan, volume, mute; step grid per slot |
+| PadSynth   | PADsynth-algorithm pad synth | harmonic table editor, bandwidth, two layers, ADSR (verify) |
+| 8BitSynth  | bytebeat/expression synth | expression formula input, presets (verify) |
+| Modular    | semi-modular patch synth | modules in bays, patch cables (verify) |
+| Organ      | tonewheel organ | drawbars, percussion, rotary/leslie (verify) |
+| Vocoder    | vocoder fed by a sample | carrier/modulator, bands (verify) |
+| FMSynth    | FM synth | operators, algorithms, envelopes (verify) |
+| KSSynth    | Karplus-Strong plucked string | excitation, damping, decay (verify) |
+| SawSynth   | supersaw-style synth | voices, detune, filter, ADSR (verify) |
+
+## 2. Pattern sequencer (per machine)
+
+- **4 banks (A–D) × 16 patterns** per machine = 64 patterns.
+- Pattern length 1, 2, 4, or 8 bars; selectable step resolution (verify: 1/16 default, 1/32, triplets).
+- Piano-roll editor: add/delete/move/resize notes, velocity, zoom, scroll, copy/paste, transpose.
+- BassLine / BeatBox use step-grid editors (accent, slide for BassLine).
+- Per-pattern automation of machine parameters (draw curves on a pattern).
+- Live keyboard for auditioning and recording into a pattern.
+
+## 3. Song sequencer
+
+- Timeline with one row per machine; each cell places a pattern (e.g. `A01`) on a bar.
+- Pattern blocks can be lengthened, copied, deleted; loop region; song position marker.
+- Two playback modes: **pattern mode** (loop current patterns) and **song mode** (play timeline).
+- Song-level automation of mixer/effect parameters (verify).
+
+## 4. Mixer
+
+- One channel per machine: volume, pan, 3-band EQ (low/mid/high), stereo width, **delay send**,
+  **reverb send**, mute, solo.
+- Master section: master volume, master delay, master reverb, master parametric EQ, limiter.
+
+## 5. Effects
+
+- **2 insert effect slots per machine**. Effect types (verify full list):
+  Distortion, Compressor, Bitcrusher, Flanger, Phaser, Chorus, AutoWah, Parametric EQ, Limiter,
+  Vinyl simulator, Comb filter, Cabinet simulator, Static flanger, Filter, Octaver, Vibrato,
+  Tremolo, AutoPan.
+- Master delay: time synced to tempo, feedback, damping, stereo/ping-pong mode.
+- Master reverb: size, damping, width, pre-delay (verify).
+
+## 6. Transport and global
+
+- Play/stop, tempo (BPM), swing/shuffle, metronome (verify), time signature 4/4 (verify).
+- Tap tempo (verify).
+
+## 7. Files and I/O
+
+- Save/load songs (Caustic uses its own `.caustic` format; we use our own format, not theirs).
+- Export song to WAV (and OGG/MIDI, verify); export loops/patterns.
+- Import WAV samples into PCMSynth/BeatBox from device storage.
+- MIDI input from USB/Bluetooth controllers (verify).
+
+## 8. UI conventions
+
+- Landscape, single-screen-per-view navigation: Rack → Machine → Editor → Song → Mixer → Effects.
+- Large knobs dragged vertically; long-press for fine control / reset (verify).
+- Dark, hardware-styled panels, one colour per machine.
