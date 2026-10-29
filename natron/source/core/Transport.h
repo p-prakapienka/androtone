@@ -23,6 +23,12 @@ public:
         anchorBeat = 0.0;
     }
 
+    // From `sample` on, time continues from `beat` (a loop jump, or starting mid-song).
+    void jump(int64_t sample, double beat) {
+        anchorSample = sample;
+        anchorBeat = beat;
+    }
+
     // Takes effect from the current position onwards.
     void setTempo(double bpm) {
         anchorBeat = beatAt(position);

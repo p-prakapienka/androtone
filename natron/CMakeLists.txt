@@ -26,7 +26,10 @@ CPMAddPackage(
 
 # The engine: no GUI, no audio-device code. Compiled into both the app and the tests.
 set(NATRON_CORE_SOURCES
+    source/core/Arrangement.cpp
     source/core/Engine.cpp
+    source/core/SongExport.cpp
+    source/core/effects/Effects.cpp
     source/core/MachineRegistry.cpp
     source/core/PatternPlayer.cpp
     source/core/Session.cpp
@@ -64,7 +67,9 @@ target_sources(Natron
         source/app/MainComponent.cpp
         source/app/MixerView.cpp
         source/app/ParameterPanel.cpp
-        source/app/RackView.cpp)
+        source/app/PatternEditorView.cpp
+        source/app/RackView.cpp
+        source/app/SongView.cpp)
 
 target_include_directories(Natron PRIVATE source)
 
@@ -108,7 +113,11 @@ if(NATRON_BUILD_TESTS)
             tests/SongFileTests.cpp
             tests/MachineTests.cpp
             tests/MixerTests.cpp
-            tests/GoldenTests.cpp)
+            tests/GoldenTests.cpp
+            tests/ArrangementTests.cpp
+            tests/SongModeTests.cpp
+            tests/EffectTests.cpp
+            tests/ExportTests.cpp)
 
     target_include_directories(NatronTests PRIVATE source tests)
     target_compile_definitions(NatronTests

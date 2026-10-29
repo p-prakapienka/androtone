@@ -25,6 +25,8 @@ Engine::~Engine() {
             delete pattern;
             pattern = nullptr;
         }
+        delete slot.blocks;
+        slot.blocks = nullptr;
     }
     collectGarbage();
 }
@@ -42,28 +44,17 @@ bool Engine::post(const EngineCommand& command) {
 void Engine::collectGarbage() {
     garbageFifo.read(garbageFifo.getNumReady()).forEach([this](int i) {
         auto& item = garbage[static_cast<size_t>(i)];
-        delete item.machine;
-        delete item.pattern;
-        delete item.channel;
+        item.destroy(item.object);
         item = {};
     });
 }
 
 void Engine::deletePayload(const EngineCommand& command) {
     delete command.newMachine;
-    delete command.newPattern;
     delete command.newChannel;
-}
-
-void Engine::trash(Garbage item) {
-    if (item.machine == nullptr && item.pattern == nullptr && item.channel == nullptr) {
-        return;
-    }
-    if (garbageFifo.getFreeSpace() < 1) {
-        jassertfalse; // collectGarbage() isn't being called; leak rather than free on the audio thread
-        return;
-    }
-    garbageFifo.write(1).forEach([&](int i) { garbage[static_cast<size_t>(i)] = item; });
+    delete command.newPattern;
+    delete command.newEffect;
+    delete command.newBlocks;
 }
 
 void Engine::prepare(double newSampleRate, int maxBlockSize) {
@@ -83,6 +74,11 @@ void Engine::prepare(double newSampleRate, int maxBlockSize) {
         if (slot.machine != nullptr) {
             slot.machine->prepare(newSampleRate, maxBlock.load());
             slot.channel->prepare(newSampleRate);
+            for (auto& effect : slot.effects) {
+                if (effect != nullptr) {
+                    effect->prepare(newSampleRate, maxBlock.load());
+                }
+            }
         }
     }
 
@@ -102,7 +98,7 @@ void Engine::applyCommands() {
 
 void Engine::apply(const EngineCommand& command) {
     const bool validMachine = command.machine >= 0 && command.machine < numMachines;
-    const bool validPattern = command.pattern >= 0 && command.pattern < PatternBank::numPatterns;
+    const bool validPattern = command.index >= 0 && command.index < PatternBank::numPatterns;
 
     switch (command.type) {
         case EngineCommand::Type::addMachine:
@@ -113,7 +109,8 @@ void Engine::apply(const EngineCommand& command) {
                 publish(numMachines);
                 numMachines++;
             } else {
-                trash({ command.newMachine, nullptr, command.newChannel });
+                trash(command.newMachine);
+                trash(command.newChannel);
             }
             break;
 
@@ -131,24 +128,44 @@ void Engine::apply(const EngineCommand& command) {
 
         case EngineCommand::Type::setPattern:
             if (validMachine && validPattern) {
-                auto*& target = slots[static_cast<size_t>(command.machine)].patterns[static_cast<size_t>(command.pattern)];
-                trash({ nullptr, target, nullptr });
+                auto*& target = slots[static_cast<size_t>(command.machine)].patterns[static_cast<size_t>(command.index)];
+                trash(target);
                 target = command.newPattern;
             } else {
-                trash({ nullptr, command.newPattern, nullptr });
+                trash(command.newPattern);
             }
             break;
 
         case EngineCommand::Type::selectPattern:
             if (validMachine && validPattern) {
                 auto& slot = slots[static_cast<size_t>(command.machine)];
-                if (wasPlaying && command.pattern != slot.current) {
-                    slot.queued = command.pattern;
-                } else {
-                    slot.current = command.pattern;
+                if (wasPlaying && !wasSongMode && command.index != slot.current) {
+                    slot.queued = command.index;
+                } else if (!wasSongMode || !wasPlaying) {
+                    slot.current = command.index;
                     slot.queued = -1;
                 }
                 publish(command.machine);
+            }
+            break;
+
+        case EngineCommand::Type::setEffect:
+            if (validMachine && command.index >= 0 && command.index < effectsPerMachine) {
+                auto& target = slots[static_cast<size_t>(command.machine)].effects[static_cast<size_t>(command.index)];
+                trash(target.release());
+                target.reset(command.newEffect);
+            } else {
+                trash(command.newEffect);
+            }
+            break;
+
+        case EngineCommand::Type::setBlocks:
+            if (validMachine) {
+                auto*& target = slots[static_cast<size_t>(command.machine)].blocks;
+                trash(target);
+                target = command.newBlocks;
+            } else {
+                trash(command.newBlocks);
             }
             break;
     }
@@ -166,11 +183,17 @@ void Engine::removeSlot(int index) {
 }
 
 void Engine::clearSlot(Slot& slot) {
-    trash({ slot.machine.release(), nullptr, slot.channel.release() });
+    trash(slot.machine.release());
+    trash(slot.channel.release());
+    for (auto& effect : slot.effects) {
+        trash(effect.release());
+    }
     for (auto*& pattern : slot.patterns) {
-        trash({ nullptr, pattern, nullptr });
+        trash(pattern);
         pattern = nullptr;
     }
+    trash(slot.blocks);
+    slot.blocks = nullptr;
     juce::MidiBuffer discard;
     slot.player.releaseAll(discard, 0);
     slot.current = 0;
@@ -189,6 +212,20 @@ const Pattern& Engine::patternAt(const Slot& slot, int index) const {
     return pattern != nullptr ? *pattern : emptyPattern;
 }
 
+bool Engine::loopIsActive() const {
+    return loopEnabled.load() && loopEndBar.load() > loopStartBar.load() && loopStartBar.load() >= 0;
+}
+
+int Engine::songEndBar() const {
+    int end = 0;
+    for (int i = 0; i < numMachines; i++) {
+        if (const auto* blocks = slots[static_cast<size_t>(i)].blocks) {
+            end = juce::jmax(end, Arrangement::endBar(*blocks));
+        }
+    }
+    return end;
+}
+
 void Engine::process(juce::AudioBuffer<float>& output) {
     juce::ScopedNoDenormals noDenormals;
     output.clear();
@@ -204,21 +241,52 @@ void Engine::process(juce::AudioBuffer<float>& output) {
 
 void Engine::processChunk(juce::AudioBuffer<float>& output, int startSample, int numSamples) {
     const bool shouldPlay = playing.load();
+    const bool songModeNow = songMode.load();
     const bool started = shouldPlay && !wasPlaying;
     const bool stopped = !shouldPlay && wasPlaying;
-    wasPlaying = shouldPlay;
 
-    if (started) {
-        transport.rewind();
-        for (int i = 0; i < numMachines; i++) {
-            slots[static_cast<size_t>(i)].originBeat = 0.0;
-        }
-    }
     if (!juce::exactlyEqual(transport.getTempo(), tempo.load())) {
         transport.setTempo(tempo.load());
     }
 
+    if (started) {
+        transport.rewind();
+        // Song mode starts at the loop start when looping, else at bar 1; pattern mode at bar 1.
+        const int startBar = songModeNow && loopIsActive() ? loopStartBar.load() : 0;
+        transport.jump(0, startBar * static_cast<double>(Transport::beatsPerBar));
+        for (int i = 0; i < numMachines; i++) {
+            slots[static_cast<size_t>(i)].originBeat = 0.0;
+        }
+    } else if (shouldPlay && songModeNow != wasSongMode && !songModeNow) {
+        // Song → pattern while playing: the selected patterns pick up from the current bar.
+        const double bar = std::floor(transport.beatAt(transport.getPosition()) / Transport::beatsPerBar);
+        for (int i = 0; i < numMachines; i++) {
+            auto& slot = slots[static_cast<size_t>(i)];
+            slot.originBeat = bar * Transport::beatsPerBar;
+            slot.queued = -1;
+            publish(i);
+        }
+    }
+    wasPlaying = shouldPlay;
+    wasSongMode = songModeNow;
+
+    for (int i = 0; i < numMachines; i++) {
+        auto& slot = slots[static_cast<size_t>(i)];
+        slot.midi.clear();
+        if (stopped) {
+            slot.player.releaseAll(slot.midi, 0);
+            if (slot.queued >= 0) { // a switch that never reached its boundary happens now
+                slot.current = slot.queued;
+                slot.queued = -1;
+            }
+            publish(i);
+        }
+    }
+
     const int64_t from = transport.getPosition();
+    if (shouldPlay) {
+        generateMidi(from, from + numSamples, songModeNow);
+    }
 
     bool anySolo = false;
     for (int i = 0; i < numMachines; i++) {
@@ -231,22 +299,14 @@ void Engine::processChunk(juce::AudioBuffer<float>& output, int startSample, int
 
     for (int i = 0; i < numMachines; i++) {
         auto& slot = slots[static_cast<size_t>(i)];
-        slot.midi.clear();
-
-        if (stopped) {
-            slot.player.releaseAll(slot.midi, 0);
-            if (slot.queued >= 0) { // a switch that never reached its boundary happens now
-                slot.current = slot.queued;
-                slot.queued = -1;
-                publish(i);
-            }
-        } else if (shouldPlay) {
-            playSlot(slot, i, from, from + numSamples);
-        }
-
         slot.buffer.setSize(2, numSamples, false, false, true);
         slot.buffer.clear();
         slot.machine->process(slot.buffer, slot.midi);
+        for (auto& effect : slot.effects) {
+            if (effect != nullptr) {
+                effect->process(slot.buffer, numSamples);
+            }
+        }
 
         const bool audible = !slot.channel->isMuted() && (!anySolo || slot.channel->isSoloed());
         slot.channel->process(slot.buffer, numSamples, audible);
@@ -272,7 +332,56 @@ void Engine::processChunk(juce::AudioBuffer<float>& output, int startSample, int
     }
 }
 
-void Engine::playSlot(Slot& slot, int index, int64_t from, int64_t to) {
+void Engine::generateMidi(int64_t from, int64_t to, bool songModeNow) {
+    if (!songModeNow) {
+        for (int i = 0; i < numMachines; i++) {
+            playPatternMode(slots[static_cast<size_t>(i)], i, from, to, from);
+        }
+        return;
+    }
+
+    // Song mode: the chunk may contain a loop jump or the song's end; split there.
+    int64_t position = from;
+    while (position < to) {
+        int64_t segmentEnd = to;
+        bool jumpAtEnd = false;
+        bool stopAtEnd = false;
+
+        if (loopIsActive()) {
+            const double loopEndBeat = loopEndBar.load() * static_cast<double>(Transport::beatsPerBar);
+            const int64_t loopEnd = juce::jmax(position, transport.sampleAt(loopEndBeat));
+            if (loopEnd < to) {
+                segmentEnd = loopEnd;
+                jumpAtEnd = true;
+            }
+        } else if (const int endBar = songEndBar(); endBar > 0) {
+            const int64_t songEnd = juce::jmax(position, transport.sampleAt(endBar * static_cast<double>(Transport::beatsPerBar)));
+            if (songEnd < to) {
+                segmentEnd = songEnd;
+                stopAtEnd = true;
+            }
+        }
+
+        for (int i = 0; i < numMachines; i++) {
+            playSongMode(slots[static_cast<size_t>(i)], i, position, segmentEnd, from);
+        }
+
+        if (jumpAtEnd) {
+            for (int i = 0; i < numMachines; i++) {
+                auto& slot = slots[static_cast<size_t>(i)];
+                slot.player.releaseAll(slot.midi, static_cast<int>(segmentEnd - from));
+            }
+            transport.jump(segmentEnd, loopStartBar.load() * static_cast<double>(Transport::beatsPerBar));
+        }
+        if (stopAtEnd) {
+            playing.store(false); // the next chunk sees the stop and releases what's still held
+            return;
+        }
+        position = segmentEnd;
+    }
+}
+
+void Engine::playPatternMode(Slot& slot, int index, int64_t from, int64_t to, int64_t blockStart) {
     const Pattern& current = patternAt(slot, slot.current);
 
     if (slot.queued >= 0) {
@@ -283,16 +392,41 @@ void Engine::playSlot(Slot& slot, int index, int64_t from, int64_t to) {
         const int64_t boundary = juce::jmax(from, transport.sampleAt(boundaryBeat));
 
         if (boundary < to) {
-            slot.player.process(current, slot.originBeat, transport, from, boundary, from, slot.midi);
+            slot.player.process(current, slot.originBeat, transport, from, boundary, blockStart, slot.midi);
             slot.current = slot.queued;
             slot.queued = -1;
             slot.originBeat = boundaryBeat;
             publish(index);
-            slot.player.process(patternAt(slot, slot.current), slot.originBeat, transport, boundary, to, from,
+            slot.player.process(patternAt(slot, slot.current), slot.originBeat, transport, boundary, to, blockStart,
                                 slot.midi);
             return;
         }
     }
 
-    slot.player.process(current, slot.originBeat, transport, from, to, from, slot.midi);
+    slot.player.process(current, slot.originBeat, transport, from, to, blockStart, slot.midi);
+}
+
+void Engine::playSongMode(Slot& slot, int index, int64_t from, int64_t to, int64_t blockStart) {
+    // Walk the range bar by bar: each bar plays the block that covers it (or nothing).
+    int64_t position = from;
+    while (position < to) {
+        const double beat = transport.beatAt(position);
+        const int bar = static_cast<int>(std::floor(beat / Transport::beatsPerBar + 1.0e-9));
+        const int64_t barEnd = transport.sampleAt((bar + 1) * static_cast<double>(Transport::beatsPerBar));
+        const int64_t segmentEnd = barEnd > position ? juce::jmin(to, barEnd) : to;
+
+        const int blockIndex = slot.blocks != nullptr ? Arrangement::indexAt(*slot.blocks, bar) : -1;
+        // Song mode shows the block's pattern as playing but leaves the selection (slot.current) alone,
+        // so pattern mode resumes where the user left it.
+        publishedCurrent[static_cast<size_t>(index)].store(blockIndex >= 0 ? (*slot.blocks)[static_cast<size_t>(blockIndex)].pattern : -1);
+        if (blockIndex >= 0) {
+            const auto& block = (*slot.blocks)[static_cast<size_t>(blockIndex)];
+            slot.player.process(patternAt(slot, block.pattern), block.startBar * static_cast<double>(Transport::beatsPerBar),
+                                transport, position, segmentEnd, blockStart, slot.midi);
+        } else {
+            // No block: nothing starts, but notes still sounding end on time.
+            slot.player.process(emptyPattern, 0.0, transport, position, segmentEnd, blockStart, slot.midi);
+        }
+        position = segmentEnd;
+    }
 }

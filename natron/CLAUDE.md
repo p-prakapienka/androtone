@@ -23,11 +23,17 @@ never decompile Caustic or copy its assets.
     `TestToneMachine` placeholder (kept for tests).
   - `dsp/` — shared DSP (`Biquad`, `Oscillator`, `DrumKit`). `mixer/` — `ChannelStrip` (one per
     machine, created and freed with it) and `MasterBus` (send returns, volume, limiter).
+    `effects/` — `Effect` interface + registry, and the 8 insert effects (`Effects.h`).
+  - `Arrangement` — song timeline rows and their editing operations; `PatternEditing` — note
+    editing operations for the piano roll. Pure functions: put new editing logic here, with tests,
+    not in the views.
+  - `SongExport` — offline render (on a private engine) and WAV writing.
   - `Engine` — audio thread: rack, pattern switching, mixer. Edited only via `EngineCommand`s.
   - `Song` — the document; `SongFile` — save/load; `Session` — message-thread API that edits the
     Song and posts the matching commands. **UI code talks to `Session`, never to `Engine`'s
     rack directly.**
-- `source/app/` — the JUCE app shell and UI (`MainComponent`, `RackView`).
+- `source/app/` — the JUCE app shell and UI: `MainComponent` (transport bar, tabs, export job),
+  `RackView`, `PatternEditorView`, `SongView`, `MixerView`, `ParameterPanel` (generic controls).
 - `tests/` — Catch2 tests. `TestHelpers.h`: offline renderers and `Rig` (engine + session +
   renderer) and `MachineRig` (one machine); `Analysis.h`: pitch, centroid, band energy, onset;
   `TestMachines.h`: `RecordingMachine`, which logs the MIDI it receives;
@@ -71,6 +77,8 @@ Android Studio or run `./gradlew assembleDebug` there.
   Parameter ids are saved in song files: never rename one. Do control-rate work on the voice's
   own sample counter, not per block, so output doesn't depend on block size (a test checks).
 - Song format changes: bump `SongFile::currentVersion` and upgrade older versions in
-  `fromValueTree` (see the v1 → v2 note in `SongFile.h`), with a test.
+  `fromValueTree` (see the version notes in `SongFile.h`), with a test.
+- Engine loops over sample ranges must always make progress: a segment end clamped to the current
+  position must be followed by a jump or a return (see `Engine::generateMidi`).
 - Musical time is in beats (double); sample positions are `int64_t` from `Transport`.
 - New behaviour comes with an offline test that fails without it.

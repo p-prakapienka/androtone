@@ -59,13 +59,23 @@ Deferred: parameter smoothing inside notes (lands with the first real synth in P
 
 Deferred: master parametric EQ (Phase 4 with the other effects); importing samples into Drums (Phase 4).
 
-## Phase 3 — arrangement and editing
+## Phase 3 — arrangement and editing ✅
 
-10. Song sequencer: pattern blocks per machine on a bar timeline; pattern vs song mode.
-11. Piano-roll editor (touch: tap to add, drag to move/resize, pinch to zoom); step editors.
-12. Insert effects, 2 per machine: Distortion, Bitcrusher, Chorus, Phaser, Flanger, Compressor,
-    Filter, Parametric EQ first.
-13. WAV export through the offline renderer.
+- **Song mode:** each machine has a timeline row of pattern blocks (`Arrangement.h`: place / move /
+  resize / remove, overlaps trimmed or split). The engine plays blocks bar by bar, the pattern
+  looping from its block's start; the loop region repeats (playback starts at its start), else
+  the song stops at its end. Pattern mode is unchanged and keeps the user's selection.
+- **Insert effects:** two slots per machine, between the machine and its channel: Distortion,
+  Bitcrusher, Chorus, Flanger, Phaser, Compressor, Filter, Parametric EQ (`effects/`).
+- **WAV export:** `SongExport` renders the song (or N bars of the selected patterns) on a private
+  engine — never the live one — then writes 16/24-bit WAV. Runs on a background thread in the app.
+- **Editors:** Pattern tab (touch piano roll; Drums show as a step grid; long-press cycles
+  velocity default → accent → soft; drag an edge to resize, overlap for Acid slides; pinch zoom)
+  and Song tab (timeline with loop ruler). Editing logic lives in `PatternEditing.h` and
+  `Arrangement.h`, both unit-tested.
+- **Song format v3:** effects, blocks, song mode and loop settings.
+
+Deferred: undo/redo; copy/paste of patterns and blocks; per-step automation (Phase 4).
 
 ## Phase 4 — breadth
 

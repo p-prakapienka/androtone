@@ -5,7 +5,8 @@
 #include "machines/DrumMachine.h"
 #include "machines/SubtractiveSynth.h"
 
-// The app's starting song: drums, an acid line, and a pad. Each machine has a variation on A02.
+// The app's starting song: drums, an acid line, and a pad. Each machine has a variation on A02,
+// a 16-bar arrangement on the song timeline, and the acid and pad have an insert effect each.
 inline Song makeDemoSong() {
     Song song;
     song.tempo = 124.0;
@@ -35,6 +36,10 @@ inline Song makeDemoSong() {
         fill.notes.push_back({ step * Pattern::stepLength, 0.25, 37, 0.5f + 0.1f * static_cast<float>(step - 12) });
     }
     drums.mixer["volume"] = 0.9f;
+    for (const int phrase : { 0, 4, 8, 12 }) { // three bars of beat, then the fill
+        drums.blocks.push_back({ phrase, 3, 0 });
+        drums.blocks.push_back({ phrase + 3, 1, 1 });
+    }
     song.machines.push_back(drums);
 
     // Acid: 16 steps; velocity >= 0.9 accents, overlapping notes slide.
@@ -57,6 +62,8 @@ inline Song makeDemoSong() {
     }
     acid.mixer["delaySend"] = 0.2f;
     acid.mixer["volume"] = 0.7f;
+    acid.effects[0] = { "Distortion", { { "drive", 14.0f }, { "mix", 0.6f } } };
+    acid.blocks = { { 4, 8, 0 }, { 12, 4, 1 } }; // enters at bar 5
     song.machines.push_back(acid);
 
     // Pad: two-bar chords on a soft, slow Subtractive patch.
@@ -77,6 +84,8 @@ inline Song makeDemoSong() {
     }
     pad.mixer["reverbSend"] = 0.5f;
     pad.mixer["width"] = 1.4f;
+    pad.effects[0] = { "Chorus", { { "mix", 0.4f } } };
+    pad.blocks = { { 0, 16, 0 } };
     song.machines.push_back(pad);
 
     return song;

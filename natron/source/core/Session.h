@@ -41,6 +41,21 @@ public:
     float getMasterParameter(const juce::String& parameterId) const;
     const ParameterSet& getMasterParameters() const { return engine.getMasterParameters(); }
 
+    // Insert effects: two slots per machine. An empty type clears the slot.
+    bool setEffect(int machine, int slot, const juce::String& type);
+    bool setEffectParameter(int machine, int slot, const juce::String& parameterId, float value);
+    const ParameterSet* getEffectParameters(int machine, int slot) const; // nullptr if the slot is empty
+
+    // Song timeline. The row must be valid (see Arrangement::isValid); edit a copy with the
+    // Arrangement functions, then set it.
+    bool setBlocks(int machine, const BlockList& blocks);
+    const BlockList& getBlocks(int machine) const { return song.machines[static_cast<size_t>(machine)].blocks; }
+
+    void setSongMode(bool enabled);
+    bool isSongMode() const { return song.songMode; }
+    // Loop region in bars [startBar, endBar); rejected unless 0 <= startBar < endBar.
+    bool setLoop(bool enabled, int startBar, int endBar);
+
     void setMachineVolume(int machine, float volume) { setMixerParameter(machine, "volume", volume); }
     void setMasterVolume(float volume) { setMasterParameter("volume", volume); }
     void setTempo(double bpm);
@@ -61,11 +76,18 @@ private:
     // Live objects, owned by the engine; parallel to song.machines.
     std::vector<Machine*> machines;
     std::vector<ChannelStrip*> channels;
+    std::vector<std::array<Effect*, Engine::effectsPerMachine>> effects;
 
     bool isValidMachine(int index) const { return index >= 0 && index < getNumMachines(); }
+    static bool isValidEffectSlot(int slot) { return slot >= 0 && slot < Engine::effectsPerMachine; }
     static bool isValidPatternIndex(int index) { return index >= 0 && index < PatternBank::numPatterns; }
-    void postMachine(std::unique_ptr<Machine> machine, std::unique_ptr<ChannelStrip> channel,
+    using EffectSlots = std::array<std::unique_ptr<Effect>, Engine::effectsPerMachine>;
+
+    void postMachine(std::unique_ptr<Machine> machine, std::unique_ptr<ChannelStrip> channel, EffectSlots machineEffects,
                      const MachineState& state, int index);
+    void postEffect(int machine, int slot, std::unique_ptr<Effect> effect);
+    void syncTransportSettings();
+    bool post(const EngineCommand& command);
 
     // Sets every value `values` has for a parameter in `parameters`; returns all parameters'
     // resulting (clamped) values, so unknown ids drop out and missing ones get defaults.

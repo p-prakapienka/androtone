@@ -3,6 +3,7 @@
 #include "Fingerprint.h"
 #include "TestHelpers.h"
 #include "core/DemoSong.h"
+#include "core/effects/Effect.h"
 #include "core/machines/AcidBass.h"
 #include "core/machines/DrumMachine.h"
 #include "core/machines/SubtractiveSynth.h"
@@ -49,4 +50,31 @@ TEST_CASE("Golden: demo song through the mixer", "[golden]") {
     REQUIRE(rig.session.loadSong(makeDemoSong()).wasOk());
     rig.session.setPlaying(true);
     checkGolden("demo-song", rig.render(rig.renderer.seconds(4.0)));
+}
+
+TEST_CASE("Golden: every effect on a fixed signal", "[golden]") {
+    // A detuned saw pair through each effect in turn (0.4 s each), back to back.
+    const auto types = EffectRegistry::getTypeNames();
+    const int each = 19200;
+    juce::AudioBuffer<float> all(2, each * types.size());
+    for (int t = 0; t < types.size(); t++) {
+        auto effect = EffectRegistry::create(types[t]);
+        effect->prepare(48000.0, 512);
+        juce::AudioBuffer<float> block(2, 512);
+        double phaseA = 0.0, phaseB = 0.0;
+        for (int start = 0; start < each; start += 512) {
+            const int n = juce::jmin(512, each - start);
+            for (int i = 0; i < n; i++) {
+                phaseA = std::fmod(phaseA + 110.0 / 48000.0, 1.0);
+                phaseB = std::fmod(phaseB + 110.7 / 48000.0, 1.0);
+                block.setSample(0, i, static_cast<float>(0.4 * (2.0 * phaseA - 1.0)));
+                block.setSample(1, i, static_cast<float>(0.4 * (2.0 * phaseB - 1.0)));
+            }
+            effect->process(block, n);
+            for (int ch = 0; ch < 2; ch++) {
+                all.copyFrom(ch, t * each + start, block, ch, 0, n);
+            }
+        }
+    }
+    checkGolden("effects", all);
 }

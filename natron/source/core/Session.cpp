@@ -1,11 +1,13 @@
 #include "Session.h"
 
 #include "MachineRegistry.h"
+#include "effects/Effect.h"
 #include "SongFile.h"
 
 Session::Session(Engine& engineToControl) :
     engine(engineToControl) {
     engine.setTempo(song.tempo);
+    syncTransportSettings();
     song.master = apply(engine.getMasterParameters(), {});
 }
 
@@ -50,13 +52,13 @@ int Session::addMachine(const juce::String& type, const juce::String& name) {
     state.mixer = apply(channel->getParameters(), {});
 
     const int index = getNumMachines();
-    postMachine(std::move(machine), std::move(channel), state, index);
+    postMachine(std::move(machine), std::move(channel), {}, state, index);
     song.machines.push_back(std::move(state));
     return index;
 }
 
 void Session::postMachine(std::unique_ptr<Machine> machine, std::unique_ptr<ChannelStrip> channel,
-                          const MachineState& state, int index) {
+                          EffectSlots machineEffects, const MachineState& state, int index) {
     // Parameters were applied by the caller; prepare at the engine's current settings (the engine
     // re-prepares everything if the device changes later).
     machine->prepare(engine.getSampleRate(), engine.getMaxBlockSize());
@@ -73,10 +75,34 @@ void Session::postMachine(std::unique_ptr<Machine> machine, std::unique_ptr<Chan
     for (int i = 0; i < PatternBank::numPatterns; i++) {
         const auto& pattern = state.patterns[static_cast<size_t>(i)];
         if (!pattern.isEmpty() || pattern.bars != 1) {
-            engine.post({ EngineCommand::Type::setPattern, index, i, nullptr, new Pattern(pattern), nullptr });
+            EngineCommand command { EngineCommand::Type::setPattern, index, i };
+            command.newPattern = new Pattern(pattern);
+            engine.post(command);
         }
     }
-    engine.post({ EngineCommand::Type::selectPattern, index, state.selectedPattern, nullptr, nullptr, nullptr });
+    post({ EngineCommand::Type::selectPattern, index, state.selectedPattern });
+
+    effects.push_back({});
+    for (int slot = 0; slot < Engine::effectsPerMachine; slot++) {
+        if (machineEffects[static_cast<size_t>(slot)] != nullptr) {
+            postEffect(index, slot, std::move(machineEffects[static_cast<size_t>(slot)]));
+        }
+    }
+    if (!state.blocks.empty()) {
+        EngineCommand blocks { EngineCommand::Type::setBlocks, index };
+        blocks.newBlocks = new BlockList(state.blocks);
+        engine.post(blocks);
+    }
+}
+
+void Session::postEffect(int machine, int slot, std::unique_ptr<Effect> effect) {
+    if (effect != nullptr) {
+        effect->prepare(engine.getSampleRate(), engine.getMaxBlockSize());
+    }
+    effects[static_cast<size_t>(machine)][static_cast<size_t>(slot)] = effect.get();
+    EngineCommand command { EngineCommand::Type::setEffect, machine, slot };
+    command.newEffect = effect.release();
+    engine.post(command);
 }
 
 bool Session::removeMachine(int index) {
@@ -86,8 +112,9 @@ bool Session::removeMachine(int index) {
     // Forget the machine before the engine trashes it, so nothing here can touch it afterwards.
     machines.erase(machines.begin() + index);
     channels.erase(channels.begin() + index);
+    effects.erase(effects.begin() + index);
     song.machines.erase(song.machines.begin() + index);
-    return engine.post({ EngineCommand::Type::removeMachine, index, -1, nullptr, nullptr, nullptr });
+    return post({ EngineCommand::Type::removeMachine, index });
 }
 
 bool Session::renameMachine(int index, const juce::String& name) {
@@ -103,7 +130,9 @@ bool Session::setPattern(int machine, int patternIndex, const Pattern& pattern) 
         return false;
     }
     song.machines[static_cast<size_t>(machine)].patterns[static_cast<size_t>(patternIndex)] = pattern;
-    return engine.post({ EngineCommand::Type::setPattern, machine, patternIndex, nullptr, new Pattern(pattern), nullptr });
+    EngineCommand command { EngineCommand::Type::setPattern, machine, patternIndex };
+    command.newPattern = new Pattern(pattern);
+    return engine.post(command);
 }
 
 const Pattern& Session::getPattern(int machine, int patternIndex) const {
@@ -115,7 +144,7 @@ bool Session::selectPattern(int machine, int patternIndex) {
         return false;
     }
     song.machines[static_cast<size_t>(machine)].selectedPattern = patternIndex;
-    return engine.post({ EngineCommand::Type::selectPattern, machine, patternIndex, nullptr, nullptr, nullptr });
+    return post({ EngineCommand::Type::selectPattern, machine, patternIndex });
 }
 
 bool Session::setParameter(int machine, const juce::String& parameterId, float value) {
@@ -169,24 +198,43 @@ juce::Result Session::loadSong(const Song& newSong) {
         return juce::Result::fail("Song has more than " + juce::String(Engine::maxMachines) + " machines");
     }
 
-    // Create every machine first, so an unknown type fails before anything changes.
+    // Create every machine and effect first, so an unknown type fails before anything changes.
     std::vector<std::unique_ptr<Machine>> created;
+    std::vector<EffectSlots> createdEffects;
     for (const auto& state : newSong.machines) {
         auto machine = MachineRegistry::create(state.type);
         if (machine == nullptr) {
             return juce::Result::fail("Unknown machine type: " + state.type);
         }
         created.push_back(std::move(machine));
+
+        EffectSlots slots;
+        for (size_t e = 0; e < slots.size(); e++) {
+            const auto& type = state.effects[e].type;
+            if (type.isNotEmpty() && (slots[e] = EffectRegistry::create(type)) == nullptr) {
+                return juce::Result::fail("Unknown effect type: " + type);
+            }
+        }
+        createdEffects.push_back(std::move(slots));
+        if (!Arrangement::isValid(state.blocks)) {
+            return juce::Result::fail("Invalid song timeline for " + state.name);
+        }
     }
 
     engine.setPlaying(false);
-    engine.post({ EngineCommand::Type::clearRack, -1, -1, nullptr, nullptr, nullptr });
+    post({ EngineCommand::Type::clearRack });
     machines.clear();
     channels.clear();
+    effects.clear();
 
     song = Song {};
     song.tempo = newSong.tempo;
+    song.songMode = newSong.songMode;
+    song.loopEnabled = newSong.loopEnabled;
+    song.loopStartBar = newSong.loopStartBar;
+    song.loopEndBar = newSong.loopEndBar;
     engine.setTempo(song.tempo);
+    syncTransportSettings();
     // Master values not in the file go back to their defaults.
     auto& masterParameters = engine.getMasterParameters();
     for (int i = 0; i < masterParameters.size(); i++) {
@@ -200,8 +248,13 @@ juce::Result Session::loadSong(const Song& newSong) {
         // Keep only parameters the machine and channel know, at their clamped values.
         state.parameters = apply(created[i]->getParameters(), state.parameters);
         state.mixer = apply(channel->getParameters(), state.mixer);
+        for (size_t e = 0; e < state.effects.size(); e++) {
+            auto& effect = createdEffects[i][e];
+            state.effects[e].parameters = effect != nullptr ? apply(effect->getParameters(), state.effects[e].parameters)
+                                                            : ParameterValues {};
+        }
 
-        postMachine(std::move(created[i]), std::move(channel), state, static_cast<int>(i));
+        postMachine(std::move(created[i]), std::move(channel), std::move(createdEffects[i]), state, static_cast<int>(i));
         song.machines.push_back(std::move(state));
     }
     return juce::Result::ok();
@@ -215,4 +268,73 @@ juce::Result Session::loadFromStream(juce::InputStream& stream) {
 
 juce::Result Session::saveToStream(juce::OutputStream& stream) const {
     return SongFile::save(song, stream);
+}
+
+bool Session::post(const EngineCommand& command) {
+    return engine.post(command);
+}
+
+bool Session::setEffect(int machine, int slot, const juce::String& type) {
+    if (!isValidMachine(machine) || !isValidEffectSlot(slot)) {
+        return false;
+    }
+    std::unique_ptr<Effect> effect;
+    if (type.isNotEmpty() && (effect = EffectRegistry::create(type)) == nullptr) {
+        return false;
+    }
+    auto& state = song.machines[static_cast<size_t>(machine)].effects[static_cast<size_t>(slot)];
+    state.type = type;
+    state.parameters = effect != nullptr ? apply(effect->getParameters(), {}) : ParameterValues {};
+    postEffect(machine, slot, std::move(effect));
+    return true;
+}
+
+bool Session::setEffectParameter(int machine, int slot, const juce::String& parameterId, float value) {
+    if (!isValidMachine(machine) || !isValidEffectSlot(slot)) {
+        return false;
+    }
+    auto* effect = effects[static_cast<size_t>(machine)][static_cast<size_t>(slot)];
+    return effect != nullptr
+           && setValue(effect->getParameters(),
+                       song.machines[static_cast<size_t>(machine)].effects[static_cast<size_t>(slot)].parameters,
+                       parameterId, value);
+}
+
+const ParameterSet* Session::getEffectParameters(int machine, int slot) const {
+    if (!isValidMachine(machine) || !isValidEffectSlot(slot)) {
+        return nullptr;
+    }
+    const auto* effect = effects[static_cast<size_t>(machine)][static_cast<size_t>(slot)];
+    return effect != nullptr ? &effect->getParameters() : nullptr;
+}
+
+bool Session::setBlocks(int machine, const BlockList& blocks) {
+    if (!isValidMachine(machine) || !Arrangement::isValid(blocks)) {
+        return false;
+    }
+    song.machines[static_cast<size_t>(machine)].blocks = blocks;
+    EngineCommand command { EngineCommand::Type::setBlocks, machine };
+    command.newBlocks = new BlockList(blocks);
+    return engine.post(command);
+}
+
+void Session::setSongMode(bool enabled) {
+    song.songMode = enabled;
+    syncTransportSettings();
+}
+
+bool Session::setLoop(bool enabled, int startBar, int endBar) {
+    if (startBar < 0 || endBar <= startBar || endBar > Arrangement::maxBars) {
+        return false;
+    }
+    song.loopEnabled = enabled;
+    song.loopStartBar = startBar;
+    song.loopEndBar = endBar;
+    syncTransportSettings();
+    return true;
+}
+
+void Session::syncTransportSettings() {
+    engine.setSongMode(song.songMode);
+    engine.setLoop(song.loopEnabled, song.loopStartBar, song.loopEndBar);
 }

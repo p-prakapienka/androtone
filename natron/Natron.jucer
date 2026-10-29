@@ -21,6 +21,11 @@
       <FILE id="NtCoFc" name="SongFile.cpp" compile="1" resource="0" file="source/core/SongFile.cpp"/>
       <FILE id="NtCoSh" name="Session.h" compile="0" resource="0" file="source/core/Session.h"/>
       <FILE id="NtCoSc" name="Session.cpp" compile="1" resource="0" file="source/core/Session.cpp"/>
+      <FILE id="NtCoAh" name="Arrangement.h" compile="0" resource="0" file="source/core/Arrangement.h"/>
+      <FILE id="NtCoAc" name="Arrangement.cpp" compile="1" resource="0" file="source/core/Arrangement.cpp"/>
+      <FILE id="NtCoPe" name="PatternEditing.h" compile="0" resource="0" file="source/core/PatternEditing.h"/>
+      <FILE id="NtCoXh" name="SongExport.h" compile="0" resource="0" file="source/core/SongExport.h"/>
+      <FILE id="NtCoXc" name="SongExport.cpp" compile="1" resource="0" file="source/core/SongExport.cpp"/>
       <FILE id="LyCoDs" name="DemoSong.h" compile="0" resource="0" file="source/core/DemoSong.h"/>
       <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F02}" name="machines">
         <FILE id="NtMaSh" name="SubtractiveSynth.h" compile="0" resource="0" file="source/core/machines/SubtractiveSynth.h"/>
@@ -38,6 +43,11 @@
         <FILE id="NtDsKh" name="DrumKit.h" compile="0" resource="0" file="source/core/dsp/DrumKit.h"/>
         <FILE id="NtDsKc" name="DrumKit.cpp" compile="1" resource="0" file="source/core/dsp/DrumKit.cpp"/>
       </GROUP>
+      <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F06}" name="effects">
+        <FILE id="NtFxEh" name="Effect.h" compile="0" resource="0" file="source/core/effects/Effect.h"/>
+        <FILE id="NtFxSh" name="Effects.h" compile="0" resource="0" file="source/core/effects/Effects.h"/>
+        <FILE id="NtFxSc" name="Effects.cpp" compile="1" resource="0" file="source/core/effects/Effects.cpp"/>
+      </GROUP>
       <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F05}" name="mixer">
         <FILE id="NtMxCh" name="ChannelStrip.h" compile="0" resource="0" file="source/core/mixer/ChannelStrip.h"/>
         <FILE id="NtMxCc" name="ChannelStrip.cpp" compile="1" resource="0" file="source/core/mixer/ChannelStrip.cpp"/>
@@ -51,6 +61,10 @@
       <FILE id="LyApCc" name="MainComponent.cpp" compile="1" resource="0" file="source/app/MainComponent.cpp"/>
       <FILE id="NtApRh" name="RackView.h" compile="0" resource="0" file="source/app/RackView.h"/>
       <FILE id="NtApRc" name="RackView.cpp" compile="1" resource="0" file="source/app/RackView.cpp"/>
+      <FILE id="NtApEh" name="PatternEditorView.h" compile="0" resource="0" file="source/app/PatternEditorView.h"/>
+      <FILE id="NtApEc" name="PatternEditorView.cpp" compile="1" resource="0" file="source/app/PatternEditorView.cpp"/>
+      <FILE id="NtApSh" name="SongView.h" compile="0" resource="0" file="source/app/SongView.h"/>
+      <FILE id="NtApSc" name="SongView.cpp" compile="1" resource="0" file="source/app/SongView.cpp"/>
       <FILE id="NtApPh" name="ParameterPanel.h" compile="0" resource="0" file="source/app/ParameterPanel.h"/>
       <FILE id="NtApPc" name="ParameterPanel.cpp" compile="1" resource="0" file="source/app/ParameterPanel.cpp"/>
       <FILE id="NtApMh" name="MixerView.h" compile="0" resource="0" file="source/app/MixerView.h"/>

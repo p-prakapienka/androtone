@@ -53,11 +53,17 @@ canonical answer to "how should this behave?" — when unsure, check Caustic and
 - Per-pattern automation of machine parameters (draw curves on a pattern).
 - Live keyboard for auditioning and recording into a pattern.
 
+Natron (Phase 3): the pattern editor uses a 1/16 grid; long-press cycles velocity default (0.8)
+→ accent (1.0) → soft (0.5). Pattern switching in pattern mode waits for the end of the current
+pattern (verify).
+
 ## 3. Song sequencer
 
 - Timeline with one row per machine; each cell places a pattern (e.g. `A01`) on a bar.
 - Pattern blocks can be lengthened, copied, deleted; loop region; song position marker.
 - Two playback modes: **pattern mode** (loop current patterns) and **song mode** (play timeline).
+- Natron: a block shorter than its pattern plays the pattern's start; longer, the pattern loops from
+  the block's start. Placing a block over others trims or splits them (verify against Caustic).
 - Song-level automation of mixer/effect parameters (verify).
 
 ## 4. Mixer

@@ -1,0 +1,30 @@
+#pragma once
+
+#include "core/Engine.h"
+#include "core/Session.h"
+
+#include <juce_gui_basics/juce_gui_basics.h>
+
+// The song timeline: one row per machine, one column per bar, pattern blocks on the rows.
+//  - tap an empty bar: place the machine's selected pattern there (as long as the pattern)
+//  - drag a block: move it; drag its right edge: resize it
+//  - long-press or right-click a block: delete it
+//  - drag across the ruler: set the loop region (and turn looping on); tap the ruler: toggle looping
+//  - pinch / magnify / ctrl+wheel: zoom
+class SongView : public juce::Component, private juce::Timer {
+public:
+    SongView(Session& sessionToUse, const Engine& engineToShow);
+
+    void refresh();
+    void resized() override;
+
+private:
+    class Timeline;
+
+    Session& session;
+    const Engine& engine;
+    juce::Viewport viewport;
+    std::unique_ptr<Timeline> timeline;
+
+    void timerCallback() override;
+};

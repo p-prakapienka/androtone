@@ -1,11 +1,13 @@
 #pragma once
 
+#include "Arrangement.h"
 #include "Machine.h"
-#include "mixer/ChannelStrip.h"
-#include "mixer/MasterBus.h"
 #include "Pattern.h"
 #include "PatternPlayer.h"
 #include "Transport.h"
+#include "effects/Effect.h"
+#include "mixer/ChannelStrip.h"
+#include "mixer/MasterBus.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <array>
@@ -20,37 +22,47 @@ struct EngineCommand {
         addMachine,    // newMachine + newChannel → next free rack slot
         removeMachine, // machine; later slots move up one
         clearRack,
-        setPattern,    // newPattern → machine's bank slot `pattern` (nullptr = empty)
-        selectPattern, // machine plays `pattern`: now when stopped, at the current pattern's end when playing
+        setPattern,    // newPattern → machine's bank slot `index` (nullptr = empty)
+        selectPattern, // machine plays pattern `index`: now when stopped, at the current pattern's end when playing
+        setEffect,     // newEffect → machine's effect slot `index` (nullptr = none)
+        setBlocks,     // newBlocks → machine's song timeline row (nullptr = empty)
     };
 
     Type type = Type::clearRack;
     int machine = -1;
-    int pattern = -1;
+    int index = -1;
     Machine* newMachine = nullptr;
-    Pattern* newPattern = nullptr;
     ChannelStrip* newChannel = nullptr;
+    Pattern* newPattern = nullptr;
+    Effect* newEffect = nullptr;
+    BlockList* newBlocks = nullptr;
 };
 
-// The audio engine: a rack of up to 14 machines, each with 64 patterns (4 banks of 16), a pattern
-// player, and a mixer channel, feeding the master bus. process() is the whole audio callback.
+// The audio engine: a rack of up to 14 machines, each with 64 patterns (4 banks of 16), two insert
+// effects, a song timeline row, a pattern player, and a mixer channel, feeding the master bus.
+// process() is the whole audio callback.
+//
+// Two playback modes: pattern mode loops each machine's selected pattern; song mode follows the
+// timeline blocks, looping the loop region if enabled and otherwise stopping at the song's end.
 //
 // Threading:
-//  - process() and prepare() run on the audio thread (prepare while no callback is running).
+//  - process() runs on the audio thread; prepare() runs while no callback is running (it also
+//    applies queued commands, so it must not overlap process()).
 //  - post() and collectGarbage() are for ONE other thread (the message thread): the queues are
 //    single-producer / single-consumer. Session is the intended caller.
-//  - Transport and status getters/setters are atomics, safe from any thread. Channel and master
-//    parameters are atomics inside their ParameterSets (see Session).
+//  - Transport and status getters/setters are atomics, safe from any thread. Machine, effect,
+//    channel and master parameters are atomics inside their ParameterSets (see Session).
 // Nothing in process() allocates, frees, or locks.
 class Engine {
 public:
     static constexpr int maxMachines = 14;
+    static constexpr int effectsPerMachine = 2;
 
     Engine();
     ~Engine();
 
-    // Queues an edit, applied at the start of the next process() call. Returns false (and keeps
-    // ownership of nothing — the payload is deleted) if the queue is full.
+    // Queues an edit, applied at the start of the next process() call. Returns false (and deletes
+    // the payload) if the queue is full.
     bool post(const EngineCommand& command);
 
     // Deletes objects the audio thread has finished with. Call regularly from the posting thread.
@@ -66,11 +78,22 @@ public:
     bool isPlaying() const { return playing.load(); }
     void setTempo(double bpm) { tempo.store(juce::jlimit(20.0, 400.0, bpm)); }
     double getTempo() const { return tempo.load(); }
+
+    void setSongMode(bool enabled) { songMode.store(enabled); }
+    bool isSongMode() const { return songMode.load(); }
+    // Song-mode loop region in bars [startBar, endBar). Ignored unless endBar > startBar.
+    void setLoop(bool enabled, int startBar, int endBar) {
+        loopStartBar.store(startBar);
+        loopEndBar.store(endBar);
+        loopEnabled.store(enabled);
+    }
+
     // The master section's parameters; the bus itself lives for the engine's lifetime.
     ParameterSet& getMasterParameters() { return master.getParameters(); }
 
     // Status published by the audio thread, for the UI and tests.
     int getNumMachines() const { return publishedNumMachines.load(); }
+    // The pattern playing (pattern mode: the selected one; song mode: the current block's, or -1).
     int getCurrentPattern(int machine) const { return publishedCurrent[static_cast<size_t>(machine)].load(); }
     int getQueuedPattern(int machine) const { return publishedQueued[static_cast<size_t>(machine)].load(); }
     double getPlayheadBeat() const { return playheadBeat.load(); }
@@ -79,19 +102,21 @@ private:
     struct Slot {
         std::unique_ptr<Machine> machine;
         std::unique_ptr<ChannelStrip> channel;
+        std::array<std::unique_ptr<Effect>, effectsPerMachine> effects;
         std::array<Pattern*, PatternBank::numPatterns> patterns {}; // owned; nullptr = empty pattern
+        BlockList* blocks = nullptr;                                // owned; nullptr = empty row
         int current = 0;
         int queued = -1;
-        double originBeat = 0.0; // where the current pattern started looping
+        double originBeat = 0.0; // pattern mode: where the current pattern started looping
         PatternPlayer player;
         juce::AudioBuffer<float> buffer;
         juce::MidiBuffer midi;
     };
 
+    // Type-erased, allocation-free deferred delete.
     struct Garbage {
-        Machine* machine = nullptr;
-        Pattern* pattern = nullptr;
-        ChannelStrip* channel = nullptr;
+        void* object = nullptr;
+        void (*destroy)(void*) = nullptr;
     };
 
     std::array<Slot, maxMachines> slots;
@@ -104,11 +129,16 @@ private:
 
     Transport transport;
     bool wasPlaying = false;
+    bool wasSongMode = false;
 
     std::atomic<double> sampleRate { 48000.0 };
     std::atomic<int> maxBlock { 512 };
     std::atomic<bool> playing { false };
     std::atomic<double> tempo { 120.0 };
+    std::atomic<bool> songMode { false };
+    std::atomic<bool> loopEnabled { false };
+    std::atomic<int> loopStartBar { 0 };
+    std::atomic<int> loopEndBar { 0 };
     MasterBus master;
     juce::AudioBuffer<float> mixBus;
     juce::AudioBuffer<float> delayBus;
@@ -123,10 +153,27 @@ private:
     void removeSlot(int index);
     void clearSlot(Slot& slot);
     void publish(int index);
-    void trash(Garbage item);
     static void deletePayload(const EngineCommand& command);
 
+    template <typename T>
+    void trash(T* object) {
+        if (object == nullptr) {
+            return;
+        }
+        if (garbageFifo.getFreeSpace() < 1) {
+            jassertfalse; // collectGarbage() isn't being called; leak rather than free on the audio thread
+            return;
+        }
+        garbageFifo.write(1).forEach([&](int i) {
+            garbage[static_cast<size_t>(i)] = { object, [](void* p) { delete static_cast<T*>(p); } };
+        });
+    }
+
     const Pattern& patternAt(const Slot& slot, int index) const;
+    bool loopIsActive() const;
+    int songEndBar() const;
     void processChunk(juce::AudioBuffer<float>& output, int startSample, int numSamples);
-    void playSlot(Slot& slot, int index, int64_t from, int64_t to);
+    void generateMidi(int64_t from, int64_t to, bool songModeNow);
+    void playPatternMode(Slot& slot, int index, int64_t from, int64_t to, int64_t blockStart);
+    void playSongMode(Slot& slot, int index, int64_t from, int64_t to, int64_t blockStart);
 };

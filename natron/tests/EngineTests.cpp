@@ -5,6 +5,7 @@
 #include "TestHelpers.h"
 #include "TestMachines.h"
 #include "core/DemoSong.h"
+#include "core/effects/Effect.h"
 #include "core/machines/TestToneMachine.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -75,7 +76,11 @@ TEST_CASE("Stopping releases notes and the tail decays to silence", "[engine][tr
 
 TEST_CASE("Restarting plays from the top", "[engine][transport]") {
     Rig rig;
-    REQUIRE(rig.session.loadSong(makeDemoSong()).wasOk());
+    auto song = makeDemoSong();
+    for (auto& machine : song.machines) {
+        machine.effects = {}; // modulation effects run free across a restart
+    }
+    REQUIRE(rig.session.loadSong(song).wasOk());
 
     rig.session.setPlaying(true);
     const auto first = rig.render(24000);
@@ -141,6 +146,7 @@ TEST_CASE("The audio callback never touches the heap, even while edits arrive", 
     rig.session.addMachine(RecordingMachine::typeName);
     rig.session.setMixerParameter(1, "delaySend", 0.6f);
     rig.session.setMixerParameter(2, "reverbSend", 0.8f);
+    rig.session.setLoop(true, 0, 2);
     rig.session.setPlaying(true);
 
     juce::AudioBuffer<float> block(2, 512);
@@ -171,6 +177,15 @@ TEST_CASE("The audio callback never touches the heap, even while edits arrive", 
         rig.session.setMixerParameter(0, "solo", (i / 60) % 2 == 0 ? 0.0f : 1.0f);
         rig.session.setMasterParameter("delayBeats", 0.25f * static_cast<float>(1 + i % 6));
         rig.session.setTempo(100.0 + i % 40);
+        if (i % 40 == 5) {
+            const auto types = EffectRegistry::getTypeNames();
+            rig.session.setEffect(i % 2, (i / 40) % 2, types[(i / 40) % types.size()]);
+        }
+        rig.session.setEffectParameter(0, 0, "mix", 0.5f + 0.001f * static_cast<float>(i % 100));
+        if (i % 30 == 15) {
+            rig.session.setSongMode((i / 30) % 2 == 0);
+            rig.session.setBlocks(0, { { 0, 1 + i % 3, i % 4 }, { 4, 2, 1 } });
+        }
 
         AllocationCounter::start();
         rig.engine.process(block);

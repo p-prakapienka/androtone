@@ -6,6 +6,14 @@ namespace {
         const juce::Identifier machine { "Machine" };
         const juce::Identifier parameter { "Parameter" };
         const juce::Identifier mixer { "Mixer" };
+        const juce::Identifier effect { "Effect" };
+        const juce::Identifier block { "Block" };
+        const juce::Identifier slot { "slot" };
+        const juce::Identifier pattern_ { "pattern" };
+        const juce::Identifier songMode { "songMode" };
+        const juce::Identifier loop { "loop" };
+        const juce::Identifier loopStart { "loopStart" };
+        const juce::Identifier loopEnd { "loopEnd" };
         const juce::Identifier master { "Master" };
         const juce::Identifier pattern { "Pattern" };
         const juce::Identifier note { "Note" };
@@ -45,6 +53,10 @@ juce::ValueTree SongFile::toValueTree(const Song& song) {
     juce::ValueTree root(ids::song);
     root.setProperty(ids::version, currentVersion, nullptr);
     root.setProperty(ids::tempo, song.tempo, nullptr);
+    root.setProperty(ids::songMode, song.songMode, nullptr);
+    root.setProperty(ids::loop, song.loopEnabled, nullptr);
+    root.setProperty(ids::loopStart, song.loopStartBar, nullptr);
+    root.setProperty(ids::loopEnd, song.loopEndBar, nullptr);
     writeValues(root, ids::master, song.master);
 
     for (const auto& machine : song.machines) {
@@ -54,6 +66,18 @@ juce::ValueTree SongFile::toValueTree(const Song& song) {
         machineTree.setProperty(ids::selectedPattern, machine.selectedPattern, nullptr);
         writeValues(machineTree, ids::parameter, machine.parameters);
         writeValues(machineTree, ids::mixer, machine.mixer);
+
+        for (size_t e = 0; e < machine.effects.size(); e++) {
+            const auto& effectState = machine.effects[e];
+            if (effectState.type.isEmpty()) {
+                continue;
+            }
+            juce::ValueTree effectTree(ids::effect);
+            effectTree.setProperty(ids::slot, static_cast<int>(e), nullptr);
+            effectTree.setProperty(ids::type, effectState.type, nullptr);
+            writeValues(effectTree, ids::parameter, effectState.parameters);
+            machineTree.appendChild(effectTree, nullptr);
+        }
 
         for (int i = 0; i < PatternBank::numPatterns; i++) {
             const auto& pattern = machine.patterns[static_cast<size_t>(i)];
@@ -72,6 +96,14 @@ juce::ValueTree SongFile::toValueTree(const Song& song) {
                 patternTree.appendChild(noteTree, nullptr);
             }
             machineTree.appendChild(patternTree, nullptr);
+        }
+
+        for (const auto& songBlock : machine.blocks) {
+            juce::ValueTree blockTree(ids::block);
+            blockTree.setProperty(ids::start, songBlock.startBar, nullptr);
+            blockTree.setProperty(ids::length, songBlock.lengthBars, nullptr);
+            blockTree.setProperty(ids::pattern_, songBlock.pattern, nullptr);
+            machineTree.appendChild(blockTree, nullptr);
         }
 
         root.appendChild(machineTree, nullptr);
@@ -93,6 +125,13 @@ juce::Result SongFile::fromValueTree(const juce::ValueTree& tree, Song& song) {
 
     Song loaded;
     loaded.tempo = tree.getProperty(ids::tempo, loaded.tempo);
+    loaded.songMode = tree.getProperty(ids::songMode, loaded.songMode);
+    loaded.loopEnabled = tree.getProperty(ids::loop, loaded.loopEnabled);
+    loaded.loopStartBar = tree.getProperty(ids::loopStart, loaded.loopStartBar);
+    loaded.loopEndBar = tree.getProperty(ids::loopEnd, loaded.loopEndBar);
+    if (loaded.loopStartBar < 0 || loaded.loopEndBar <= loaded.loopStartBar) {
+        return juce::Result::fail("Invalid loop region");
+    }
     if (version < 2 && tree.hasProperty(ids::masterVolume)) {
         loaded.master["volume"] = tree.getProperty(ids::masterVolume);
     }
@@ -118,6 +157,24 @@ juce::Result SongFile::fromValueTree(const juce::ValueTree& tree, Song& song) {
                 machine.parameters[child.getProperty(ids::id).toString()] = child.getProperty(ids::value);
             } else if (child.hasType(ids::mixer)) {
                 machine.mixer[child.getProperty(ids::id).toString()] = child.getProperty(ids::value);
+            } else if (child.hasType(ids::effect)) {
+                const int effectSlot = child.getProperty(ids::slot, -1);
+                if (effectSlot < 0 || effectSlot >= MachineState::numEffects) {
+                    return juce::Result::fail("Effect slot out of range: " + juce::String(effectSlot));
+                }
+                auto& effectState = machine.effects[static_cast<size_t>(effectSlot)];
+                effectState.type = child.getProperty(ids::type).toString();
+                for (const auto& parameterTree : child) {
+                    if (parameterTree.hasType(ids::parameter)) {
+                        effectState.parameters[parameterTree.getProperty(ids::id).toString()] = parameterTree.getProperty(ids::value);
+                    }
+                }
+            } else if (child.hasType(ids::block)) {
+                const SongBlock songBlock { child.getProperty(ids::start, -1), child.getProperty(ids::length, 0),
+                                            child.getProperty(ids::pattern_, -1) };
+                if (Arrangement::place(machine.blocks, songBlock) < 0) {
+                    return juce::Result::fail("Invalid song block at bar " + juce::String(songBlock.startBar));
+                }
             } else if (child.hasType(ids::pattern)) {
                 const int index = child.getProperty(ids::index, -1);
                 const int bars = child.getProperty(ids::bars, 1);
