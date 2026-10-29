@@ -10,6 +10,8 @@ Studio::Studio (const juce::File& dataRoot)
     engine.getSession().setMonitorInput (settings.getMonitorInput());
     library.ensureDemos();
 
+    midiInputs = std::make_unique<MidiInputs> (*this);
+
     getDocument().addListener (this);
     startTimerHz (30);
 }
@@ -17,6 +19,7 @@ Studio::Studio (const juce::File& dataRoot)
 Studio::~Studio()
 {
     stopTimer();
+    midiInputs = nullptr;
     getDocument().removeListener (this);
     getDocument().close();
 }
@@ -365,8 +368,19 @@ void Studio::timerCallback()
         listeners.call ([] (Listener& l) { l.captureChanged(); });
 }
 
+void Studio::setActiveTrackId (int trackId)
+{
+    preferredActiveTrackId = trackId;
+    documentChanged();
+}
+
 void Studio::documentChanged()
 {
+    auto& set = getSet();
+    const int active = set.findTrack (preferredActiveTrackId) != nullptr ? preferredActiveTrackId
+                     : (set.tracks.empty() ? 0 : set.tracks.front().id);
+    activeTrackId.store (active);
+
     listeners.call ([] (Listener& l) { l.studioChanged(); });
 }
 

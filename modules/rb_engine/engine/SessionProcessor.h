@@ -154,6 +154,7 @@ private:
 
     // FIFOs.
     juce::AbstractFifo commandFifo { 1024 };
+    std::mutex postMutex;
     std::array<Command, 1024> commands;
     juce::AbstractFifo captureFifo { 2048 };
     std::array<CaptureEvent, 2048> captures;

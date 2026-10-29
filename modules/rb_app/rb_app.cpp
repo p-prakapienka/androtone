@@ -9,6 +9,7 @@
 #include "app/SetLibrary.cpp"
 #include "app/DemoSets.cpp"
 #include "app/Studio.cpp"
+#include "app/MidiInputs.cpp"
 
 #include "ui/Theme.cpp"
 #include "ui/Widgets.cpp"
@@ -21,4 +22,5 @@
 #include "ui/ClipEditor.cpp"
 #include "ui/BrowserSheet.cpp"
 #include "ui/SettingsSheets.cpp"
+#include "ui/MidiSettingsSheet.cpp"
 #include "ui/InstrumentView.cpp"

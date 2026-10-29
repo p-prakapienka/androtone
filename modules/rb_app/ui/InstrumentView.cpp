@@ -301,6 +301,7 @@ InstrumentView::InstrumentView (Studio& s, Navigator& n, int id, int slot)
     clipEditor.setSlot (editSlot);
 
     studio.addListener (this);
+    studio.setActiveTrackId (trackId);
     refreshPads();
     updateHeader();
     startTimerHz (20);

@@ -26,6 +26,7 @@
 #include "app/AudioEngine.h"
 #include "app/AppSettings.h"
 #include "app/SetLibrary.h"
+#include "app/MidiInputs.h"
 #include "app/Studio.h"
 
 #include "ui/Theme.h"

@@ -81,6 +81,9 @@ void SessionProcessor::collectGarbage()
 
 bool SessionProcessor::post (const Command& command)
 {
+    // Commands may come from the message thread and the MIDI input thread; producers
+    // serialise here, the audio thread (the only consumer) never takes this lock.
+    const std::lock_guard<std::mutex> lock (postMutex);
     const auto scope = commandFifo.write (1);
     if (scope.blockSize1 + scope.blockSize2 == 0)
         return false;

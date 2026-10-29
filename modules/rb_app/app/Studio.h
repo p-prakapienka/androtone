@@ -20,6 +20,12 @@ public:
     SetLibrary& getLibrary() { return library; }
     AppSettings& getSettings() { return settings; }
     CaptureBuffer& getCapture() { return capture; }
+    MidiInputs& getMidiInputs() { return *midiInputs; }
+
+    // The track that external MIDI plays (the one open in the instrument view, else the
+    // first track). Safe to read from the MIDI thread.
+    int getActiveTrackId() const { return activeTrackId.load(); }
+    void setActiveTrackId (int trackId);
 
     //==============================================================================
     // Sets
@@ -106,6 +112,9 @@ private:
     SetLibrary library;
     AppSettings settings;
     CaptureBuffer capture;
+    std::unique_ptr<MidiInputs> midiInputs;
+    std::atomic<int> activeTrackId { 0 };
+    int preferredActiveTrackId = 0;
 
     juce::String openSetId, previewSetId;
     std::map<int, std::vector<PendingAutomation>> pendingAutomation;
