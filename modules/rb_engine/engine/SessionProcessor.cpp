@@ -9,7 +9,11 @@ static int sampleOffsetOf (double clock, double clock0, double beatsPerSample, i
     return juce::jlimit (0, numSamples - 1, (int) std::ceil ((clock - clock0) / beatsPerSample - 1.0e-6));
 }
 
-SessionProcessor::SessionProcessor() = default;
+SessionProcessor::SessionProcessor()
+{
+    // The UI reads these from other threads; they must not fall back to a lock.
+    jassert (songBeatForUi.is_lock_free() && trackStates[0].clipBeat.is_lock_free());
+}
 SessionProcessor::~SessionProcessor() = default;
 
 //==============================================================================
@@ -149,6 +153,10 @@ juce::AudioBuffer<float> SessionProcessor::stopRecording()
 void SessionProcessor::process (juce::AudioBuffer<float>& output, int numSamples,
                                 const juce::AudioBuffer<float>* input)
 {
+    // Also covers offline rendering (export runs on a worker thread without the device's
+    // own denormal protection).
+    juce::ScopedNoDenormals noDenormals;
+
     int done = 0;
     while (done < numSamples)
     {
@@ -843,11 +851,24 @@ void SessionProcessor::renderTrack (int index, const TrackSnapshot& track, doubl
     }
 
     // Sort by offset; at equal offsets note-offs go first so retriggers work.
-    std::stable_sort (st.events.begin(), st.events.begin() + st.numEvents, [] (const NoteEvent& a, const NoteEvent& b)
+    // Stable insertion sort: the list is short and nearly sorted, and unlike std::stable_sort
+    // it never allocates a temporary buffer on the audio thread.
+    auto before = [] (const NoteEvent& a, const NoteEvent& b)
     {
         if (a.sampleOffset != b.sampleOffset) return a.sampleOffset < b.sampleOffset;
         return ! a.isNoteOn() && b.isNoteOn();
-    });
+    };
+    for (int i = 1; i < st.numEvents; ++i)
+    {
+        const auto event = st.events[(size_t) i];
+        int j = i - 1;
+        while (j >= 0 && before (event, st.events[(size_t) j]))
+        {
+            st.events[(size_t) j + 1] = st.events[(size_t) j];
+            --j;
+        }
+        st.events[(size_t) j + 1] = event;
+    }
 
     for (int e = 0; e < st.numEvents; ++e)
     {

@@ -66,3 +66,13 @@ Presets (`devices/presets/*.cpp`) are data in code; user presets are JSON files.
 `ProbeInstrument` (Tests/TestHelpers.h) records note events with absolute sample positions, so
 sequencer behaviour (launch quantisation, loops, repeat, scenes) is checked sample-exactly
 against the spec. `Rig` renders offline at 48 kHz / 120 BPM where one beat is 24000 samples.
+
+### Real-time safety
+
+`Tests/RealtimeTests.cpp` replaces the global `operator new`/`delete` in the test binary and
+fails if any heap allocation or free happens inside `SessionProcessor::process` while it plays
+every demo set, every factory preset (live notes, chords, repeat), every effect preset, random
+edits while playing (parameters, presets, effects, samples, mixer, clip edits, track moves,
+duplicates and deletes), recording, and rapid snapshot publishing. Any new code on the audio
+path is covered by adding a scenario there. Avoid `std::stable_sort` (allocates), containers
+that grow, `juce::String`, and anything that can lock or log.

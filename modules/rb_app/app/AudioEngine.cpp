@@ -74,7 +74,10 @@ void AudioEngine::audioDeviceIOCallbackWithContext (const float* const* inputs, 
         if (numInputs > 0 && inputs != nullptr && inputs[0] != nullptr)
         {
             for (int ch = 0; ch < 2; ++ch)
-                inputBuffer.copyFrom (ch, 0, inputs[juce::jmin (ch, numInputs - 1)] + start, n);
+            {
+                const float* source = inputs[juce::jmin (ch, numInputs - 1)];
+                inputBuffer.copyFrom (ch, 0, (source != nullptr ? source : inputs[0]) + start, n);
+            }
             input = &inputBuffer;
         }
 
