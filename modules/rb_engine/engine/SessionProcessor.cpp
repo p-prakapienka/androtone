@@ -578,6 +578,21 @@ void SessionProcessor::handleCommand (const Command& c)
             break;
         }
 
+        case Command::Type::pitchBend:
+            if (index >= 0 && index < numTracks)
+                states[(size_t) index].bend = juce::jlimit (-1.0f, 1.0f, c.velocity) * pitchBendRange;
+            break;
+
+        case Command::Type::pressure:
+            if (index >= 0 && index < numTracks)
+            {
+                auto& st = states[(size_t) index];
+                if (st.numPressureChanges < (int) st.pressureChanges.size())
+                    st.pressureChanges[(size_t) st.numPressureChanges++] = { juce::jlimit (-1, 127, c.pitch),
+                                                                             juce::jlimit (0.0f, 1.0f, c.velocity) };
+            }
+            break;
+
         case Command::Type::allLiveNotesOff:
             for (int i = 0; i < numTracks; ++i)
             {
@@ -919,6 +934,12 @@ void SessionProcessor::renderTrack (int index, const TrackSnapshot& track, doubl
         {
             instrument->setSample (0, track.samplerSample.get());
         }
+
+        instrument->setTempo (tempo);
+        instrument->setPitchBend (st.bend);
+        for (int k = 0; k < st.numPressureChanges; ++k)
+            instrument->setPressure (st.pressureChanges[(size_t) k].note, st.pressureChanges[(size_t) k].value);
+        st.numPressureChanges = 0;
 
         instrument->process (dry, send, st.events.data(), st.numEvents, numSamples);
     }

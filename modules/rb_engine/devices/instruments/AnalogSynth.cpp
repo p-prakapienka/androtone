@@ -12,7 +12,7 @@ enum Param
     noiseLevel, fmAmount,
     filterType, cutoff, resonance, filterEnv, keyTrack, drive,
     ampAttack, ampDecay, ampSustain, ampRelease, modAttack, modDecay, modSustain, modRelease,
-    lfoShape, lfoRate, lfoAmount, lfoDest, lfoFade, lfoRetrig,
+    lfoShape, lfoRate, lfoSync, lfoDivision, lfoAmount, lfoDest, lfoFade, lfoRetrig,
     velToFilter, velToAmp, modEnvPitch, modEnvOsc2, modEnvFm,
     voiceMode, glide, drift, spread, transpose, volume,
     numParams
@@ -174,7 +174,7 @@ struct Voice : synth::VoiceCore
         const float lfoAmt = c.lfoAmount;
         const float modLevel = modEnv.getLevel();
 
-        float pitch = currentNote + modLevel * c.modEnvPitch
+        float pitch = currentNote + c.bend + modLevel * c.modEnvPitch
                       + c.drift * (0.10f * driftStaticPitch + 0.08f * driftState);
         if (c.lfoDest == destPitch)
             pitch += lfoRaw * lfoAmt * lfoAmt * 12.0f;
@@ -206,6 +206,7 @@ struct Voice : synth::VoiceCore
                            + c.velToFilter * (velocity - 1.0f) * 30.0f + c.drift * 1.5f * driftStaticCutoff;
         if (c.lfoDest == destFilter)
             cutoffNote += lfoRaw * lfoAmt * 48.0f;
+        cutoffNote += c.pressureFor (note) * 24.0f; // pressure opens the filter by up to two octaves
         filter.set (c.filterType, synth::noteToHz (cutoffNote), c.resonance);
 
         float gain = voiceGain * c.gainComp * (1.0f - c.velToAmp * (1.0f - velocity * velocity));
@@ -321,6 +322,8 @@ DeviceSpec AnalogSynth::createSpec()
     // LFO
     p.push_back (P::choice ("lfoShape", "LFO Shape", synth::lfoShapeNames(), 0, "LFO"));
     p.push_back (P::continuous ("lfoRate", "LFO Rate", 0.05f, 30.0f, 3.0f, ParamUnit::hertz, 3.0f, "LFO"));
+    p.push_back (P::toggle ("lfoSync", "LFO Sync", false, "LFO"));
+    p.push_back (P::choice ("lfoDivision", "LFO Division", synth::lfoDivisionNames(), 5, "LFO"));
     p.push_back (P::continuous ("lfoAmount", "LFO Amount", 0.0f, 1.0f, 0.0f, ParamUnit::percent, 0.0f, "LFO"));
     p.push_back (P::choice ("lfoDest", "LFO Target", { "Pitch", "Filter", "Amp", "Pulse Width", "Shape", "Osc Mix" },
                             analog::destFilter, "LFO"));
@@ -413,7 +416,10 @@ struct AnalogSynth::Impl
         c.lfoShape = params.getChoice (lfoShape);
         c.lfoDest = params.getChoice (lfoDest);
         c.lfoAmount = params[lfoAmount];
-        c.lfoIncrement = params[lfoRate] / sr;
+        c.lfoIncrement = params.getChoice (lfoSync) != 0
+                             ? (float) (c.tempo / 60.0 / synth::lfoDivisionBeats (params.getChoice (lfoDivision))) / sr
+                             : params[lfoRate] / sr;
+        c.advanceBend (len, sr);
         const float fade = params[lfoFade];
         c.lfoFadeIncrement = fade > 0.001f ? 1.0f / (fade * sr) : 1.0f;
         c.lfoRetrigger = params.getChoice (lfoRetrig) != 0;
@@ -480,7 +486,10 @@ struct AnalogSynth::Impl
             {
                 const int pitch = juce::jlimit (0, 127, e.pitch);
                 if (e.isNoteOn())
+                {
+                    ctl.notePressure[(size_t) pitch] = 0.0f; // a new note starts without poly pressure
                     voices.noteOn (pitch, juce::jlimit (0.0f, 1.0f, e.velocity));
+                }
                 else
                     voices.noteOff (pitch);
             },
@@ -495,6 +504,17 @@ void AnalogSynth::prepare (double sampleRate, int) { impl->prepare (sampleRate);
 void AnalogSynth::reset() { impl->reset(); }
 void AnalogSynth::setParameters (const float* values, int numValues) { impl->params.setTargets (values, numValues); }
 void AnalogSynth::allNotesOff() { impl->voices.killAll(); }
+void AnalogSynth::setPitchBend (float semitones) { impl->ctl.bendTarget = semitones; }
+void AnalogSynth::setTempo (double bpm) { impl->ctl.tempo = bpm; }
+
+void AnalogSynth::setPressure (int note, float pressure)
+{
+    pressure = juce::jlimit (0.0f, 1.0f, pressure);
+    if (note < 0)
+        impl->ctl.channelPressure = pressure;
+    else if (note < 128)
+        impl->ctl.notePressure[(size_t) note] = pressure;
+}
 
 void AnalogSynth::process (juce::AudioBuffer<float>& dry, juce::AudioBuffer<float>&, const NoteEvent* events,
                            int numEvents, int numSamples)

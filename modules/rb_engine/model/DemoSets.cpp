@@ -110,7 +110,19 @@ std::vector<Set> makeDemoSets()
         set.tracks[1].slots[2] = clip (bass, 4);
 
         const auto progression = chords ({ { 57, 60, 64 }, { 53, 57, 60 }, { 55, 60, 64 }, { 55, 59, 62 } }, 4.0, 0.6f);
-        set.tracks[2].slots[0] = clip (progression, 4);
+        {
+            // The first pad clip opens its filter over four bars (clip automation, DEV-31).
+            auto sweep = std::make_shared<Clip> (*clip (progression, 4));
+            const int cutoff = getInstrumentSpec (set.tracks[2].instrumentType).indexOf ("cutoff");
+            if (cutoff >= 0)
+            {
+                AutomationLane lane;
+                lane.target = { ParamTarget::instrument, 0, cutoff };
+                lane.points = { { 0.0, 600.0f }, { 12.0, 5000.0f }, { 16.0, 1200.0f } };
+                sweep->automation.push_back (lane);
+            }
+            set.tracks[2].slots[0] = sweep;
+        }
         set.tracks[2].slots[1] = clip (progression, 4);
         set.tracks[2].slots[2] = clip (progression, 4);
 

@@ -221,6 +221,20 @@ inline float lfoValue (int shape, float phase, float held)
 }
 
 // Per-voice LFO state, advanced once per control block.
+// Tempo-synced LFO divisions, in beats per cycle.
+inline const juce::StringArray& lfoDivisionNames()
+{
+    static const juce::StringArray names { "4 Bars", "2 Bars", "1 Bar", "1/2", "1/2T", "1/4", "1/4T",
+                                           "1/8", "1/8T", "1/16", "1/16T", "1/32" };
+    return names;
+}
+
+inline double lfoDivisionBeats (int index)
+{
+    static const double beats[] = { 16.0, 8.0, 4.0, 2.0, 4.0 / 3.0, 1.0, 2.0 / 3.0, 0.5, 1.0 / 3.0, 0.25, 1.0 / 6.0, 0.125 };
+    return beats[juce::jlimit (0, 11, index)];
+}
+
 struct VoiceLfo
 {
     float phase = 0.0f, held = 0.0f, smoothedHeld = 0.0f, fade = 1.0f;
@@ -294,6 +308,22 @@ inline juce::StringArray voiceModeNames() { return { "Poly", "Mono", "Legato" };
 // Control values every voice needs to start notes; filled by the synth each control block.
 struct CommonControl
 {
+    // MIDI expression: smoothed pitch bend (semitones) and pressure per note / channel.
+    float bend = 0.0f, bendTarget = 0.0f;
+    float channelPressure = 0.0f;
+    std::array<float, 128> notePressure {};
+    double tempo = 120.0;
+
+    float pressureFor (int note) const
+    {
+        return juce::jmax (channelPressure, notePressure[(size_t) juce::jlimit (0, 127, note)]);
+    }
+
+    void advanceBend (int len, float sampleRate)
+    {
+        bend += (bendTarget - bend) * juce::jmin (1.0f, (float) len / (sampleRate * 0.008f));
+    }
+
     bool glideOn = false;
     float glideCoeff = 1.0f;       // per control block
     bool lfoRetrigger = false;

@@ -43,6 +43,13 @@ public:
 
     // Immediately silences all voices (used on stop and when samples change).
     virtual void allNotesOff() = 0;
+
+    // Expression from MIDI controllers and the transport, called by the audio thread at the
+    // start of a block. Pitch bend in semitones; pressure 0..1 for one note, or for every
+    // note when note is -1 (channel pressure).
+    virtual void setPitchBend (float /*semitones*/) {}
+    virtual void setPressure (int /*note*/, float /*pressure*/) {}
+    virtual void setTempo (double /*bpm*/) {}
 };
 
 class EffectProcessor

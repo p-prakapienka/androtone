@@ -32,6 +32,8 @@ public:
     void prepare (double sampleRate, int maxBlockSize) override;
     void reset() override;
     void setParameters (const float* values, int numValues) override;
+    void setPitchBend (float semitones) override { bendTarget = semitones; }
+    void setPressure (int note, float pressure) override;
     void setSample (int slot, const SampleData* sample) override;
     void process (juce::AudioBuffer<float>& dry, juce::AudioBuffer<float>& send,
                   const NoteEvent* events, int numEvents, int numSamples) override;
@@ -77,6 +79,8 @@ private:
     juce::uint32 nextAge = 1;
 
     double lfoPhase = 0.0;
+    float bend = 0.0f, bendTarget = 0.0f, channelPressure = 0.0f;
+    std::array<float, 128> notePressure {};
     float logCutoff = 14.0f;
     dsp::Smoother volume;
     sampler::Declicker declicker;

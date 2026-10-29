@@ -60,6 +60,8 @@ public:
     void noteOn (int trackId, int pitch, float velocity);
     void noteOff (int trackId, int pitch);
     void allNotesOff (int trackId);
+    void pitchBend (int trackId, float value);            // -1..1
+    void pressure (int trackId, int note, float value);   // note -1 = channel pressure
     bool isNoteSounding (int trackId, int pitch) const;
 
     //==============================================================================

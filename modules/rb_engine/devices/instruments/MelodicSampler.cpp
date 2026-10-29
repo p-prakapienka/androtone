@@ -165,6 +165,8 @@ void MelodicSampler::handleEvent (const NoteEvent& e)
 
 void MelodicSampler::startVoice (const NoteEvent& e)
 {
+    notePressure[(size_t) juce::jlimit (0, 127, e.pitch)] = 0.0f; // a new note starts without poly pressure
+
     if (sample == nullptr || sample->getNumFrames() <= 0 || sample->buffer.getNumChannels() <= 0)
         return;
 
@@ -207,6 +209,15 @@ void MelodicSampler::process (juce::AudioBuffer<float>& dry, juce::AudioBuffer<f
     }
 }
 
+void MelodicSampler::setPressure (int note, float pressure)
+{
+    pressure = juce::jlimit (0.0f, 1.0f, pressure);
+    if (note < 0)
+        channelPressure = pressure;
+    else if (note < 128)
+        notePressure[(size_t) note] = pressure;
+}
+
 void MelodicSampler::renderRange (float* dl, float* dr, int start, int count)
 {
     const float lfoAmount = juce::jlimit (0.0f, 1.0f, values[pFilterLfo]);
@@ -225,6 +236,7 @@ void MelodicSampler::renderRange (float* dl, float* dr, int start, int count)
 
         const float target = std::log2 (juce::jlimit (20.0f, 20000.0f, values[pCutoff])) + lfo * lfoAmount * 4.0f;
         logCutoff += (target - logCutoff) * 0.25f;
+        bend += (bendTarget - bend) * 0.25f;
         const float cutoff = juce::jlimit (20.0f, 20000.0f, std::exp2 (logCutoff));
 
         for (auto& v : voices)
@@ -243,7 +255,12 @@ void MelodicSampler::renderVoice (Voice& v, float* dl, float* dr, int count, flo
     const bool stereo = s.buffer.getNumChannels() > 1;
     const float sr = (float) sampleRate;
 
-    const float semitones = (float) (v.note - samplerRootNote) + values[pTranspose] + values[pDetune] * 0.01f;
+    const float semitones = (float) (v.note - samplerRootNote) + values[pTranspose] + values[pDetune] * 0.01f + bend;
+
+    // Pressure opens the filter by up to two octaves.
+    const float pressure = juce::jmax (channelPressure, notePressure[(size_t) juce::jlimit (0, 127, v.note)]);
+    if (pressure > 0.0f)
+        cutoff = juce::jlimit (20.0f, 20000.0f, cutoff * std::exp2 (pressure * 2.0f));
     const double increment = s.sampleRate / sampleRate * std::exp2 ((double) semitones / 12.0);
 
     const int filterType = juce::roundToInt (values[pFilterType]);

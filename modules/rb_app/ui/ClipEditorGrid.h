@@ -74,6 +74,7 @@ private:
     void paintNotes (juce::Graphics&, const Track&, const Clip&);
     void paintRuler (juce::Graphics&, const Track&, const Clip&);
     void paintLabels (juce::Graphics&, const Track&);
+    void paintAutomation (juce::Graphics&, const Track&, const Clip&);
     float playheadX() const;
 
     // Gestures

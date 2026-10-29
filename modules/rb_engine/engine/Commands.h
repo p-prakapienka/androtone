@@ -18,7 +18,9 @@ struct Command
         noteOn,             // trackId, pitch, velocity, pitchOffset: live input
         noteOff,            // trackId, pitch
         allLiveNotesOff,    // trackId (0 = every track)
-        restartClip         // trackId: restart the playing clip from its loop start now
+        restartClip,        // trackId: restart the playing clip from its loop start now
+        pitchBend,          // trackId, velocity = -1..1 (MIDI pitch wheel)
+        pressure            // trackId, pitch (-1 = channel pressure), velocity = 0..1
     };
 
     Type type = Type::play;

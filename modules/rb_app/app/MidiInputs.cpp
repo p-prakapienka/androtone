@@ -142,6 +142,17 @@ void MidiInputs::handleMessage (const juce::MidiMessage& m)
             studio.noteOff (trackId, m.getNoteNumber());
     }
 
+    // Pitch bend and pressure (MIDI-2): poly aftertouch per note, channel pressure for all.
+    if (trackId != 0)
+    {
+        if (m.isPitchWheel())
+            studio.pitchBend (trackId, (float) (m.getPitchWheelValue() - 8192) / 8192.0f);
+        else if (m.isAftertouch())
+            studio.pressure (trackId, m.getNoteNumber(), (float) m.getAfterTouchValue() / 127.0f);
+        else if (m.isChannelPressure())
+            studio.pressure (trackId, -1, (float) m.getChannelPressureValue() / 127.0f);
+    }
+
     if (m.isController() || m.isNoteOn())
     {
         const juce::ScopedLock sl (pendingLock);

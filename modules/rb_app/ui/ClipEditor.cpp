@@ -94,8 +94,12 @@ ClipEditor::ClipEditor (Studio& s, Navigator& n, int id) : studio (s), nav (n), 
 
     longPress.onLongPress = [this] (juce::Point<int>)
     {
-        if (! expanded && clip() != nullptr)
+        if (expanded)
+            return;
+        if (clip() != nullptr)
             showLoopMenu (*this, true);
+        else
+            showNewClipMenu(); // EDIT-1: create a clip when the track has none here
     };
 
     studio.addListener (this);

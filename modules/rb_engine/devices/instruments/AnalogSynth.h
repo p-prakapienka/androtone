@@ -20,6 +20,9 @@ public:
     void process (juce::AudioBuffer<float>& dry, juce::AudioBuffer<float>& send,
                   const NoteEvent* events, int numEvents, int numSamples) override;
     void allNotesOff() override;
+    void setPitchBend (float semitones) override;
+    void setPressure (int note, float pressure) override;
+    void setTempo (double bpm) override;
 
     struct Impl;
 

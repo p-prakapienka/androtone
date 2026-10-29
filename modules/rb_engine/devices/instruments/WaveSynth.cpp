@@ -13,7 +13,7 @@ enum Param
     subLevel, noiseLevel,
     filterType, cutoff, resonance, filterEnv, keyTrack, drive,
     ampAttack, ampDecay, ampSustain, ampRelease, modAttack, modDecay, modSustain, modRelease,
-    lfoShape, lfoRate, lfoAmount, lfoDest, lfoFade, lfoRetrig,
+    lfoShape, lfoRate, lfoSync, lfoDivision, lfoAmount, lfoDest, lfoFade, lfoRetrig,
     velToFilter, velToAmp, modEnvPos, modEnvPitch,
     voiceMode, glide, unison, unisonDetune, unisonSpread, transpose, volume,
     numParams
@@ -130,7 +130,7 @@ struct Voice : synth::VoiceCore
         const float lfoAmt = c.lfoAmount;
         const float modLevel = modEnv.getLevel();
 
-        float pitch = currentNote + modLevel * c.modEnvPitch;
+        float pitch = currentNote + c.bend + modLevel * c.modEnvPitch;
         if (c.lfoDest == destPitch)
             pitch += lfoRaw * lfoAmt * lfoAmt * 12.0f;
 
@@ -165,6 +165,7 @@ struct Voice : synth::VoiceCore
                            + c.velToFilter * (velocity - 1.0f) * 30.0f;
         if (c.lfoDest == destFilter)
             cutoffNote += lfoRaw * lfoAmt * 48.0f;
+        cutoffNote += c.pressureFor (note) * 24.0f; // pressure opens the filter by up to two octaves
         const float cutoffHz = synth::noteToHz (cutoffNote);
         filterL.set (c.filterType, cutoffHz, c.resonance);
         filterR.set (c.filterType, cutoffHz, c.resonance);
@@ -289,6 +290,8 @@ DeviceSpec WaveSynth::createSpec()
     // LFO
     p.push_back (P::choice ("lfoShape", "LFO Shape", synth::lfoShapeNames(), 0, "LFO"));
     p.push_back (P::continuous ("lfoRate", "LFO Rate", 0.05f, 30.0f, 1.0f, ParamUnit::hertz, 3.0f, "LFO"));
+    p.push_back (P::toggle ("lfoSync", "LFO Sync", false, "LFO"));
+    p.push_back (P::choice ("lfoDivision", "LFO Division", synth::lfoDivisionNames(), 5, "LFO"));
     p.push_back (P::continuous ("lfoAmount", "LFO Amount", 0.0f, 1.0f, 0.0f, ParamUnit::percent, 0.0f, "LFO"));
     p.push_back (P::choice ("lfoDest", "LFO Target", { "Position", "Position 1", "Position 2", "Pitch", "Filter", "Amp" },
                             wave::destPosition, "LFO"));
@@ -411,7 +414,10 @@ struct WaveSynth::Impl
         c.lfoShape = params.getChoice (lfoShape);
         c.lfoDest = params.getChoice (lfoDest);
         c.lfoAmount = params[lfoAmount];
-        c.lfoIncrement = params[lfoRate] / sr;
+        c.lfoIncrement = params.getChoice (lfoSync) != 0
+                             ? (float) (c.tempo / 60.0 / synth::lfoDivisionBeats (params.getChoice (lfoDivision))) / sr
+                             : params[lfoRate] / sr;
+        c.advanceBend (len, sr);
         const float fade = params[lfoFade];
         c.lfoFadeIncrement = fade > 0.001f ? 1.0f / (fade * sr) : 1.0f;
         c.lfoRetrigger = params.getChoice (lfoRetrig) != 0;
@@ -477,7 +483,10 @@ struct WaveSynth::Impl
             {
                 const int pitch = juce::jlimit (0, 127, e.pitch);
                 if (e.isNoteOn())
+                {
+                    ctl.notePressure[(size_t) pitch] = 0.0f; // a new note starts without poly pressure
                     voices.noteOn (pitch, juce::jlimit (0.0f, 1.0f, e.velocity));
+                }
                 else
                     voices.noteOff (pitch);
             },
@@ -492,6 +501,17 @@ void WaveSynth::prepare (double sampleRate, int) { impl->prepare (sampleRate); }
 void WaveSynth::reset() { impl->reset(); }
 void WaveSynth::setParameters (const float* values, int numValues) { impl->params.setTargets (values, numValues); }
 void WaveSynth::allNotesOff() { impl->voices.killAll(); }
+void WaveSynth::setPitchBend (float semitones) { impl->ctl.bendTarget = semitones; }
+void WaveSynth::setTempo (double bpm) { impl->ctl.tempo = bpm; }
+
+void WaveSynth::setPressure (int note, float pressure)
+{
+    pressure = juce::jlimit (0.0f, 1.0f, pressure);
+    if (note < 0)
+        impl->ctl.channelPressure = pressure;
+    else if (note < 128)
+        impl->ctl.notePressure[(size_t) note] = pressure;
+}
 
 void WaveSynth::process (juce::AudioBuffer<float>& dry, juce::AudioBuffer<float>&, const NoteEvent* events,
                          int numEvents, int numSamples)

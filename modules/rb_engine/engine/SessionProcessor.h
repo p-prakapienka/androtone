@@ -14,6 +14,7 @@ namespace rb
 class SessionProcessor
 {
 public:
+    static constexpr float pitchBendRange = 2.0f; // semitones at full wheel deflection
     static constexpr int noQueue = -2;   // TrackState::queuedSlot: nothing queued
     static constexpr int queuedStop = -1; // TrackState::queuedSlot: stop at next downbeat
 
@@ -116,6 +117,12 @@ private:
 
         std::array<NoteEvent, 1024> events;
         int numEvents = 0;
+
+        // MIDI expression for the instrument (MIDI-2).
+        float bend = 0.0f;
+        struct PressureChange { int note; float value; };
+        std::array<PressureChange, 64> pressureChanges {};
+        int numPressureChanges = 0;
 
         juce::LinearSmoothedValue<float> gain;
         float levelHold = 0.0f;

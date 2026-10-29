@@ -243,6 +243,9 @@ public:
                     case 6: // live notes on the track
                         for (int n = 0; n < 4; ++n)
                             e.post (Command::Type::noteOn, id, 0, 40 + random.nextInt (40), random.nextFloat());
+                        e.post (Command::Type::pitchBend, id, 0, 0, random.nextFloat() * 2.0f - 1.0f);
+                        e.post (Command::Type::pressure, id, 0, 40 + random.nextInt (40), random.nextFloat());
+                        e.post (Command::Type::pressure, id, 0, -1, random.nextFloat());
                         e.post (Command::Type::allLiveNotesOff, id);
                         break;
                     case 7: // structural changes

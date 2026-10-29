@@ -135,6 +135,16 @@ void Studio::allNotesOff (int trackId)
     post (Command::Type::allLiveNotesOff, trackId);
 }
 
+void Studio::pitchBend (int trackId, float value)
+{
+    post (Command::Type::pitchBend, trackId, 0, 0, juce::jlimit (-1.0f, 1.0f, value));
+}
+
+void Studio::pressure (int trackId, int note, float value)
+{
+    post (Command::Type::pressure, trackId, 0, note, juce::jlimit (0.0f, 1.0f, value));
+}
+
 bool Studio::isNoteSounding (int trackId, int pitch) const
 {
     auto* state = engine.getSession().findTrackState (trackId);

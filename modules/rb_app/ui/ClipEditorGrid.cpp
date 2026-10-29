@@ -278,6 +278,7 @@ void ClipEditorGrid::paint (juce::Graphics& g)
         g.reduceClipRegion (gridArea);
         paintRows (g, *tr, *c);
         paintNotes (g, *tr, *c);
+        paintAutomation (g, *tr, *c);
     }
 
     paintRuler (g, *tr, *c);
@@ -290,6 +291,76 @@ void ClipEditorGrid::paint (juce::Graphics& g)
         g.setColour (t.text);
         g.fillRect (x - 0.75f, (float) rulerArea.getY(), 1.5f, (float) (gridArea.getBottom() - rulerArea.getY()));
     }
+}
+
+// Automation lanes over the grid (DEV-30/31): each parameter's range spans the grid height;
+// committed lanes are solid, a pending recording on the playing clip is dashed.
+void ClipEditorGrid::paintAutomation (juce::Graphics& g, const Track& tr, const Clip& c)
+{
+    const auto& t = Theme::get();
+    auto& studio = owner.getStudio();
+    const auto area = gridArea.toFloat().reduced (0.0f, 4.0f);
+    const auto colour = Theme::trackColour (tr.colour).brighter (0.5f);
+
+    auto draw = [&] (const ParamTarget& target, const std::vector<AutomationPoint>& points, bool pending)
+    {
+        auto* spec = specForTarget (tr, target);
+        if (spec == nullptr || points.empty() || target.paramIndex < 0 || target.paramIndex >= (int) spec->params.size())
+            return;
+
+        const auto& param = spec->params[(size_t) target.paramIndex];
+        auto yOf = [&] (float value) { return area.getBottom() - param.toNormalised (value) * area.getHeight(); };
+
+        juce::Path path;
+        if (pending)
+        {
+            bool started = false;
+            for (auto& p : points)
+            {
+                if (! started) path.startNewSubPath (beatToX (p.beat), yOf (p.value));
+                else           path.lineTo (beatToX (p.beat), yOf (p.value));
+                started = true;
+            }
+        }
+        else
+        {
+            AutomationLane lane { target, points };
+            path.startNewSubPath (beatToX (c.loopStart), yOf (lane.valueAt (c.loopStart)));
+            for (auto& p : points)
+                if (p.beat > c.loopStart && p.beat < c.loopEnd())
+                    path.lineTo (beatToX (p.beat), yOf (p.value));
+            path.lineTo (beatToX (c.loopEnd()), yOf (lane.valueAt (c.loopEnd())));
+        }
+
+        if (pending)
+        {
+            juce::Path dashed;
+            const float dashes[] = { 3.0f, 4.0f };
+            juce::PathStrokeType (2.0f).createDashedStroke (dashed, path, dashes, 2);
+            g.setColour (t.text.withAlpha (0.8f));
+            g.fillPath (dashed);
+        }
+        else
+        {
+            g.setColour (colour.withAlpha (0.75f));
+            g.strokePath (path, juce::PathStrokeType (2.0f));
+        }
+
+        // Name the lane at the start of the loop.
+        const float labelY = juce::jlimit (area.getY(), area.getBottom() - 16.0f,
+                                           yOf (pending ? points.front().value : AutomationLane { target, points }.valueAt (c.loopStart)) - 16.0f);
+        g.setFont (Theme::font (11.0f, true));
+        g.setColour (pending ? t.text.withAlpha (0.8f) : colour);
+        g.drawText (param.name, juce::Rectangle<float> (beatToX (c.loopStart) + 4.0f, labelY, 140.0f, 14.0f),
+                    juce::Justification::centredLeft);
+    };
+
+    for (auto& lane : c.automation)
+        draw (lane.target, lane.points, false);
+
+    if (studio.getPlayingSlot (owner.getTrackId()) == owner.getSlot())
+        for (auto& lane : studio.getPendingAutomation (owner.getTrackId()))
+            draw (lane.target, lane.points, true);
 }
 
 void ClipEditorGrid::paintRows (juce::Graphics& g, const Track& tr, const Clip& c)
