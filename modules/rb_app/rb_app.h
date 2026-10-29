@@ -36,6 +36,7 @@
 #include "ui/ClipEditor.h"
 #include "ui/BrowserSheet.h"
 #include "ui/SettingsSheets.h"
+#include "ui/MidiSettingsSheet.h"
 #include "ui/DevicePanel.h"
 #include "ui/InstrumentView.h"
 #include "ui/SessionView.h"

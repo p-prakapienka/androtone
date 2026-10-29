@@ -77,13 +77,12 @@ bool SampleLibrary::writeWav (const SampleData& sample, const juce::File& file, 
         return false;
 
     juce::WavAudioFormat wav;
-    std::unique_ptr<juce::AudioFormatWriter> writer (
-        wav.createWriterFor (stream.get(), sample.sampleRate, (unsigned int) sample.buffer.getNumChannels(),
-                             bitDepth, {}, 0));
+    auto writer = wav.createWriterFor (stream, juce::AudioFormatWriterOptions().withSampleRate (sample.sampleRate)
+                                                   .withNumChannels (sample.buffer.getNumChannels())
+                                                   .withBitsPerSample (bitDepth));
     if (writer == nullptr)
         return false;
 
-    stream.release(); // the writer owns it now
     return writer->writeFromAudioSampleBuffer (sample.buffer, 0, sample.buffer.getNumSamples());
 }
 

@@ -91,4 +91,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: riffbook-debug-apk
-          path: Builds/Android/app/build/outputs/apk/debug/*.apk
+          path: Builds/Android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error

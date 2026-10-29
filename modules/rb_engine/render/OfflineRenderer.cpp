@@ -131,16 +131,15 @@ bool OfflineRenderer::write (const juce::AudioBuffer<float>& buffer, double samp
         case Format::flac:  audioFormat = std::make_unique<juce::FlacAudioFormat>(); bits = 16; break;
     }
 
-    auto stream = file.createOutputStream();
+    std::unique_ptr<juce::OutputStream> stream (file.createOutputStream().release());
     if (stream == nullptr)
         return false;
 
-    std::unique_ptr<juce::AudioFormatWriter> writer (
-        audioFormat->createWriterFor (stream.get(), sampleRate, 2, bits, {}, 0));
+    auto writer = audioFormat->createWriterFor (stream, juce::AudioFormatWriterOptions().withSampleRate (sampleRate)
+                                                            .withNumChannels (2).withBitsPerSample (bits));
     if (writer == nullptr)
         return false;
 
-    stream.release();
     return writer->writeFromAudioSampleBuffer (buffer, 0, buffer.getNumSamples());
 }
 

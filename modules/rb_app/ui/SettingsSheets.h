@@ -55,14 +55,6 @@ private:
     juce::Label versionLabel;
 };
 
-// MIDI devices and mappings (MIDI-1, MIDI-3).
-// STUB until MIDI input lands.
-class MidiSettingsSheet : public Sheet
-{
-public:
-    explicit MidiSettingsSheet (Studio&) : Sheet ("MIDI Input") {}
-};
-
 // Audio export (EXP-1..EXP-3).
 class ExportSheet : public Sheet,
                     private juce::Thread,
