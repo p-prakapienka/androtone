@@ -27,12 +27,16 @@ CPMAddPackage(
 # The engine: no GUI, no audio-device code. Compiled into both the app and the tests.
 set(NATRON_CORE_SOURCES
     source/core/Engine.cpp
+    source/core/MachineRegistry.cpp
     source/core/PatternPlayer.cpp
+    source/core/Session.cpp
+    source/core/SongFile.cpp
     source/core/machines/TestToneMachine.cpp)
 
 set(NATRON_CORE_MODULES
     juce::juce_audio_basics
     juce::juce_audio_formats
+    juce::juce_data_structures
     juce::juce_dsp)
 
 set(NATRON_COMMON_DEFINITIONS
@@ -51,7 +55,8 @@ target_sources(Natron
     PRIVATE
         ${NATRON_CORE_SOURCES}
         source/app/Main.cpp
-        source/app/MainComponent.cpp)
+        source/app/MainComponent.cpp
+        source/app/RackView.cpp)
 
 target_include_directories(Natron PRIVATE source)
 
@@ -71,7 +76,7 @@ target_link_libraries(Natron
         juce::juce_recommended_warning_flags)
 
 # ---------------------------------------------------------------------------
-# Tests: headless Catch2 runner over the engine only (no GUI modules, so no X11/ALSA needed).
+# Tests: headless Catch2 runner over the engine only (no GUI modules linked).
 #   cmake --build <build-dir> --target NatronTests
 #   ctest --test-dir <build-dir> --output-on-failure
 # ---------------------------------------------------------------------------
@@ -85,9 +90,14 @@ if(NATRON_BUILD_TESTS)
     target_sources(NatronTests
         PRIVATE
             ${NATRON_CORE_SOURCES}
+            tests/AllocationCounter.cpp
             tests/TransportTests.cpp
             tests/PatternPlayerTests.cpp
-            tests/EngineTests.cpp)
+            tests/ParameterTests.cpp
+            tests/PatternBankTests.cpp
+            tests/EngineTests.cpp
+            tests/SessionTests.cpp
+            tests/SongFileTests.cpp)
 
     target_include_directories(NatronTests PRIVATE source tests)
     target_compile_definitions(NatronTests PRIVATE ${NATRON_COMMON_DEFINITIONS})

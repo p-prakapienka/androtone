@@ -16,8 +16,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Ninja
-        run: sudo apt-get update && sudo apt-get install -y ninja-build
+      # JUCE builds its juceaide helper at configure time, which needs the X11/font headers even
+      # though the tests themselves use no GUI code.
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libasound2-dev libx11-dev libxrandr-dev \
+            libxinerama-dev libxcursor-dev libxext-dev libfreetype-dev libfontconfig1-dev libgl-dev
 
       - name: Configure
         run: cmake -S natron -B natron/build -G Ninja -DCMAKE_BUILD_TYPE=Debug

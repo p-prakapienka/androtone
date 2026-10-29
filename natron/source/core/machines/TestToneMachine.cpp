@@ -10,6 +10,9 @@ namespace {
 
     class TestToneVoice : public juce::SynthesiserVoice {
     public:
+        explicit TestToneVoice(const ParameterSet& parametersToUse) :
+            parameters(parametersToUse) {}
+
         bool canPlaySound(juce::SynthesiserSound* sound) override {
             return dynamic_cast<TestToneSound*>(sound) != nullptr;
         }
@@ -18,9 +21,11 @@ namespace {
             phase = 0.0;
             phaseDelta = juce::MathConstants<double>::twoPi * juce::MidiMessage::getMidiNoteInHertz(midiNote)
                          / getSampleRate();
-            level = 0.2f * velocity;
+            // Parameters are sampled per note; smoothing within a note isn't needed for a test tone.
+            level = parameters.get(TestToneMachine::level) * velocity;
             envelope.setSampleRate(getSampleRate());
-            envelope.setParameters({ 0.005f, 0.1f, 0.7f, 0.15f });
+            envelope.setParameters({ parameters.get(TestToneMachine::attack), 0.1f, 0.7f,
+                                     parameters.get(TestToneMachine::release) });
             envelope.noteOn();
         }
 
@@ -57,6 +62,7 @@ namespace {
         }
 
     private:
+        const ParameterSet& parameters;
         juce::ADSR envelope;
         double phase = 0.0;
         double phaseDelta = 0.0;
@@ -65,8 +71,13 @@ namespace {
 }
 
 TestToneMachine::TestToneMachine() {
+    parameters.add({ "level", "Level", 0.0f, 1.0f, 0.2f });
+    parameters.add({ "attack", "Attack", 0.001f, 2.0f, 0.005f });
+    parameters.add({ "release", "Release", 0.001f, 4.0f, 0.15f });
+    jassert(parameters.size() == numParameters);
+
     for (int i = 0; i < 8; i++) {
-        synth.addVoice(new TestToneVoice());
+        synth.addVoice(new TestToneVoice(parameters));
     }
     synth.addSound(new TestToneSound());
 }

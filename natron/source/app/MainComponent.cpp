@@ -3,33 +3,37 @@
 #include "core/DemoSong.h"
 
 MainComponent::MainComponent() {
-    loadDemoSong(engine);
+    const auto loaded = session.loadSong(makeDemoSong());
+    jassert(loaded.wasOk());
+    juce::ignoreUnused(loaded);
 
     title.setText("Natron", juce::dontSendNotification);
-    title.setFont(juce::FontOptions(32.0f, juce::Font::bold));
-    title.setJustificationType(juce::Justification::centred);
+    title.setFont(juce::FontOptions(26.0f, juce::Font::bold));
     addAndMakeVisible(title);
 
     playButton.setClickingTogglesState(true);
-    playButton.onClick = [this] {
-        engine.setPlaying(playButton.getToggleState());
-        playButton.setButtonText(playButton.getToggleState() ? "Stop" : "Play");
-    };
+    playButton.onClick = [this] { session.setPlaying(playButton.getToggleState()); };
     addAndMakeVisible(playButton);
 
+    saveButton.onClick = [this] { saveSong(); };
+    addAndMakeVisible(saveButton);
+    loadButton.onClick = [this] { loadSong(); };
+    addAndMakeVisible(loadButton);
+
     tempoSlider.setRange(40.0, 240.0, 1.0);
-    tempoSlider.setValue(engine.getTempo(), juce::dontSendNotification);
-    tempoSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 60, 32);
-    tempoSlider.onValueChange = [this] { engine.setTempo(tempoSlider.getValue()); };
+    tempoSlider.setTextValueSuffix(" BPM");
+    tempoSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 90, 32);
+    tempoSlider.onValueChange = [this] { session.setTempo(tempoSlider.getValue()); };
     addAndMakeVisible(tempoSlider);
 
-    tempoLabel.setText("BPM", juce::dontSendNotification);
-    tempoLabel.attachToComponent(&tempoSlider, true);
-
     positionLabel.setJustificationType(juce::Justification::centred);
+    positionLabel.setFont(juce::FontOptions(20.0f));
     addAndMakeVisible(positionLabel);
 
-    setSize(800, 480);
+    addAndMakeVisible(rack);
+    refreshFromSong();
+
+    setSize(1000, 480);
     setAudioChannels(0, 2);
     startTimerHz(30);
 }
@@ -56,19 +60,91 @@ void MainComponent::paint(juce::Graphics& g) {
 }
 
 void MainComponent::resized() {
-    auto area = getLocalBounds().reduced(24);
-    title.setBounds(area.removeFromTop(60));
+    auto area = getLocalBounds().reduced(16);
+    auto bar = area.removeFromTop(48);
+    title.setBounds(bar.removeFromLeft(130));
+    playButton.setBounds(bar.removeFromLeft(100).reduced(4, 0));
+    positionLabel.setBounds(bar.removeFromLeft(80));
+    loadButton.setBounds(bar.removeFromRight(90).reduced(4, 0));
+    saveButton.setBounds(bar.removeFromRight(90).reduced(4, 0));
+    tempoSlider.setBounds(bar.reduced(8, 0));
     area.removeFromTop(16);
-    playButton.setBounds(area.removeFromTop(64).withSizeKeepingCentre(200, 64));
-    area.removeFromTop(16);
-    tempoSlider.setBounds(area.removeFromTop(48).withTrimmedLeft(60));
-    area.removeFromTop(16);
-    positionLabel.setBounds(area.removeFromTop(32));
+    rack.setBounds(area.removeFromTop(juce::jmin(area.getHeight(), rack.getIdealHeight())));
+}
+
+void MainComponent::refreshFromSong() {
+    tempoSlider.setValue(session.getSong().tempo, juce::dontSendNotification);
+    playButton.setToggleState(session.isPlaying(), juce::dontSendNotification);
+    playButton.setButtonText(session.isPlaying() ? "Stop" : "Play");
+    resized();
+    rack.repaint();
 }
 
 void MainComponent::timerCallback() {
-    const double beat = engine.getPlayheadBeat();
+    session.collectGarbage();
+
+    playButton.setButtonText(session.isPlaying() ? "Stop" : "Play");
+    const double beat = session.isPlaying() ? engine.getPlayheadBeat() : 0.0;
     const int bar = static_cast<int>(beat / Transport::beatsPerBar) + 1;
     const int beatInBar = static_cast<int>(std::fmod(beat, Transport::beatsPerBar)) + 1;
     positionLabel.setText(juce::String(bar) + "." + juce::String(beatInBar), juce::dontSendNotification);
+    rack.repaint();
+}
+
+void MainComponent::saveSong() {
+    chooser = std::make_unique<juce::FileChooser>(
+        "Save song", juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("song.natron"),
+        "*.natron");
+    const auto chooserFlags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+                       | juce::FileBrowserComponent::warnAboutOverwriting;
+
+    chooser->launchAsync(chooserFlags, [this](const juce::FileChooser& fileChooser) {
+        const auto url = fileChooser.getURLResult();
+        if (url.isEmpty()) {
+            return;
+        }
+
+        std::unique_ptr<juce::OutputStream> stream;
+        if (url.isLocalFile()) {
+            auto file = std::make_unique<juce::FileOutputStream>(url.getLocalFile());
+            if (file->openedOk()) {
+                file->setPosition(0); // FileOutputStream appends by default
+                file->truncate();
+                stream = std::move(file);
+            }
+        } else {
+            stream = url.createOutputStream(); // Android content:// URIs
+        }
+
+        const auto result = stream != nullptr ? session.saveToStream(*stream)
+                                              : juce::Result::fail("Could not open the file for writing");
+        if (result.failed()) {
+            showError(result.getErrorMessage());
+        }
+    });
+}
+
+void MainComponent::loadSong() {
+    chooser = std::make_unique<juce::FileChooser>(
+        "Load song", juce::File::getSpecialLocation(juce::File::userDocumentsDirectory), "*.natron");
+    const auto chooserFlags = juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles;
+
+    chooser->launchAsync(chooserFlags, [this](const juce::FileChooser& fileChooser) {
+        const auto url = fileChooser.getURLResult();
+        if (url.isEmpty()) {
+            return;
+        }
+
+        const auto stream = url.createInputStream(juce::URL::InputStreamOptions(juce::URL::ParameterHandling::inAddress));
+        const auto result = stream != nullptr ? session.loadFromStream(*stream)
+                                              : juce::Result::fail("Could not open the file");
+        if (result.failed()) {
+            showError(result.getErrorMessage());
+        }
+        refreshFromSong();
+    });
+}
+
+void MainComponent::showError(const juce::String& message) {
+    juce::AlertWindow::showMessageBoxAsync(juce::MessageBoxIconType::WarningIcon, "Natron", message);
 }

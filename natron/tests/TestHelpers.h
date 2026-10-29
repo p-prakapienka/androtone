@@ -5,6 +5,7 @@
 // would from the UI thread.
 
 #include "core/Engine.h"
+#include "core/Session.h"
 #include "core/PatternPlayer.h"
 #include "core/Transport.h"
 
@@ -44,7 +45,8 @@ public:
         while (numSamples > 0) {
             const int thisBlock = static_cast<int>(juce::jmin<int64_t>(blockSize, numSamples));
             midi.clear();
-            player.process(pattern, transport, transport.getPosition(), thisBlock, midi);
+            const int64_t from = transport.getPosition();
+            player.process(pattern, 0.0, transport, from, from + thisBlock, from, midi);
             record(midi);
             transport.advance(thisBlock);
             numSamples -= thisBlock;
@@ -114,6 +116,20 @@ private:
     Engine& engine;
     double sampleRate;
     int blockSize;
+};
+
+// An engine, a session driving it, and an offline renderer — the whole app minus the UI.
+struct Rig {
+    explicit Rig(double sampleRate = 48000.0, int blockSize = 512) :
+        renderer(engine, sampleRate, blockSize) {}
+
+    Engine engine;
+    Session session { engine };
+    EngineRenderer renderer; // declared last: its constructor prepares the engine
+
+    juce::AudioBuffer<float> render(int64_t numSamples, int hostBlockSize = -1) {
+        return renderer.render(numSamples, hostBlockSize);
+    }
 };
 
 struct AudioStats {

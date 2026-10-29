@@ -14,26 +14,28 @@ PatternPlayer::PatternPlayer() {
     noteOns.reserve(256);
 }
 
-void PatternPlayer::process(const Pattern& pattern, const Transport& transport, int64_t blockStart, int numSamples,
-                            juce::MidiBuffer& midi, int channel) {
-    const int64_t blockEnd = blockStart + numSamples;
+void PatternPlayer::process(const Pattern& pattern, double originBeat, const Transport& transport,
+                            int64_t fromSample, int64_t toSample, int64_t blockStart, juce::MidiBuffer& midi,
+                            int channel) {
     const double loopLength = pattern.lengthInBeats();
     noteOns.clear();
 
-    // Note-ons: every loop repetition that overlaps this block, with one repetition of margin on
-    // either side so rounding at the block edges can't drop a note.
-    if (loopLength > 0.0 && !pattern.notes.empty()) {
-        const auto firstLoop = static_cast<int64_t>(std::floor(transport.beatAt(blockStart) / loopLength)) - 1;
-        const auto lastLoop = static_cast<int64_t>(std::floor(transport.beatAt(blockEnd) / loopLength)) + 1;
+    // Note-ons: every loop repetition that overlaps the range, with one repetition of margin on
+    // either side so rounding at the range edges can't drop a note.
+    if (loopLength > 0.0 && !pattern.notes.empty() && toSample > fromSample) {
+        const auto firstLoop =
+            static_cast<int64_t>(std::floor((transport.beatAt(fromSample) - originBeat) / loopLength)) - 1;
+        const auto lastLoop =
+            static_cast<int64_t>(std::floor((transport.beatAt(toSample) - originBeat) / loopLength)) + 1;
 
         for (int64_t loop = juce::jmax<int64_t>(0, firstLoop); loop <= lastLoop; loop++) {
             for (const auto& note : pattern.notes) {
                 if (note.start < 0.0 || note.start >= loopLength) {
                     continue;
                 }
-                const double startBeat = static_cast<double>(loop) * loopLength + note.start;
+                const double startBeat = originBeat + static_cast<double>(loop) * loopLength + note.start;
                 const int64_t sample = transport.sampleAt(startBeat);
-                if (sample >= blockStart && sample < blockEnd) {
+                if (sample >= fromSample && sample < toSample) {
                     noteOns.push_back({ sample, note.pitch, note.velocity,
                                         startBeat + juce::jmax(minimumNoteLength, note.length) });
                 }
@@ -41,13 +43,15 @@ void PatternPlayer::process(const Pattern& pattern, const Transport& transport, 
         }
     }
 
-    std::stable_sort(noteOns.begin(), noteOns.end(),
-                     [](const NoteOn& a, const NoteOn& b) { return a.sample < b.sample; });
+    // std::sort, not stable_sort: stable_sort may allocate a temporary buffer.
+    std::sort(noteOns.begin(), noteOns.end(), [](const NoteOn& a, const NoteOn& b) {
+        return a.sample != b.sample ? a.sample < b.sample : a.pitch < b.pitch;
+    });
 
     // MidiBuffer keeps insertion order for events on the same sample, so emitting in time order
     // with offs first gives off-before-on everywhere.
     for (const auto& on : noteOns) {
-        releaseEndingBefore(on.sample, true, transport, blockStart, midi, channel);
+        releaseEndingBefore(on.sample, true, transport, fromSample, blockStart, midi, channel);
 
         // Retriggering a pitch that is still sounding cuts the old note.
         for (auto it = sounding.begin(); it != sounding.end();) {
@@ -64,18 +68,19 @@ void PatternPlayer::process(const Pattern& pattern, const Transport& transport, 
         sounding.push_back({ on.pitch, on.sample, on.endBeat });
     }
 
-    releaseEndingBefore(blockEnd, false, transport, blockStart, midi, channel);
+    releaseEndingBefore(toSample, false, transport, fromSample, blockStart, midi, channel);
 }
 
 void PatternPlayer::releaseEndingBefore(int64_t limit, bool inclusive, const Transport& transport,
-                                        int64_t blockStart, juce::MidiBuffer& midi, int channel) {
+                                        int64_t rangeStart, int64_t blockStart, juce::MidiBuffer& midi,
+                                        int channel) {
     for (;;) {
         // Release the earliest-ending note first so offs stay in time order.
         auto earliest = sounding.end();
         int64_t earliestEnd = 0;
 
         for (auto it = sounding.begin(); it != sounding.end(); ++it) {
-            const int64_t end = juce::jmax(transport.sampleAt(it->endBeat), it->startSample + 1, blockStart);
+            const int64_t end = juce::jmax(transport.sampleAt(it->endBeat), it->startSample + 1, rangeStart);
             if (earliest == sounding.end() || end < earliestEnd) {
                 earliest = it;
                 earliestEnd = end;

@@ -13,6 +13,14 @@
       <FILE id="LyCoMa" name="Machine.h" compile="0" resource="0" file="source/core/Machine.h"/>
       <FILE id="LyCoEh" name="Engine.h" compile="0" resource="0" file="source/core/Engine.h"/>
       <FILE id="LyCoEc" name="Engine.cpp" compile="1" resource="0" file="source/core/Engine.cpp"/>
+      <FILE id="NtCoPa" name="Parameter.h" compile="0" resource="0" file="source/core/Parameter.h"/>
+      <FILE id="NtCoRh" name="MachineRegistry.h" compile="0" resource="0" file="source/core/MachineRegistry.h"/>
+      <FILE id="NtCoRc" name="MachineRegistry.cpp" compile="1" resource="0" file="source/core/MachineRegistry.cpp"/>
+      <FILE id="NtCoSo" name="Song.h" compile="0" resource="0" file="source/core/Song.h"/>
+      <FILE id="NtCoFh" name="SongFile.h" compile="0" resource="0" file="source/core/SongFile.h"/>
+      <FILE id="NtCoFc" name="SongFile.cpp" compile="1" resource="0" file="source/core/SongFile.cpp"/>
+      <FILE id="NtCoSh" name="Session.h" compile="0" resource="0" file="source/core/Session.h"/>
+      <FILE id="NtCoSc" name="Session.cpp" compile="1" resource="0" file="source/core/Session.cpp"/>
       <FILE id="LyCoDs" name="DemoSong.h" compile="0" resource="0" file="source/core/DemoSong.h"/>
       <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F02}" name="machines">
         <FILE id="LyMaTh" name="TestToneMachine.h" compile="0" resource="0" file="source/core/machines/TestToneMachine.h"/>
@@ -23,6 +31,8 @@
       <FILE id="LyApMn" name="Main.cpp" compile="1" resource="0" file="source/app/Main.cpp"/>
       <FILE id="LyApCh" name="MainComponent.h" compile="0" resource="0" file="source/app/MainComponent.h"/>
       <FILE id="LyApCc" name="MainComponent.cpp" compile="1" resource="0" file="source/app/MainComponent.cpp"/>
+      <FILE id="NtApRh" name="RackView.h" compile="0" resource="0" file="source/app/RackView.h"/>
+      <FILE id="NtApRc" name="RackView.cpp" compile="1" resource="0" file="source/app/RackView.cpp"/>
     </GROUP>
   </MAINGROUP>
   <MODULES>

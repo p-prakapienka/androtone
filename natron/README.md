@@ -5,7 +5,7 @@ _Natron is a natural soda-ash mineral — a nod to Caustic without borrowing its
 A clean-room recreation of Caustic 3 — a rack-based synth and sequencer — for Android, built with
 JUCE. Natron is separate from Androtone, the other project in this repository.
 
-Status: Phase 0 (engine skeleton, test harness, Android export). See `docs/roadmap.md`.
+Status: Phase 1 done (live editing, parameters, pattern banks, song files). See `docs/roadmap.md`.
 
 ## Build (desktop)
 
@@ -17,8 +17,9 @@ cmake -S natron -B natron/build
 cmake --build natron/build --target Natron
 ```
 
-On Linux the app needs `libasound2-dev libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev
-libxext-dev libfreetype-dev libfontconfig1-dev libgl-dev`. The tests need none of these.
+On Linux, configuring needs `libasound2-dev libx11-dev libxrandr-dev libxinerama-dev
+libxcursor-dev libxext-dev libfreetype-dev libfontconfig1-dev libgl-dev` (JUCE builds its juceaide
+helper at configure time), even if you only build the tests.
 
 ## Tests
 

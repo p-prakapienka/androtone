@@ -1,30 +1,39 @@
-// Engine-level render tests: transport, rack, and mixer together, rendered offline.
+// Engine-level render tests: transport, rack, and mixer together, driven through a Session.
 
+#include "AllocationCounter.h"
 #include "TestHelpers.h"
+#include "TestMachines.h"
 #include "core/DemoSong.h"
-#include "core/machines/TestToneMachine.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
 
+namespace {
+    float maxDifference(const juce::AudioBuffer<float>& a, const juce::AudioBuffer<float>& b) {
+        float difference = 0.0f;
+        for (int ch = 0; ch < a.getNumChannels(); ch++) {
+            for (int i = 0; i < a.getNumSamples(); i++) {
+                difference = std::max(difference, std::abs(a.getSample(ch, i) - b.getSample(ch, i)));
+            }
+        }
+        return difference;
+    }
+}
+
 TEST_CASE("Engine is silent while stopped", "[engine]") {
-    Engine engine;
-    loadDemoSong(engine);
-    EngineRenderer r(engine);
+    Rig rig;
+    REQUIRE(rig.session.loadSong(makeDemoSong()).wasOk());
 
-    const auto audio = r.render(r.seconds(2.0));
-
-    CHECK(analyse(audio).peak <= 0.0f); // exactly silent
+    CHECK(analyse(rig.render(rig.renderer.seconds(2.0))).peak <= 0.0f); // exactly silent
 }
 
 TEST_CASE("Demo song renders finite, audible audio", "[engine]") {
-    Engine engine;
-    loadDemoSong(engine);
-    EngineRenderer r(engine);
+    Rig rig;
+    REQUIRE(rig.session.loadSong(makeDemoSong()).wasOk());
 
-    engine.setPlaying(true);
-    const auto stats = analyse(r.render(r.seconds(5.0)));
+    rig.session.setPlaying(true);
+    const auto stats = analyse(rig.render(rig.renderer.seconds(5.0)));
 
     CHECK(stats.allFinite);
     CHECK(stats.rms > 1.0e-3);
@@ -35,99 +44,126 @@ TEST_CASE("Audio does not depend on the host block size", "[engine]") {
     const int hostBlock = GENERATE(17, 256, 2048); // 2048 exceeds the prepared size: chunked
     CAPTURE(hostBlock);
 
-    Engine reference;
-    loadDemoSong(reference);
-    EngineRenderer referenceRenderer(reference, 48000.0, 512);
-    reference.setPlaying(true);
-    const auto expected = referenceRenderer.render(96000, 512);
+    Rig reference;
+    REQUIRE(reference.session.loadSong(makeDemoSong()).wasOk());
+    reference.session.setPlaying(true);
+    const auto expected = reference.render(96000, 512);
 
-    Engine engine;
-    loadDemoSong(engine);
-    EngineRenderer r(engine, 48000.0, 512);
-    engine.setPlaying(true);
-    const auto actual = r.render(96000, hostBlock);
+    Rig rig;
+    REQUIRE(rig.session.loadSong(makeDemoSong()).wasOk());
+    rig.session.setPlaying(true);
+    const auto actual = rig.render(96000, hostBlock);
 
-    float maxDifference = 0.0f;
-    for (int ch = 0; ch < 2; ch++) {
-        for (int i = 0; i < expected.getNumSamples(); i++) {
-            maxDifference = std::max(maxDifference, std::abs(expected.getSample(ch, i) - actual.getSample(ch, i)));
-        }
-    }
-    CHECK(maxDifference < 1.0e-5f);
+    CHECK(maxDifference(expected, actual) < 1.0e-5f);
 }
 
 TEST_CASE("Stopping releases notes and the tail decays to silence", "[engine][transport]") {
-    Engine engine;
-    loadDemoSong(engine);
-    EngineRenderer r(engine);
+    Rig rig;
+    REQUIRE(rig.session.loadSong(makeDemoSong()).wasOk());
 
-    engine.setPlaying(true);
-    r.render(r.seconds(1.0));
-    engine.setPlaying(false);
-    const auto tail = r.render(r.seconds(1.0));
+    rig.session.setPlaying(true);
+    rig.render(rig.renderer.seconds(1.0));
+    rig.session.setPlaying(false);
+    const auto tail = rig.render(rig.renderer.seconds(1.0));
 
-    const int lastQuarter = static_cast<int>(r.seconds(0.25));
-    const auto end = analyse(tail, tail.getNumSamples() - lastQuarter, lastQuarter);
-    CHECK(end.peak <= 0.0f);
+    const int lastQuarter = static_cast<int>(rig.renderer.seconds(0.25));
+    CHECK(analyse(tail, tail.getNumSamples() - lastQuarter, lastQuarter).peak <= 0.0f);
     CHECK(analyse(tail).subnormals == 0);
 }
 
 TEST_CASE("Restarting plays from the top", "[engine][transport]") {
-    Engine engine;
-    loadDemoSong(engine);
-    EngineRenderer r(engine);
+    Rig rig;
+    REQUIRE(rig.session.loadSong(makeDemoSong()).wasOk());
 
-    engine.setPlaying(true);
-    const auto first = r.render(24000);
-    engine.setPlaying(false);
-    r.render(r.seconds(1.0));
-    engine.setPlaying(true);
-    const auto second = r.render(24000);
+    rig.session.setPlaying(true);
+    const auto first = rig.render(24000);
+    rig.session.setPlaying(false);
+    rig.render(rig.renderer.seconds(1.0));
+    rig.session.setPlaying(true);
+    const auto second = rig.render(24000);
 
-    float maxDifference = 0.0f;
-    for (int i = 0; i < first.getNumSamples(); i++) {
-        maxDifference = std::max(maxDifference, std::abs(first.getSample(0, i) - second.getSample(0, i)));
-    }
-    CHECK(maxDifference < 1.0e-5f);
-    CHECK_THAT(engine.getPlayheadBeat(), Catch::Matchers::WithinAbs(24000.0 / (48000.0 * 60.0 / engine.getTempo()), 1.0e-9));
+    CHECK(maxDifference(first, second) < 1.0e-5f);
+    CHECK_THAT(rig.engine.getPlayheadBeat(),
+               Catch::Matchers::WithinAbs(24000.0 / (48000.0 * 60.0 / rig.engine.getTempo()), 1.0e-9));
 }
 
 TEST_CASE("Rack holds at most 14 machines", "[engine][rack]") {
-    Engine engine;
+    Rig rig;
     for (int i = 0; i < Engine::maxMachines; i++) {
-        CHECK(engine.addMachine(std::make_unique<TestToneMachine>()) == i);
+        CHECK(rig.session.addMachine(TestToneMachine::typeName) == i);
     }
-    CHECK(engine.addMachine(std::make_unique<TestToneMachine>()) == -1);
-    CHECK(engine.getNumMachines() == Engine::maxMachines);
+    CHECK(rig.session.addMachine(TestToneMachine::typeName) == -1);
+
+    rig.render(512);
+    CHECK(rig.engine.getNumMachines() == Engine::maxMachines);
 }
 
 TEST_CASE("Machine and master volume scale the output", "[engine][mixer]") {
-    Engine engine;
-    const int m = engine.addMachine(std::make_unique<TestToneMachine>());
-    engine.getPattern(m).notes.push_back({ 0.0, 4.0, 69, 1.0f });
-    EngineRenderer r(engine);
+    Rig rig;
+    const int m = rig.session.addMachine(TestToneMachine::typeName);
+    Pattern pattern;
+    pattern.notes.push_back({ 0.0, 4.0, 69, 1.0f });
+    rig.session.setPattern(m, 0, pattern);
 
-    engine.setPlaying(true);
-    const auto full = analyse(r.render(24000));
+    rig.session.setPlaying(true);
+    const auto full = analyse(rig.render(24000));
 
-    engine.setPlaying(false);
-    r.render(r.seconds(1.0));
-    engine.setMachineVolume(m, 0.4f);
-    engine.setMasterVolume(0.4f);
-    engine.setPlaying(true);
-    const auto quieter = analyse(r.render(24000));
+    rig.session.setPlaying(false);
+    rig.render(rig.renderer.seconds(1.0));
+    rig.session.setMachineVolume(m, 0.4f * 0.8f);
+    rig.session.setMasterVolume(0.4f * 0.8f);
+    rig.session.setPlaying(true);
+    const auto quieter = analyse(rig.render(24000));
 
-    CHECK_THAT(quieter.rms / full.rms, Catch::Matchers::WithinRel(0.25, 0.01));
+    CHECK_THAT(quieter.rms / full.rms, Catch::Matchers::WithinRel(0.16, 0.01));
 }
 
 TEST_CASE("Muted machine volume produces silence", "[engine][mixer]") {
-    Engine engine;
-    loadDemoSong(engine);
-    for (int i = 0; i < engine.getNumMachines(); i++) {
-        engine.setMachineVolume(i, 0.0f);
+    Rig rig;
+    REQUIRE(rig.session.loadSong(makeDemoSong()).wasOk());
+    for (int i = 0; i < rig.session.getNumMachines(); i++) {
+        rig.session.setMachineVolume(i, 0.0f);
     }
-    EngineRenderer r(engine);
 
-    engine.setPlaying(true);
-    CHECK(analyse(r.render(r.seconds(1.0))).peak <= 0.0f);
+    rig.session.setPlaying(true);
+    CHECK(analyse(rig.render(rig.renderer.seconds(1.0))).peak <= 0.0f);
+}
+
+TEST_CASE("The audio callback never touches the heap, even while edits arrive", "[engine][realtime]") {
+    RecordingMachine::registerType();
+    Rig rig;
+    REQUIRE(rig.session.loadSong(makeDemoSong()).wasOk());
+    rig.session.addMachine(RecordingMachine::typeName);
+    rig.session.setPlaying(true);
+
+    juce::AudioBuffer<float> block(2, 512);
+    rig.engine.process(block); // first block applies the load
+
+    std::size_t touches = 0;
+    for (int i = 0; i < 400; i++) {
+        // A steady stream of edits of every kind, as a busy UI would produce.
+        Pattern pattern;
+        pattern.bars = (i % 2 == 0) ? 1 : 2;
+        pattern.notes.push_back({ (i % 16) * 0.25, 0.5, 40 + i % 40, 0.9f });
+        rig.session.setPattern(i % 3, i % 4, pattern);
+        if (i % 50 == 10) {
+            rig.session.selectPattern(i % 3, (i / 50) % 4);
+        }
+        if (i == 200) {
+            rig.session.removeMachine(2);
+        }
+        if (i == 250) {
+            rig.session.addMachine(TestToneMachine::typeName);
+        }
+        rig.session.setParameter(0, "level", 0.1f + 0.001f * static_cast<float>(i));
+        rig.session.setTempo(100.0 + i % 40);
+
+        AllocationCounter::start();
+        rig.engine.process(block);
+        touches += AllocationCounter::stop();
+
+        rig.session.collectGarbage();
+    }
+
+    CHECK(touches == 0);
 }

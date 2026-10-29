@@ -1,0 +1,107 @@
+#include "RackView.h"
+
+namespace {
+    const juce::Colour background { 0xff1d1f21 };
+    const juce::Colour rowColour { 0xff282a2e };
+    const juce::Colour emptyPad { 0xff373b41 };
+    const juce::Colour filledPad { 0xff5f6b7a };
+    const juce::Colour accent { 0xffde935f };
+    const juce::Colour text { 0xffc5c8c6 };
+}
+
+RackView::RackView(Session& sessionToUse, const Engine& engineToShow) :
+    session(sessionToUse), engine(engineToShow) {}
+
+int RackView::getIdealHeight() const {
+    return juce::jmax(1, session.getNumMachines()) * (rowHeight + gap);
+}
+
+juce::Rectangle<int> RackView::rowBounds(int machine) const {
+    return { 0, machine * (rowHeight + gap), getWidth(), rowHeight };
+}
+
+juce::Rectangle<int> RackView::bankBounds(int machine, int bank) const {
+    return rowBounds(machine).withTrimmedLeft(nameWidth + bank * (bankWidth + gap)).withWidth(bankWidth).reduced(0, 8);
+}
+
+juce::Rectangle<int> RackView::padBounds(int machine, int slot) const {
+    const auto row = rowBounds(machine);
+    const int padsLeft = nameWidth + PatternBank::numBanks * (bankWidth + gap) + 2 * gap;
+    const int padWidth = juce::jmax(8, (row.getWidth() - padsLeft) / PatternBank::patternsPerBank);
+    return { row.getX() + padsLeft + slot * padWidth, row.getY() + 6, padWidth - gap, rowHeight - 12 };
+}
+
+void RackView::paint(juce::Graphics& g) {
+    g.fillAll(background);
+
+    if (session.getNumMachines() == 0) {
+        g.setColour(text);
+        g.drawText("Empty rack", getLocalBounds(), juce::Justification::centred);
+        return;
+    }
+
+    const bool blinkOn = (juce::Time::getMillisecondCounter() / 250) % 2 == 0;
+
+    for (int m = 0; m < session.getNumMachines(); m++) {
+        const auto& state = session.getSong().machines[static_cast<size_t>(m)];
+        const auto row = rowBounds(m);
+        g.setColour(rowColour);
+        g.fillRoundedRectangle(row.toFloat(), 6.0f);
+
+        g.setColour(text);
+        g.setFont(juce::FontOptions(16.0f));
+        g.drawText(state.name, row.withWidth(nameWidth).reduced(10, 0), juce::Justification::centredLeft);
+
+        const int current = m < engine.getNumMachines() ? engine.getCurrentPattern(m) : state.selectedPattern;
+        const int queued = m < engine.getNumMachines() ? engine.getQueuedPattern(m) : -1;
+        const int bank = visibleBank[static_cast<size_t>(m)];
+
+        for (int b = 0; b < PatternBank::numBanks; b++) {
+            const auto bounds = bankBounds(m, b).toFloat();
+            g.setColour(b == bank ? text : emptyPad);
+            g.fillRoundedRectangle(bounds, 4.0f);
+            g.setColour(b == bank ? background : text);
+            g.drawText(juce::String::charToString(static_cast<juce::juce_wchar>('A' + b)), bounds,
+                       juce::Justification::centred);
+        }
+
+        for (int slot = 0; slot < PatternBank::patternsPerBank; slot++) {
+            const int index = PatternBank::indexOf(bank, slot);
+            const auto bounds = padBounds(m, slot).toFloat();
+            const bool hasNotes = !state.patterns[static_cast<size_t>(index)].isEmpty();
+
+            g.setColour(index == current ? accent : (hasNotes ? filledPad : emptyPad));
+            g.fillRoundedRectangle(bounds, 4.0f);
+            if (index == queued && blinkOn) {
+                g.setColour(accent);
+                g.drawRoundedRectangle(bounds.reduced(1.0f), 4.0f, 2.0f);
+            }
+            g.setColour(index == current ? background : text);
+            g.setFont(juce::FontOptions(12.0f));
+            g.drawText(juce::String(slot + 1), bounds, juce::Justification::centred);
+        }
+    }
+}
+
+void RackView::mouseDown(const juce::MouseEvent& event) {
+    const auto position = event.getPosition();
+    for (int m = 0; m < session.getNumMachines(); m++) {
+        if (!rowBounds(m).contains(position)) {
+            continue;
+        }
+        for (int b = 0; b < PatternBank::numBanks; b++) {
+            if (bankBounds(m, b).contains(position)) {
+                visibleBank[static_cast<size_t>(m)] = b;
+                repaint();
+                return;
+            }
+        }
+        for (int slot = 0; slot < PatternBank::patternsPerBank; slot++) {
+            if (padBounds(m, slot).contains(position)) {
+                session.selectPattern(m, PatternBank::indexOf(visibleBank[static_cast<size_t>(m)], slot));
+                repaint();
+                return;
+            }
+        }
+    }
+}

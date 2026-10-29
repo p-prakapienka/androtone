@@ -24,15 +24,23 @@ keep `NatronTests` green.
 - Placeholder `TestToneMachine` and a demo song; minimal app shell (play/stop, tempo, position).
 - Offline Catch2 tests (transport, player, engine) and Linux CI (`.github/workflows/natron.yml`).
 
-## Phase 1 — core model
+## Phase 1 — core model ✅
 
-1. Lock-free command queue so the UI can edit the rack and patterns while audio runs (today
-   edits are only safe before audio starts).
-2. Parameter model: every machine/effect parameter has an id, range, default, and a smoothed
-   real-time value; this is what presets, automation, and the UI bind to.
-3. Pattern banks: 4 banks × 16 patterns per machine; pattern switch quantised to pattern end
-   (verify against Caustic).
-4. Song save/load as `ValueTree` (XML on disk), our own format.
+- **Live editing:** `Session` (message thread) owns the `Song` document and posts `EngineCommand`s
+  through a lock-free SPSC queue; replaced patterns and machines come back through a garbage queue
+  and are freed on the message thread. A test counts heap allocations and frees inside
+  `Engine::process` while edits stream in, and requires zero.
+- **Parameters:** `ParameterSet` with `ParameterSpec` (stable id, range, default) and atomic values;
+  machines declare theirs in the constructor. `MachineRegistry` creates machines by type name.
+- **Pattern banks:** 64 patterns per machine (A01–D16). Selecting while playing queues the switch
+  for the end of the current pattern; the new pattern loops from where it started; stopping
+  applies a queued switch at once. (Switch timing still to verify against Caustic.)
+- **Song files:** `SongFile` — versioned XML (`<NatronSong version="1">`), empty patterns omitted,
+  bad files rejected with a reason, failed loads change nothing.
+- **App:** rack view (bank selector + 16 pattern pads per machine, queued pads blink), save/load
+  through the system file picker (works with Android content URIs).
+
+Deferred: parameter smoothing inside notes (lands with the first real synth in Phase 2).
 
 ## Phase 2 — first playable loop
 
