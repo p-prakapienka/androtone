@@ -9,6 +9,7 @@
 
 #include "rb_engine.h"
 
+#include "devices/effects/FxDsp.h"
 #include "devices/effects/AutoFilter.h"
 #include "devices/effects/ChannelEq.h"
 #include "devices/effects/Chorus.h"
