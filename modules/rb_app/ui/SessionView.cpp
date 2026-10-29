@@ -268,7 +268,7 @@ public:
             g.setColour (fill);
             g.fillRoundedRectangle (bounds, 7.0f);
 
-            auto previewArea = bounds.reduced (6.0f, 8.0f).withTrimmedRight (isPlaying ? 26.0f : 0.0f);
+            auto previewArea = bounds.reduced (6.0f, 6.0f).withTrimmedBottom (14.0f).withTrimmedRight (isPlaying ? 26.0f : 0.0f);
             drawClipPreview (g, *c, previewArea, juce::Colours::black.withAlpha (isPlaying ? 0.55f : 0.45f));
 
             if (isPlaying)
@@ -286,8 +286,9 @@ public:
 
             g.setColour (juce::Colours::black.withAlpha (0.6f));
             g.setFont (Theme::font (11.0f, true));
-            g.drawText (juce::String (juce::roundToInt (c->loopLength / beatsPerBar * 10.0) / 10.0) + " bar",
-                        bounds.reduced (6.0f, 3.0f), juce::Justification::topLeft);
+            const double bars = c->loopLength / beatsPerBar;
+            g.drawText (juce::String (bars, bars == std::round (bars) ? 0 : 1) + (bars == 1.0 ? " bar" : " bars"),
+                        bounds.reduced (6.0f, 4.0f), juce::Justification::bottomLeft);
         }
 
         void mouseDown (const juce::MouseEvent& e) override

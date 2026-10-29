@@ -18,6 +18,7 @@ struct ProbeLog
 
     std::vector<Entry> entries;
     std::vector<int> sampleSlots; // slots that received a sample
+    std::vector<std::vector<float>> parameterHistory; // values passed to setParameters, per block
 
     std::vector<Entry> noteOns() const
     {
@@ -36,7 +37,10 @@ public:
 
     void prepare (double, int) override { position = 0; }
     void reset() override {}
-    void setParameters (const float*, int) override {}
+    void setParameters (const float* values, int numValues) override
+    {
+        log->parameterHistory.emplace_back (values, values + numValues);
+    }
     void process (juce::AudioBuffer<float>&, juce::AudioBuffer<float>&, const rb::NoteEvent* events, int numEvents,
                   int numSamples) override
     {
