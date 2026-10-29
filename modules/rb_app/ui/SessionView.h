@@ -49,7 +49,13 @@ private:
     HeaderBar header;
     IconButton settingsButton { Icon::gear };
 
-    juce::Viewport viewport;
+    struct GridViewport : public juce::Viewport
+    {
+        std::function<void()> onScroll;
+        void visibleAreaChanged (const juce::Rectangle<int>&) override { if (onScroll) onScroll(); }
+    };
+
+    GridViewport viewport;
     juce::Component grid;
     std::vector<std::unique_ptr<TrackColumn>> columns;
     std::unique_ptr<SceneColumn> sceneColumn;

@@ -652,6 +652,7 @@ SessionView::SessionView (Studio& s, Navigator& n) : studio (s), nav (n)
     addAndMakeVisible (viewport);
     viewport.setViewedComponent (&grid, false);
     viewport.setScrollBarsShown (false, false, true, true);
+    viewport.onScroll = [this] { if (sceneColumn != nullptr) layoutGrid(); };
 
     sceneColumn = std::make_unique<SceneColumn> (*this);
     addAndMakeVisible (*sceneColumn);
