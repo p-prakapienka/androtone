@@ -26,6 +26,7 @@
 
 #include "model/DemoSets.cpp"
 #include "model/Edits.cpp"
+#include "model/EditorOps.cpp"
 #include "model/Music.cpp"
 #include "model/Params.cpp"
 #include "model/SampleData.cpp"

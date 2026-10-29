@@ -19,6 +19,8 @@
 #include "ui/DevicePanel.cpp"
 #include "ui/SampleView.cpp"
 #include "ui/ClipEditor.cpp"
+#include "ui/ClipEditorGrid.cpp"
+#include "ui/NoteEditMenu.cpp"
 #include "ui/BrowserSheet.cpp"
 #include "ui/SettingsSheets.cpp"
 #include "ui/MidiSettingsSheet.cpp"

@@ -44,6 +44,7 @@
 #include "devices/FactorySounds.h"
 #include "devices/Presets.h"
 #include "model/Edits.h"
+#include "model/EditorOps.h"
 
 #include "engine/Snapshot.h"
 #include "engine/Commands.h"

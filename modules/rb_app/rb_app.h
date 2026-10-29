@@ -35,6 +35,8 @@
 #include "ui/PadViews.h"
 #include "ui/SampleView.h"
 #include "ui/ClipEditor.h"
+#include "ui/ClipEditorGrid.h"
+#include "ui/NoteEditMenu.h"
 #include "ui/BrowserSheet.h"
 #include "ui/SettingsSheets.h"
 #include "ui/MidiSettingsSheet.h"

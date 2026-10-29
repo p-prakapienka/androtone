@@ -188,6 +188,35 @@ void MainComponent::writeSnapshots (const juce::File& folder)
             showInstrument (set.tracks[2].id, 0);
             save ("4-instrument-melodic");
         }
+
+        // The expanded MIDI editor; the drum shot has a selection to show the note-edit menu.
+        auto findEditor = [this]() -> ClipEditor*
+        {
+            for (auto* child : view->getChildren())
+                if (auto* editor = dynamic_cast<ClipEditor*> (child))
+                    return editor;
+            return nullptr;
+        };
+        if (set.tracks.size() > 2)
+        {
+            showInstrument (set.tracks[2].id, 0);
+            if (auto* editor = findEditor()) editor->setExpanded (true);
+            save ("5-editor-melodic");
+        }
+        if (! set.tracks.empty())
+        {
+            showInstrument (set.tracks[0].id, 0);
+            if (auto* editor = findEditor(); editor != nullptr && editor->clip() != nullptr)
+            {
+                editor->setExpanded (true);
+                Selection selection;
+                for (size_t i = 0; i < editor->clip()->notes.size(); ++i)
+                    if (editor->clip()->notes[i].start < 2.0)
+                        selection.push_back ((int) i);
+                editor->setSelection (selection);
+            }
+            save ("6-editor-drums");
+        }
     }
 }
 
