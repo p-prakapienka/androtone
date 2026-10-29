@@ -24,6 +24,7 @@
 #include "devices/effects/Reverb.h"
 #include "devices/effects/Saturator.h"
 
+#include "model/DemoSets.cpp"
 #include "model/Edits.cpp"
 #include "model/Music.cpp"
 #include "model/Params.cpp"

@@ -68,6 +68,7 @@ public:
     double getElapsedSeconds() const { return elapsedForUi.load(); } // engine time, as in CaptureEvent
     double getSongBeat() const { return songBeatForUi.load(); }
     float getMasterLevel() const { return masterLevel.load(); }
+    float getLimiterGain() const { return limiterReduction.load(); } // 1 = no limiting
 
     // State of the track with this id, or nullptr if it is not in the active snapshot.
     const TrackState* findTrackState (int trackId) const;
@@ -137,6 +138,7 @@ private:
     void pushCapture (const PlayState&, int pitch, float velocity, float pitchOffset, double clockBeat);
     double clipPositionAt (const PlayState&, const Clip&, double songBeat) const;
     void applyAutomation (const TrackSnapshot&, const PlayState&, double songBeat);
+    void limitMaster (juce::AudioBuffer<float>& out, int numSamples);
     void renderMetronome (juce::AudioBuffer<float>& out, double song0, double beatsPerSample, int numSamples);
 
     double sampleRate = 48000.0;
@@ -181,6 +183,8 @@ private:
     float clickPhase = 0.0f, clickIncrement = 0.0f, clickEnvelope = 0.0f, clickDecay = 0.0f, clickGain = 0.0f;
 
     std::atomic<float> masterLevel { 0.0f };
+    float limiterEnvelope = 0.0f, limiterRelease = 0.999f;
+    std::atomic<float> limiterReduction { 1.0f };
     float masterLevelHold = 0.0f;
 
     // Recording.

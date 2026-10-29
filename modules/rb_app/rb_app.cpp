@@ -7,7 +7,6 @@
 #include "app/AudioEngine.cpp"
 #include "app/AppSettings.cpp"
 #include "app/SetLibrary.cpp"
-#include "app/DemoSets.cpp"
 #include "app/Studio.cpp"
 #include "app/MidiInputs.cpp"
 

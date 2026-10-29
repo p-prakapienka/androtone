@@ -56,7 +56,5 @@ private:
     juce::Random random;
 };
 
-// Demo content, generated in code (LIB-1).
-std::vector<Set> makeDemoSets();
 
 } // namespace rb

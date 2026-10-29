@@ -66,6 +66,9 @@ ClipPtr cropToLoop (const Clip&);          // clip becomes the loop region
 ClipPtr deleteLoopContent (const Clip&);   // removes notes inside the loop
 ClipPtr setClipBars (const Clip&, int bars);
 
+// Demo content, generated in code (LIB-1).
+std::vector<Set> makeDemoSets();
+
 // Overdub (CAP-5): merges notes into a clip, replacing exact duplicates.
 ClipPtr mergeNotes (const Clip&, const std::vector<Note>&);
 

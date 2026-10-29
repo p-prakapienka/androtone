@@ -43,6 +43,8 @@ void SessionProcessor::prepare (double newSampleRate, int newMaxBlockSize)
     }
 
     clickDecay = std::exp (-1.0f / (float) (sampleRate * 0.025));
+    limiterRelease = std::exp (-1.0f / (float) (sampleRate * 0.15));
+    limiterEnvelope = 0.0f;
     active = nullptr; // forces the published snapshot to be applied again
     audioActive.store (true);
 }
@@ -194,6 +196,8 @@ void SessionProcessor::processChunk (juce::AudioBuffer<float>& output, int start
     for (size_t i = 0; i < active->tracks.size() && i < states.size(); ++i)
         renderTrack ((int) i, active->tracks[i], clock0, beatsPerSample, numSamples);
     mixTarget = nullptr;
+
+    limitMaster (outView, numSamples);
 
     if (isRunning && active->metronome)
         renderMetronome (outView, song0, beatsPerSample, numSamples);
@@ -951,6 +955,30 @@ void SessionProcessor::renderTrack (int index, const TrackSnapshot& track, doubl
     ui.playingSlot.store (isRunning ? st.playingSlot : -1);
     ui.queuedSlot.store (isRunning ? st.queuedSlot : noQueue);
     ui.clipBeat.store (playingClip != nullptr ? clipPositionAt (st, *playingClip, song1) : 0.0);
+}
+
+void SessionProcessor::limitMaster (juce::AudioBuffer<float>& out, int numSamples)
+{
+    // Peak limiter on the sum of the tracks: instant attack, smooth release, -1 dBFS ceiling.
+    // Keeps a busy set from clipping on the phone's output and in exports.
+    constexpr float ceiling = 0.891f;
+    const float release = limiterRelease;
+    float* left = out.getWritePointer (0);
+    float* right = out.getNumChannels() > 1 ? out.getWritePointer (1) : nullptr;
+    float minGain = 1.0f;
+
+    for (int i = 0; i < numSamples; ++i)
+    {
+        const float peak = juce::jmax (std::abs (left[i]), right != nullptr ? std::abs (right[i]) : 0.0f);
+        limiterEnvelope = peak > limiterEnvelope ? peak : limiterEnvelope * release + peak * (1.0f - release);
+        const float gain = limiterEnvelope > ceiling ? ceiling / limiterEnvelope : 1.0f;
+        left[i] *= gain;
+        if (right != nullptr)
+            right[i] *= gain;
+        minGain = juce::jmin (minGain, gain);
+    }
+
+    limiterReduction.store (minGain);
 }
 
 void SessionProcessor::renderMetronome (juce::AudioBuffer<float>& out, double song0, double beatsPerSample,
