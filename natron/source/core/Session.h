@@ -12,6 +12,8 @@ class Session {
 public:
     explicit Session(Engine& engineToControl);
 
+    static constexpr int maxMachines = Engine::maxMachines;
+
     const Song& getSong() const { return song; }
     int getNumMachines() const { return static_cast<int>(song.machines.size()); }
 
@@ -24,13 +26,24 @@ public:
     const Pattern& getPattern(int machine, int patternIndex) const;
     bool selectPattern(int machine, int patternIndex);
 
+    // Machine parameters.
     bool setParameter(int machine, const juce::String& parameterId, float value);
     float getParameter(int machine, const juce::String& parameterId) const;
     const ParameterSet* getParameters(int machine) const;
 
-    void setMachineVolume(int machine, float volume);
+    // Mixer channel parameters (see ChannelStrip for ids).
+    bool setMixerParameter(int machine, const juce::String& parameterId, float value);
+    float getMixerParameter(int machine, const juce::String& parameterId) const;
+    const ParameterSet* getMixerParameters(int machine) const;
+
+    // Master bus parameters (see MasterBus for ids).
+    bool setMasterParameter(const juce::String& parameterId, float value);
+    float getMasterParameter(const juce::String& parameterId) const;
+    const ParameterSet& getMasterParameters() const { return engine.getMasterParameters(); }
+
+    void setMachineVolume(int machine, float volume) { setMixerParameter(machine, "volume", volume); }
+    void setMasterVolume(float volume) { setMasterParameter("volume", volume); }
     void setTempo(double bpm);
-    void setMasterVolume(float volume);
     void setPlaying(bool shouldPlay) { engine.setPlaying(shouldPlay); }
     bool isPlaying() const { return engine.isPlaying(); }
 
@@ -45,9 +58,17 @@ public:
 private:
     Engine& engine;
     Song song;
-    std::vector<Machine*> machines; // live machines, owned by the engine; parallel to song.machines
+    // Live objects, owned by the engine; parallel to song.machines.
+    std::vector<Machine*> machines;
+    std::vector<ChannelStrip*> channels;
 
     bool isValidMachine(int index) const { return index >= 0 && index < getNumMachines(); }
     static bool isValidPatternIndex(int index) { return index >= 0 && index < PatternBank::numPatterns; }
-    void postMachine(std::unique_ptr<Machine> machine, const MachineState& state, int index);
+    void postMachine(std::unique_ptr<Machine> machine, std::unique_ptr<ChannelStrip> channel,
+                     const MachineState& state, int index);
+
+    // Sets every value `values` has for a parameter in `parameters`; returns all parameters'
+    // resulting (clamped) values, so unknown ids drop out and missing ones get defaults.
+    static ParameterValues apply(ParameterSet& parameters, const ParameterValues& values);
+    static bool setValue(ParameterSet& parameters, ParameterValues& stored, const juce::String& id, float value);
 };

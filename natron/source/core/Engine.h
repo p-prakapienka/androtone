@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Machine.h"
+#include "mixer/ChannelStrip.h"
+#include "mixer/MasterBus.h"
 #include "Pattern.h"
 #include "PatternPlayer.h"
 #include "Transport.h"
@@ -15,7 +17,7 @@
 // it; replaced objects come back through the garbage queue and are deleted by collectGarbage().
 struct EngineCommand {
     enum class Type {
-        addMachine,    // newMachine → next free rack slot
+        addMachine,    // newMachine + newChannel → next free rack slot
         removeMachine, // machine; later slots move up one
         clearRack,
         setPattern,    // newPattern → machine's bank slot `pattern` (nullptr = empty)
@@ -27,16 +29,18 @@ struct EngineCommand {
     int pattern = -1;
     Machine* newMachine = nullptr;
     Pattern* newPattern = nullptr;
+    ChannelStrip* newChannel = nullptr;
 };
 
 // The audio engine: a rack of up to 14 machines, each with 64 patterns (4 banks of 16), a pattern
-// player, and a mixer channel. process() is the whole audio callback.
+// player, and a mixer channel, feeding the master bus. process() is the whole audio callback.
 //
 // Threading:
 //  - process() and prepare() run on the audio thread (prepare while no callback is running).
 //  - post() and collectGarbage() are for ONE other thread (the message thread): the queues are
 //    single-producer / single-consumer. Session is the intended caller.
-//  - Transport, mixer, and status getters/setters are atomics, safe from any thread.
+//  - Transport and status getters/setters are atomics, safe from any thread. Channel and master
+//    parameters are atomics inside their ParameterSets (see Session).
 // Nothing in process() allocates, frees, or locks.
 class Engine {
 public:
@@ -62,10 +66,8 @@ public:
     bool isPlaying() const { return playing.load(); }
     void setTempo(double bpm) { tempo.store(juce::jlimit(20.0, 400.0, bpm)); }
     double getTempo() const { return tempo.load(); }
-    void setMachineVolume(int index, float volume) { volumes[static_cast<size_t>(index)].store(volume); }
-    float getMachineVolume(int index) const { return volumes[static_cast<size_t>(index)].load(); }
-    void setMasterVolume(float volume) { masterVolume.store(volume); }
-    float getMasterVolume() const { return masterVolume.load(); }
+    // The master section's parameters; the bus itself lives for the engine's lifetime.
+    ParameterSet& getMasterParameters() { return master.getParameters(); }
 
     // Status published by the audio thread, for the UI and tests.
     int getNumMachines() const { return publishedNumMachines.load(); }
@@ -76,6 +78,7 @@ public:
 private:
     struct Slot {
         std::unique_ptr<Machine> machine;
+        std::unique_ptr<ChannelStrip> channel;
         std::array<Pattern*, PatternBank::numPatterns> patterns {}; // owned; nullptr = empty pattern
         int current = 0;
         int queued = -1;
@@ -88,6 +91,7 @@ private:
     struct Garbage {
         Machine* machine = nullptr;
         Pattern* pattern = nullptr;
+        ChannelStrip* channel = nullptr;
     };
 
     std::array<Slot, maxMachines> slots;
@@ -105,8 +109,10 @@ private:
     std::atomic<int> maxBlock { 512 };
     std::atomic<bool> playing { false };
     std::atomic<double> tempo { 120.0 };
-    std::atomic<float> masterVolume { 0.8f };
-    std::array<std::atomic<float>, maxMachines> volumes;
+    MasterBus master;
+    juce::AudioBuffer<float> mixBus;
+    juce::AudioBuffer<float> delayBus;
+    juce::AudioBuffer<float> reverbBus;
     std::atomic<int> publishedNumMachines { 0 };
     std::array<std::atomic<int>, maxMachines> publishedCurrent;
     std::array<std::atomic<int>, maxMachines> publishedQueued;
@@ -117,8 +123,7 @@ private:
     void removeSlot(int index);
     void clearSlot(Slot& slot);
     void publish(int index);
-    void trash(Machine* machine);
-    void trash(Pattern* pattern);
+    void trash(Garbage item);
     static void deletePayload(const EngineCommand& command);
 
     const Pattern& patternAt(const Slot& slot, int index) const;

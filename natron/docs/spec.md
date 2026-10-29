@@ -36,6 +36,14 @@ canonical answer to "how should this behave?" — when unsure, check Caustic and
 | KSSynth    | Karplus-Strong plucked string | excitation, damping, decay (verify) |
 | SawSynth   | supersaw-style synth | voices, detune, filter, ADSR (verify) |
 
+### Natron's machines so far
+
+| Natron | Caustic slot | Notes |
+| ------ | ------------ | ----- |
+| `Subtractive` | SubSynth | 2 PolyBLEP oscs (saw/square/tri/sine), osc 2 semi + fine, LP/HP/BP state-variable filter with ADSR, amp ADSR, LFO → cutoff/pitch, 8 voices |
+| `Acid` | BassLine | mono, saw/square, 4-pole ladder, env mod, decay. Pattern conventions: velocity ≥ 0.9 = **accent**; a note that overlaps the next = **slide** (verify against Caustic's own step editor, which has explicit accent/slide toggles) |
+| `Drums` | BeatBox | 8 slots on notes 36–43; per slot tune/decay/pan/level/mute; kit synthesised in code (`dsp/DrumKit.cpp`), no samples shipped |
+
 ## 2. Pattern sequencer (per machine)
 
 - **4 banks (A–D) × 16 patterns** per machine = 64 patterns.

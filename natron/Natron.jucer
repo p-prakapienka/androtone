@@ -23,8 +23,26 @@
       <FILE id="NtCoSc" name="Session.cpp" compile="1" resource="0" file="source/core/Session.cpp"/>
       <FILE id="LyCoDs" name="DemoSong.h" compile="0" resource="0" file="source/core/DemoSong.h"/>
       <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F02}" name="machines">
+        <FILE id="NtMaSh" name="SubtractiveSynth.h" compile="0" resource="0" file="source/core/machines/SubtractiveSynth.h"/>
+        <FILE id="NtMaSc" name="SubtractiveSynth.cpp" compile="1" resource="0" file="source/core/machines/SubtractiveSynth.cpp"/>
+        <FILE id="NtMaAh" name="AcidBass.h" compile="0" resource="0" file="source/core/machines/AcidBass.h"/>
+        <FILE id="NtMaAc" name="AcidBass.cpp" compile="1" resource="0" file="source/core/machines/AcidBass.cpp"/>
+        <FILE id="NtMaDh" name="DrumMachine.h" compile="0" resource="0" file="source/core/machines/DrumMachine.h"/>
+        <FILE id="NtMaDc" name="DrumMachine.cpp" compile="1" resource="0" file="source/core/machines/DrumMachine.cpp"/>
         <FILE id="LyMaTh" name="TestToneMachine.h" compile="0" resource="0" file="source/core/machines/TestToneMachine.h"/>
         <FILE id="LyMaTc" name="TestToneMachine.cpp" compile="1" resource="0" file="source/core/machines/TestToneMachine.cpp"/>
+      </GROUP>
+      <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F04}" name="dsp">
+        <FILE id="NtDsBq" name="Biquad.h" compile="0" resource="0" file="source/core/dsp/Biquad.h"/>
+        <FILE id="NtDsOs" name="Oscillator.h" compile="0" resource="0" file="source/core/dsp/Oscillator.h"/>
+        <FILE id="NtDsKh" name="DrumKit.h" compile="0" resource="0" file="source/core/dsp/DrumKit.h"/>
+        <FILE id="NtDsKc" name="DrumKit.cpp" compile="1" resource="0" file="source/core/dsp/DrumKit.cpp"/>
+      </GROUP>
+      <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F05}" name="mixer">
+        <FILE id="NtMxCh" name="ChannelStrip.h" compile="0" resource="0" file="source/core/mixer/ChannelStrip.h"/>
+        <FILE id="NtMxCc" name="ChannelStrip.cpp" compile="1" resource="0" file="source/core/mixer/ChannelStrip.cpp"/>
+        <FILE id="NtMxMh" name="MasterBus.h" compile="0" resource="0" file="source/core/mixer/MasterBus.h"/>
+        <FILE id="NtMxMc" name="MasterBus.cpp" compile="1" resource="0" file="source/core/mixer/MasterBus.cpp"/>
       </GROUP>
     </GROUP>
     <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F03}" name="app">
@@ -33,6 +51,10 @@
       <FILE id="LyApCc" name="MainComponent.cpp" compile="1" resource="0" file="source/app/MainComponent.cpp"/>
       <FILE id="NtApRh" name="RackView.h" compile="0" resource="0" file="source/app/RackView.h"/>
       <FILE id="NtApRc" name="RackView.cpp" compile="1" resource="0" file="source/app/RackView.cpp"/>
+      <FILE id="NtApPh" name="ParameterPanel.h" compile="0" resource="0" file="source/app/ParameterPanel.h"/>
+      <FILE id="NtApPc" name="ParameterPanel.cpp" compile="1" resource="0" file="source/app/ParameterPanel.cpp"/>
+      <FILE id="NtApMh" name="MixerView.h" compile="0" resource="0" file="source/app/MixerView.h"/>
+      <FILE id="NtApMc" name="MixerView.cpp" compile="1" resource="0" file="source/app/MixerView.cpp"/>
     </GROUP>
   </MAINGROUP>
   <MODULES>

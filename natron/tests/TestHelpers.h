@@ -132,6 +132,30 @@ struct Rig {
     }
 };
 
+// A rig with one machine, for machine behaviour tests.
+struct MachineRig : Rig {
+    explicit MachineRig(const juce::String& type) {
+        machine = session.addMachine(type);
+    }
+
+    void set(const juce::String& id, float value) { session.setParameter(machine, id, value); }
+    void setMixer(const juce::String& id, float value) { session.setMixerParameter(machine, id, value); }
+
+    // Plays `notes` (pattern A01, looping every `bars`) from the top for `seconds`.
+    juce::AudioBuffer<float> play(std::vector<Note> notes, double seconds, int bars = 1) {
+        Pattern pattern;
+        pattern.bars = bars;
+        pattern.notes = std::move(notes);
+        session.setPattern(machine, 0, pattern);
+        session.setPlaying(true);
+        auto audio = render(renderer.seconds(seconds));
+        session.setPlaying(false);
+        return audio;
+    }
+
+    int machine = -1;
+};
+
 struct AudioStats {
     float peak = 0.0f;
     double rms = 0.0;

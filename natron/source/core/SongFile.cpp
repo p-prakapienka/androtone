@@ -5,6 +5,8 @@ namespace {
         const juce::Identifier song { "NatronSong" };
         const juce::Identifier machine { "Machine" };
         const juce::Identifier parameter { "Parameter" };
+        const juce::Identifier mixer { "Mixer" };
+        const juce::Identifier master { "Master" };
         const juce::Identifier pattern { "Pattern" };
         const juce::Identifier note { "Note" };
 
@@ -28,27 +30,30 @@ namespace {
     bool isEmptyPattern(const Pattern& pattern) {
         return pattern.notes.empty() && pattern.bars == 1;
     }
+
+    void writeValues(juce::ValueTree& parent, const juce::Identifier& type, const ParameterValues& values) {
+        for (const auto& [parameterId, value] : values) {
+            juce::ValueTree child(type);
+            child.setProperty(ids::id, parameterId, nullptr);
+            child.setProperty(ids::value, value, nullptr);
+            parent.appendChild(child, nullptr);
+        }
+    }
 }
 
 juce::ValueTree SongFile::toValueTree(const Song& song) {
     juce::ValueTree root(ids::song);
     root.setProperty(ids::version, currentVersion, nullptr);
     root.setProperty(ids::tempo, song.tempo, nullptr);
-    root.setProperty(ids::masterVolume, song.masterVolume, nullptr);
+    writeValues(root, ids::master, song.master);
 
     for (const auto& machine : song.machines) {
         juce::ValueTree machineTree(ids::machine);
         machineTree.setProperty(ids::type, machine.type, nullptr);
         machineTree.setProperty(ids::name, machine.name, nullptr);
-        machineTree.setProperty(ids::volume, machine.volume, nullptr);
         machineTree.setProperty(ids::selectedPattern, machine.selectedPattern, nullptr);
-
-        for (const auto& [parameterId, value] : machine.parameters) {
-            juce::ValueTree parameterTree(ids::parameter);
-            parameterTree.setProperty(ids::id, parameterId, nullptr);
-            parameterTree.setProperty(ids::value, value, nullptr);
-            machineTree.appendChild(parameterTree, nullptr);
-        }
+        writeValues(machineTree, ids::parameter, machine.parameters);
+        writeValues(machineTree, ids::mixer, machine.mixer);
 
         for (int i = 0; i < PatternBank::numPatterns; i++) {
             const auto& pattern = machine.patterns[static_cast<size_t>(i)];
@@ -88,22 +93,31 @@ juce::Result SongFile::fromValueTree(const juce::ValueTree& tree, Song& song) {
 
     Song loaded;
     loaded.tempo = tree.getProperty(ids::tempo, loaded.tempo);
-    loaded.masterVolume = tree.getProperty(ids::masterVolume, loaded.masterVolume);
+    if (version < 2 && tree.hasProperty(ids::masterVolume)) {
+        loaded.master["volume"] = tree.getProperty(ids::masterVolume);
+    }
 
     for (const auto& machineTree : tree) {
+        if (machineTree.hasType(ids::master)) {
+            loaded.master[machineTree.getProperty(ids::id).toString()] = machineTree.getProperty(ids::value);
+        }
         if (!machineTree.hasType(ids::machine)) {
             continue;
         }
         MachineState machine;
         machine.type = machineTree.getProperty(ids::type).toString();
         machine.name = machineTree.getProperty(ids::name).toString();
-        machine.volume = machineTree.getProperty(ids::volume, machine.volume);
+        if (version < 2 && machineTree.hasProperty(ids::volume)) {
+            machine.mixer["volume"] = machineTree.getProperty(ids::volume);
+        }
         machine.selectedPattern = juce::jlimit(0, PatternBank::numPatterns - 1,
                                                static_cast<int>(machineTree.getProperty(ids::selectedPattern, 0)));
 
         for (const auto& child : machineTree) {
             if (child.hasType(ids::parameter)) {
                 machine.parameters[child.getProperty(ids::id).toString()] = child.getProperty(ids::value);
+            } else if (child.hasType(ids::mixer)) {
+                machine.mixer[child.getProperty(ids::id).toString()] = child.getProperty(ids::value);
             } else if (child.hasType(ids::pattern)) {
                 const int index = child.getProperty(ids::index, -1);
                 const int bars = child.getProperty(ids::bars, 1);

@@ -11,6 +11,12 @@ struct ParameterSpec {
     float minValue = 0.0f;
     float maxValue = 1.0f;
     float defaultValue = 0.0f;
+    float interval = 0.0f; // step size for discrete choices (1 = whole numbers); 0 = continuous
+
+    // A 0/1 parameter (mute, solo): shown as a toggle.
+    bool isToggle() const {
+        return juce::exactlyEqual(interval, 1.0f) && juce::exactlyEqual(minValue, 0.0f) && juce::exactlyEqual(maxValue, 1.0f);
+    }
 };
 
 // A machine's (or effect's) fixed parameter list, declared in its constructor. Values are atomics:

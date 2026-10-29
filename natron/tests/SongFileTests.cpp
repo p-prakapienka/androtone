@@ -20,7 +20,7 @@ namespace {
 
     void checkEqual(const Song& a, const Song& b) {
         CHECK(juce::exactlyEqual(a.tempo, b.tempo));
-        CHECK(juce::exactlyEqual(a.masterVolume, b.masterVolume));
+        CHECK(a.master == b.master);
         REQUIRE(a.machines.size() == b.machines.size());
         for (size_t m = 0; m < a.machines.size(); m++) {
             CAPTURE(m);
@@ -28,7 +28,7 @@ namespace {
             const auto& y = b.machines[m];
             CHECK(x.type == y.type);
             CHECK(x.name == y.name);
-            CHECK(juce::exactlyEqual(x.volume, y.volume));
+            CHECK(x.mixer == y.mixer);
             CHECK(x.selectedPattern == y.selectedPattern);
             CHECK(x.parameters == y.parameters);
             for (size_t p = 0; p < x.patterns.size(); p++) {
@@ -41,7 +41,9 @@ namespace {
 
 TEST_CASE("A song survives a save/load round trip", "[songfile]") {
     auto song = makeDemoSong();
-    song.masterVolume = 0.65f;
+    song.master["volume"] = 0.65f;
+    song.master["delayFeedback"] = 0.3f;
+    song.machines[1].mixer["pan"] = -0.25f;
     song.machines[0].selectedPattern = 1;
     song.machines[0].parameters["level"] = 0.33f;
     song.machines[1].patterns[63].bars = 8;
@@ -55,7 +57,9 @@ TEST_CASE("A song survives a save/load round trip", "[songfile]") {
 TEST_CASE("A session saves and reloads the same song", "[songfile][session]") {
     Rig first;
     REQUIRE(first.session.loadSong(makeDemoSong()).wasOk());
-    first.session.setParameter(1, "release", 1.5f);
+    first.session.setParameter(2, "ampRelease", 1.5f);
+    first.session.setMixerParameter(0, "eqLow", 4.0f);
+    first.session.setMasterParameter("reverbSize", 0.9f);
     first.session.selectPattern(0, 1);
 
     juce::MemoryOutputStream out;
@@ -78,7 +82,7 @@ TEST_CASE("Empty patterns are not written", "[songfile]") {
             written++;
         }
     }
-    CHECK(written == 3); // bass A01 + A02, chords A01
+    CHECK(written == 5); // drums A01 + A02, acid A01 + A02, pad A01
 }
 
 TEST_CASE("Bad files are rejected with a reason", "[songfile]") {
@@ -87,6 +91,7 @@ TEST_CASE("Bad files are rejected with a reason", "[songfile]") {
     CHECK(fromXml("this is not xml", song).getErrorMessage().contains("XML"));
     CHECK(fromXml("<SomethingElse/>", song).getErrorMessage().contains("Not a Natron song"));
     CHECK(fromXml("<NatronSong/>", song).getErrorMessage().contains("version"));
+    CHECK(fromXml("<NatronSong version=\"0\"/>", song).getErrorMessage().contains("version"));
     CHECK(fromXml("<NatronSong version=\"99\"/>", song).getErrorMessage().contains("newer"));
     CHECK(fromXml("<NatronSong version=\"1\"><Machine type=\"TestTone\"><Pattern index=\"64\"/></Machine></NatronSong>", song)
               .getErrorMessage().contains("index"));
@@ -97,7 +102,7 @@ TEST_CASE("Bad files are rejected with a reason", "[songfile]") {
 TEST_CASE("A failed load leaves the song untouched", "[songfile]") {
     Song song = makeDemoSong();
     CHECK(fromXml("<NatronSong version=\"99\"/>", song).failed());
-    CHECK(song.machines.size() == 2);
+    CHECK(song.machines.size() == 3);
 }
 
 TEST_CASE("Missing attributes fall back to defaults and values are clamped", "[songfile]") {
@@ -114,4 +119,22 @@ TEST_CASE("Missing attributes fall back to defaults and values are clamped", "[s
     CHECK(pattern.notes[0].pitch == 127);
     CHECK(juce::exactlyEqual(pattern.notes[0].velocity, 1.0f));
     CHECK(juce::exactlyEqual(pattern.notes[0].length, Pattern::stepLength));
+}
+
+TEST_CASE("Version 1 files are upgraded", "[songfile][migration]") {
+    Song song;
+    REQUIRE(fromXml("<NatronSong version=\"1\" tempo=\"100\" masterVolume=\"0.5\">"
+                    "<Machine type=\"TestTone\" name=\"Old\" volume=\"0.3\">"
+                    "<Parameter id=\"level\" value=\"0.4\"/></Machine></NatronSong>", song).wasOk());
+
+    CHECK(juce::exactlyEqual(song.master.at("volume"), 0.5f));
+    REQUIRE(song.machines.size() == 1);
+    CHECK(juce::exactlyEqual(song.machines[0].mixer.at("volume"), 0.3f));
+    CHECK(juce::exactlyEqual(song.machines[0].parameters.at("level"), 0.4f));
+
+    // And they save as the current version.
+    const auto xml = juce::parseXML(toXml(song));
+    REQUIRE(xml != nullptr);
+    CHECK(xml->getIntAttribute("version") == SongFile::currentVersion);
+    CHECK_FALSE(xml->hasAttribute("masterVolume"));
 }

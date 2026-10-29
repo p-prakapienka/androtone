@@ -30,10 +30,16 @@ MainComponent::MainComponent() {
     positionLabel.setFont(juce::FontOptions(20.0f));
     addAndMakeVisible(positionLabel);
 
-    addAndMakeVisible(rack);
+    rackPage = new RackPage(*this);
+    mixerView = new MixerView(session);
+    const juce::Colour tabColour(0xff282a2e);
+    tabs.addTab("Rack", tabColour, rackPage, true);
+    tabs.addTab("Mixer", tabColour, mixerView, true);
+    tabs.setTabBarDepth(40);
+    addAndMakeVisible(tabs);
     refreshFromSong();
 
-    setSize(1000, 480);
+    setSize(1000, 600);
     setAudioChannels(0, 2);
     startTimerHz(30);
 }
@@ -68,16 +74,19 @@ void MainComponent::resized() {
     loadButton.setBounds(bar.removeFromRight(90).reduced(4, 0));
     saveButton.setBounds(bar.removeFromRight(90).reduced(4, 0));
     tempoSlider.setBounds(bar.reduced(8, 0));
-    area.removeFromTop(16);
-    rack.setBounds(area.removeFromTop(juce::jmin(area.getHeight(), rack.getIdealHeight())));
+    area.removeFromTop(12);
+    tabs.setBounds(area);
 }
 
 void MainComponent::refreshFromSong() {
     tempoSlider.setValue(session.getSong().tempo, juce::dontSendNotification);
     playButton.setToggleState(session.isPlaying(), juce::dontSendNotification);
     playButton.setButtonText(session.isPlaying() ? "Stop" : "Play");
+    rackPage->rack.setSelectedMachine(juce::jlimit(0, juce::jmax(0, session.getNumMachines() - 1),
+                                                   rackPage->rack.getSelectedMachine()));
+    rackPage->showMachine(rackPage->rack.getSelectedMachine());
+    mixerView->rebuild();
     resized();
-    rack.repaint();
 }
 
 void MainComponent::timerCallback() {
@@ -88,7 +97,42 @@ void MainComponent::timerCallback() {
     const int bar = static_cast<int>(beat / Transport::beatsPerBar) + 1;
     const int beatInBar = static_cast<int>(std::fmod(beat, Transport::beatsPerBar)) + 1;
     positionLabel.setText(juce::String(bar) + "." + juce::String(beatInBar), juce::dontSendNotification);
-    rack.repaint();
+    rackPage->rack.repaint();
+}
+
+MainComponent::RackPage::RackPage(MainComponent& ownerToUse) :
+    rack(ownerToUse.session, ownerToUse.engine), owner(ownerToUse) {
+    rack.onSelect = [this](int machine) { showMachine(machine); };
+    rack.onRackChanged = [this] { owner.refreshFromSong(); };
+    content.addAndMakeVisible(rack);
+    viewport.setViewedComponent(&content, false);
+    viewport.setScrollBarsShown(true, false);
+    addAndMakeVisible(viewport);
+}
+
+void MainComponent::RackPage::showMachine(int machine) {
+    machinePanel.reset();
+    if (const auto* parameters = owner.session.getParameters(machine)) {
+        const auto& state = owner.session.getSong().machines[static_cast<size_t>(machine)];
+        machinePanel = std::make_unique<ParameterPanel>(
+            *parameters,
+            [this, machine](const juce::String& id, float value) { owner.session.setParameter(machine, id, value); },
+            state.name + " (" + state.type + ")");
+        content.addAndMakeVisible(*machinePanel);
+    }
+    resized();
+}
+
+void MainComponent::RackPage::resized() {
+    viewport.setBounds(getLocalBounds());
+    const int width = juce::jmax(1, viewport.getMaximumVisibleWidth());
+    rack.setBounds(0, 8, width, rack.getIdealHeight());
+    int bottom = rack.getBottom();
+    if (machinePanel != nullptr) {
+        machinePanel->setBounds(0, bottom + 12, width, machinePanel->getHeightForWidth(width));
+        bottom = machinePanel->getBottom();
+    }
+    content.setSize(width, bottom + 12);
 }
 
 void MainComponent::saveSong() {

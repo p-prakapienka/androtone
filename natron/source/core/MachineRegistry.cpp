@@ -1,5 +1,8 @@
 #include "MachineRegistry.h"
 
+#include "machines/AcidBass.h"
+#include "machines/DrumMachine.h"
+#include "machines/SubtractiveSynth.h"
 #include "machines/TestToneMachine.h"
 
 #include <map>
@@ -7,6 +10,9 @@
 namespace {
     std::map<juce::String, MachineRegistry::Factory>& factories() {
         static std::map<juce::String, MachineRegistry::Factory> registered {
+            { SubtractiveSynth::typeName, [] { return std::make_unique<SubtractiveSynth>(); } },
+            { AcidBass::typeName, [] { return std::make_unique<AcidBass>(); } },
+            { DrumMachine::typeName, [] { return std::make_unique<DrumMachine>(); } },
             { TestToneMachine::typeName, [] { return std::make_unique<TestToneMachine>(); } },
         };
         return registered;

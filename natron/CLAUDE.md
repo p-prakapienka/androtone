@@ -19,15 +19,24 @@ never decompile Caustic or copy its assets.
   into both the app and the tests.
   - `Transport` — beat ↔ sample mapping; `Pattern` / `PatternBank` / `PatternPlayer` — patterns →
     MIDI; `Machine` + `Parameter` — instrument interface and parameters; `MachineRegistry` —
-    create machines by type name; `machines/` — implementations.
+    create machines by type name; `machines/` — `SubtractiveSynth`, `AcidBass`, `DrumMachine`, and the
+    `TestToneMachine` placeholder (kept for tests).
+  - `dsp/` — shared DSP (`Biquad`, `Oscillator`, `DrumKit`). `mixer/` — `ChannelStrip` (one per
+    machine, created and freed with it) and `MasterBus` (send returns, volume, limiter).
   - `Engine` — audio thread: rack, pattern switching, mixer. Edited only via `EngineCommand`s.
   - `Song` — the document; `SongFile` — save/load; `Session` — message-thread API that edits the
     Song and posts the matching commands. **UI code talks to `Session`, never to `Engine`'s
     rack directly.**
 - `source/app/` — the JUCE app shell and UI (`MainComponent`, `RackView`).
 - `tests/` — Catch2 tests. `TestHelpers.h`: offline renderers and `Rig` (engine + session +
-  renderer); `TestMachines.h`: `RecordingMachine`, which logs the MIDI it receives;
+  renderer) and `MachineRig` (one machine); `Analysis.h`: pitch, centroid, band energy, onset;
+  `TestMachines.h`: `RecordingMachine`, which logs the MIDI it receives;
   `AllocationCounter`: replaces global new/delete to prove the audio path never touches the heap.
+
+Fingerprint tests (`GoldenTests.cpp`, `tests/golden/*.txt`) store RMS and spectral centroid per
+50 ms rather than audio, with tolerances. If you change how something sounds **on purpose**,
+regenerate them with `NATRON_UPDATE_GOLDEN=1 <build>/NatronTests_artefacts/<Config>/NatronTests "[golden]"`
+and say so in the commit. An unexpected golden failure is a regression.
 
 ## Build and test (desktop)
 
@@ -57,7 +66,11 @@ Android Studio or run `./gradlew assembleDebug` there.
 - Engine code is real-time code: no allocation, freeing, locks, or I/O in `Engine::process` and
   below. Anything the audio thread replaces goes to the garbage queue. The "never touches the
   heap" test in `EngineTests.cpp` enforces this — extend its edit stream when adding commands.
-- New machines: subclass `Machine`, declare parameters in the constructor, register the type in
-  `MachineRegistry.cpp`. Parameter ids are saved in song files: never rename one.
+- New machines: subclass `Machine`, declare parameters in the constructor (set `interval` for
+  discrete choices; 0/1 + interval 1 shows as a toggle), register the type in `MachineRegistry.cpp`.
+  Parameter ids are saved in song files: never rename one. Do control-rate work on the voice's
+  own sample counter, not per block, so output doesn't depend on block size (a test checks).
+- Song format changes: bump `SongFile::currentVersion` and upgrade older versions in
+  `fromValueTree` (see the v1 → v2 note in `SongFile.h`), with a test.
 - Musical time is in beats (double); sample positions are `int64_t` from `Transport`.
 - New behaviour comes with an offline test that fails without it.

@@ -42,13 +42,22 @@ keep `NatronTests` green.
 
 Deferred: parameter smoothing inside notes (lands with the first real synth in Phase 2).
 
-## Phase 2 — first playable loop
+## Phase 2 — first playable loop ✅
 
-5. SubSynth-equivalent (2 osc, filter, filter/amp ADSR, LFO).
-6. BeatBox-equivalent (8 sample slots, step grid; our own royalty-free kit).
-7. BassLine-equivalent (mono 303-style voice, accent, slide).
-8. Mixer channel: pan, 3-band EQ, width, mute/solo; master delay, reverb, limiter.
-9. Golden-file render tests for these machines (tolerance-based, not bit-exact).
+- **Machines:** `Subtractive` (SubSynth), `Acid` (BassLine, accent + slide), `Drums` (BeatBox, synthesised
+  kit). See the table in `docs/spec.md`.
+- **Mixer:** `ChannelStrip` per machine — volume, pan, width, 3-band EQ (250 Hz shelf, 1.2 kHz peak, 4 kHz
+  shelf), delay/reverb sends, mute/solo. Channels are created and freed with their machine, so their
+  settings move with it on removal (fixes the Phase 1 volume race). `MasterBus` — tempo-synced delay,
+  reverb, volume, peak limiter (ceiling always holds).
+- **Song format v2:** `<Mixer>` and `<Master>` values; v1 files are upgraded on load.
+- **UI:** Rack tab (select a machine to see its controls; add/remove machines), Mixer tab (every
+  channel plus master). Controls are generated from each `ParameterSet`.
+- **Tests:** behaviour tests per machine and for the mixer (pitch, filter, slide, accent, pan, solo, EQ,
+  echo timing, limiter); fingerprint tests (`tests/golden/`, RMS + spectral centroid per 50 ms) for each
+  machine and the demo song; the allocation test now streams machine, mixer, and master edits too.
+
+Deferred: master parametric EQ (Phase 4 with the other effects); importing samples into Drums (Phase 4).
 
 ## Phase 3 — arrangement and editing
 

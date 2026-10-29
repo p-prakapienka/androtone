@@ -10,7 +10,6 @@ Engine::Engine() {
     commands.resize(static_cast<size_t>(commandFifo.getTotalSize()));
     garbage.resize(static_cast<size_t>(garbageFifo.getTotalSize()));
     for (size_t i = 0; i < maxMachines; i++) {
-        volumes[i].store(0.8f);
         publishedCurrent[i].store(0);
         publishedQueued[i].store(-1);
     }
@@ -45,6 +44,7 @@ void Engine::collectGarbage() {
         auto& item = garbage[static_cast<size_t>(i)];
         delete item.machine;
         delete item.pattern;
+        delete item.channel;
         item = {};
     });
 }
@@ -52,28 +52,18 @@ void Engine::collectGarbage() {
 void Engine::deletePayload(const EngineCommand& command) {
     delete command.newMachine;
     delete command.newPattern;
+    delete command.newChannel;
 }
 
-void Engine::trash(Machine* machine) {
-    if (machine == nullptr) {
+void Engine::trash(Garbage item) {
+    if (item.machine == nullptr && item.pattern == nullptr && item.channel == nullptr) {
         return;
     }
     if (garbageFifo.getFreeSpace() < 1) {
         jassertfalse; // collectGarbage() isn't being called; leak rather than free on the audio thread
         return;
     }
-    garbageFifo.write(1).forEach([&](int i) { garbage[static_cast<size_t>(i)] = { machine, nullptr }; });
-}
-
-void Engine::trash(Pattern* pattern) {
-    if (pattern == nullptr) {
-        return;
-    }
-    if (garbageFifo.getFreeSpace() < 1) {
-        jassertfalse;
-        return;
-    }
-    garbageFifo.write(1).forEach([&](int i) { garbage[static_cast<size_t>(i)] = { nullptr, pattern }; });
+    garbageFifo.write(1).forEach([&](int i) { garbage[static_cast<size_t>(i)] = item; });
 }
 
 void Engine::prepare(double newSampleRate, int maxBlockSize) {
@@ -92,8 +82,14 @@ void Engine::prepare(double newSampleRate, int maxBlockSize) {
         slot.midi.ensureSize(4096);
         if (slot.machine != nullptr) {
             slot.machine->prepare(newSampleRate, maxBlock.load());
+            slot.channel->prepare(newSampleRate);
         }
     }
+
+    mixBus.setSize(2, maxBlock.load());
+    delayBus.setSize(2, maxBlock.load());
+    reverbBus.setSize(2, maxBlock.load());
+    master.prepare(newSampleRate, maxBlock.load());
 }
 
 void Engine::applyCommands() {
@@ -110,13 +106,14 @@ void Engine::apply(const EngineCommand& command) {
 
     switch (command.type) {
         case EngineCommand::Type::addMachine:
-            if (numMachines < maxMachines && command.newMachine != nullptr) {
+            if (numMachines < maxMachines && command.newMachine != nullptr && command.newChannel != nullptr) {
                 auto& slot = slots[static_cast<size_t>(numMachines)];
-                slot.machine.reset(command.newMachine); // volume was already set by the poster
+                slot.machine.reset(command.newMachine);
+                slot.channel.reset(command.newChannel);
                 publish(numMachines);
                 numMachines++;
             } else {
-                trash(command.newMachine);
+                trash({ command.newMachine, nullptr, command.newChannel });
             }
             break;
 
@@ -135,10 +132,10 @@ void Engine::apply(const EngineCommand& command) {
         case EngineCommand::Type::setPattern:
             if (validMachine && validPattern) {
                 auto*& target = slots[static_cast<size_t>(command.machine)].patterns[static_cast<size_t>(command.pattern)];
-                trash(target);
+                trash({ nullptr, target, nullptr });
                 target = command.newPattern;
             } else {
-                trash(command.newPattern);
+                trash({ nullptr, command.newPattern, nullptr });
             }
             break;
 
@@ -158,10 +155,9 @@ void Engine::apply(const EngineCommand& command) {
 }
 
 void Engine::removeSlot(int index) {
-    // Bubble the removed slot to the end with swaps (no allocation), carrying the mixer values along.
+    // Bubble the removed slot to the end with swaps (no allocation); channels move with machines.
     for (int i = index; i < numMachines - 1; i++) {
         std::swap(slots[static_cast<size_t>(i)], slots[static_cast<size_t>(i + 1)]);
-        volumes[static_cast<size_t>(i)].store(volumes[static_cast<size_t>(i + 1)].load());
         publish(i);
     }
     numMachines--;
@@ -170,9 +166,9 @@ void Engine::removeSlot(int index) {
 }
 
 void Engine::clearSlot(Slot& slot) {
-    trash(slot.machine.release());
+    trash({ slot.machine.release(), nullptr, slot.channel.release() });
     for (auto*& pattern : slot.patterns) {
-        trash(pattern);
+        trash({ nullptr, pattern, nullptr });
         pattern = nullptr;
     }
     juce::MidiBuffer discard;
@@ -222,9 +218,16 @@ void Engine::processChunk(juce::AudioBuffer<float>& output, int startSample, int
         transport.setTempo(tempo.load());
     }
 
-    const float master = masterVolume.load();
-    const int numOutputChannels = juce::jmin(2, output.getNumChannels());
     const int64_t from = transport.getPosition();
+
+    bool anySolo = false;
+    for (int i = 0; i < numMachines; i++) {
+        anySolo = anySolo || slots[static_cast<size_t>(i)].channel->isSoloed();
+    }
+
+    mixBus.clear();
+    delayBus.clear();
+    reverbBus.clear();
 
     for (int i = 0; i < numMachines; i++) {
         auto& slot = slots[static_cast<size_t>(i)];
@@ -245,10 +248,22 @@ void Engine::processChunk(juce::AudioBuffer<float>& output, int startSample, int
         slot.buffer.clear();
         slot.machine->process(slot.buffer, slot.midi);
 
-        const float gain = volumes[static_cast<size_t>(i)].load() * master;
-        for (int ch = 0; ch < numOutputChannels; ch++) {
-            output.addFrom(ch, startSample, slot.buffer, ch, 0, numSamples, gain);
+        const bool audible = !slot.channel->isMuted() && (!anySolo || slot.channel->isSoloed());
+        slot.channel->process(slot.buffer, numSamples, audible);
+        slot.channel->addSends(slot.buffer, delayBus, reverbBus, numSamples);
+        for (int ch = 0; ch < 2; ch++) {
+            mixBus.addFrom(ch, 0, slot.buffer, ch, 0, numSamples);
         }
+    }
+
+    master.process(mixBus, delayBus, reverbBus, numSamples, transport.samplesPerBeat());
+
+    if (output.getNumChannels() >= 2) {
+        output.copyFrom(0, startSample, mixBus, 0, 0, numSamples);
+        output.copyFrom(1, startSample, mixBus, 1, 0, numSamples);
+    } else if (output.getNumChannels() == 1) {
+        output.copyFrom(0, startSample, mixBus.getReadPointer(0), numSamples, 0.5f);
+        output.addFrom(0, startSample, mixBus, 1, 0, numSamples, 0.5f);
     }
 
     if (shouldPlay) {

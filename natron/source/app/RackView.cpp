@@ -1,5 +1,7 @@
 #include "RackView.h"
 
+#include "core/MachineRegistry.h"
+
 namespace {
     const juce::Colour background { 0xff1d1f21 };
     const juce::Colour rowColour { 0xff282a2e };
@@ -13,7 +15,15 @@ RackView::RackView(Session& sessionToUse, const Engine& engineToShow) :
     session(sessionToUse), engine(engineToShow) {}
 
 int RackView::getIdealHeight() const {
-    return juce::jmax(1, session.getNumMachines()) * (rowHeight + gap);
+    return (session.getNumMachines() + 1) * (rowHeight + gap);
+}
+
+juce::Rectangle<int> RackView::nameBounds(int machine) const {
+    return rowBounds(machine).withWidth(nameWidth);
+}
+
+juce::Rectangle<int> RackView::addBounds() const {
+    return rowBounds(session.getNumMachines()).withWidth(nameWidth + PatternBank::numBanks * (bankWidth + gap));
 }
 
 juce::Rectangle<int> RackView::rowBounds(int machine) const {
@@ -34,10 +44,12 @@ juce::Rectangle<int> RackView::padBounds(int machine, int slot) const {
 void RackView::paint(juce::Graphics& g) {
     g.fillAll(background);
 
-    if (session.getNumMachines() == 0) {
+    if (session.getNumMachines() < Engine::maxMachines) {
+        const auto add = addBounds().reduced(0, 8).toFloat();
+        g.setColour(rowColour);
+        g.fillRoundedRectangle(add, 6.0f);
         g.setColour(text);
-        g.drawText("Empty rack", getLocalBounds(), juce::Justification::centred);
-        return;
+        g.drawText("+ Add machine", add, juce::Justification::centred);
     }
 
     const bool blinkOn = (juce::Time::getMillisecondCounter() / 250) % 2 == 0;
@@ -47,10 +59,18 @@ void RackView::paint(juce::Graphics& g) {
         const auto row = rowBounds(m);
         g.setColour(rowColour);
         g.fillRoundedRectangle(row.toFloat(), 6.0f);
+        if (m == selected) {
+            g.setColour(accent);
+            g.drawRoundedRectangle(row.toFloat().reduced(1.0f), 6.0f, 2.0f);
+        }
 
         g.setColour(text);
         g.setFont(juce::FontOptions(16.0f));
-        g.drawText(state.name, row.withWidth(nameWidth).reduced(10, 0), juce::Justification::centredLeft);
+        const auto label = nameBounds(m).reduced(10, 8);
+        g.drawText(state.name, label.withHeight(22), juce::Justification::centredLeft);
+        g.setFont(juce::FontOptions(11.0f));
+        g.setColour(text.withAlpha(0.6f));
+        g.drawText(state.type, label.withTrimmedTop(24), juce::Justification::centredLeft);
 
         const int current = m < engine.getNumMachines() ? engine.getCurrentPattern(m) : state.selectedPattern;
         const int queued = m < engine.getNumMachines() ? engine.getQueuedPattern(m) : -1;
@@ -85,9 +105,21 @@ void RackView::paint(juce::Graphics& g) {
 
 void RackView::mouseDown(const juce::MouseEvent& event) {
     const auto position = event.getPosition();
+    if (session.getNumMachines() < Engine::maxMachines && addBounds().contains(position)) {
+        showAddMenu();
+        return;
+    }
     for (int m = 0; m < session.getNumMachines(); m++) {
         if (!rowBounds(m).contains(position)) {
             continue;
+        }
+        if (nameBounds(m).contains(position)) {
+            if (event.mods.isPopupMenu()) {
+                showMachineMenu(m);
+            } else {
+                pressedName = m; // tap or long press: decided in mouseUp
+            }
+            return;
         }
         for (int b = 0; b < PatternBank::numBanks; b++) {
             if (bankBounds(m, b).contains(position)) {
@@ -104,4 +136,51 @@ void RackView::mouseDown(const juce::MouseEvent& event) {
             }
         }
     }
+}
+
+void RackView::mouseUp(const juce::MouseEvent& event) {
+    const int machine = pressedName;
+    pressedName = -1;
+    if (machine < 0 || machine >= session.getNumMachines() || !nameBounds(machine).contains(event.getPosition())) {
+        return;
+    }
+    if (event.getLengthOfMousePress() >= 500) {
+        showMachineMenu(machine);
+        return;
+    }
+    setSelectedMachine(machine);
+    if (onSelect) {
+        onSelect(machine);
+    }
+}
+
+void RackView::showAddMenu() {
+    juce::PopupMenu menu;
+    const auto types = MachineRegistry::getTypeNames();
+    for (int i = 0; i < types.size(); i++) {
+        if (types[i] != "TestTone") { // the placeholder machine stays out of the menu
+            menu.addItem(i + 1, types[i]);
+        }
+    }
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this), [this, types](int result) {
+        if (result > 0 && session.addMachine(types[result - 1]) >= 0) {
+            setSelectedMachine(session.getNumMachines() - 1);
+            if (onRackChanged) {
+                onRackChanged();
+            }
+        }
+    });
+}
+
+void RackView::showMachineMenu(int machine) {
+    juce::PopupMenu menu;
+    menu.addItem(1, "Remove " + session.getSong().machines[static_cast<size_t>(machine)].name);
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this), [this, machine](int result) {
+        if (result == 1 && session.removeMachine(machine)) {
+            setSelectedMachine(juce::jlimit(0, juce::jmax(0, session.getNumMachines() - 1), selected));
+            if (onRackChanged) {
+                onRackChanged();
+            }
+        }
+    });
 }

@@ -1,9 +1,11 @@
 // Engine-level render tests: transport, rack, and mixer together, driven through a Session.
 
 #include "AllocationCounter.h"
+#include "Analysis.h"
 #include "TestHelpers.h"
 #include "TestMachines.h"
 #include "core/DemoSong.h"
+#include "core/machines/TestToneMachine.h"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/generators/catch_generators.hpp>
@@ -62,12 +64,12 @@ TEST_CASE("Stopping releases notes and the tail decays to silence", "[engine][tr
     REQUIRE(rig.session.loadSong(makeDemoSong()).wasOk());
 
     rig.session.setPlaying(true);
-    rig.render(rig.renderer.seconds(1.0));
+    rig.render(rig.renderer.seconds(2.0));
     rig.session.setPlaying(false);
-    const auto tail = rig.render(rig.renderer.seconds(1.0));
+    const auto tail = rig.render(rig.renderer.seconds(10.0)); // delay and reverb returns ring on
 
-    const int lastQuarter = static_cast<int>(rig.renderer.seconds(0.25));
-    CHECK(analyse(tail, tail.getNumSamples() - lastQuarter, lastQuarter).peak <= 0.0f);
+    const int lastHalf = static_cast<int>(rig.renderer.seconds(0.5));
+    CHECK(analyse(tail, tail.getNumSamples() - lastHalf, lastHalf).peak < 1.0e-4f);
     CHECK(analyse(tail).subnormals == 0);
 }
 
@@ -78,11 +80,13 @@ TEST_CASE("Restarting plays from the top", "[engine][transport]") {
     rig.session.setPlaying(true);
     const auto first = rig.render(24000);
     rig.session.setPlaying(false);
-    rig.render(rig.renderer.seconds(1.0));
+    rig.render(rig.renderer.seconds(12.0)); // let every tail die out
     rig.session.setPlaying(true);
     const auto second = rig.render(24000);
 
-    CHECK(maxDifference(first, second) < 1.0e-5f);
+    // Not bit-exact: filters that run continuously (like the acid ladder) carry a little state
+    // across the restart. A restart that doesn't rewind differs by ~0.4.
+    CHECK(maxDifference(first, second) < 0.02f);
     CHECK_THAT(rig.engine.getPlayheadBeat(),
                Catch::Matchers::WithinAbs(24000.0 / (48000.0 * 60.0 / rig.engine.getTempo()), 1.0e-9));
 }
@@ -93,6 +97,7 @@ TEST_CASE("Rack holds at most 14 machines", "[engine][rack]") {
         CHECK(rig.session.addMachine(TestToneMachine::typeName) == i);
     }
     CHECK(rig.session.addMachine(TestToneMachine::typeName) == -1);
+    CHECK(rig.session.addMachine(DrumMachine::typeName) == -1);
 
     rig.render(512);
     CHECK(rig.engine.getNumMachines() == Engine::maxMachines);
@@ -106,16 +111,16 @@ TEST_CASE("Machine and master volume scale the output", "[engine][mixer]") {
     rig.session.setPattern(m, 0, pattern);
 
     rig.session.setPlaying(true);
-    const auto full = analyse(rig.render(24000));
+    const auto full = Analysis::rms(rig.render(24000), 0, 2048, 20000); // after any gain ramp
 
     rig.session.setPlaying(false);
     rig.render(rig.renderer.seconds(1.0));
     rig.session.setMachineVolume(m, 0.4f * 0.8f);
     rig.session.setMasterVolume(0.4f * 0.8f);
     rig.session.setPlaying(true);
-    const auto quieter = analyse(rig.render(24000));
+    const auto quieter = Analysis::rms(rig.render(24000), 0, 2048, 20000);
 
-    CHECK_THAT(quieter.rms / full.rms, Catch::Matchers::WithinRel(0.16, 0.01));
+    CHECK_THAT(quieter / full, Catch::Matchers::WithinRel(0.16, 0.01));
 }
 
 TEST_CASE("Muted machine volume produces silence", "[engine][mixer]") {
@@ -134,6 +139,8 @@ TEST_CASE("The audio callback never touches the heap, even while edits arrive", 
     Rig rig;
     REQUIRE(rig.session.loadSong(makeDemoSong()).wasOk());
     rig.session.addMachine(RecordingMachine::typeName);
+    rig.session.setMixerParameter(1, "delaySend", 0.6f);
+    rig.session.setMixerParameter(2, "reverbSend", 0.8f);
     rig.session.setPlaying(true);
 
     juce::AudioBuffer<float> block(2, 512);
@@ -155,7 +162,14 @@ TEST_CASE("The audio callback never touches the heap, even while edits arrive", 
         if (i == 250) {
             rig.session.addMachine(TestToneMachine::typeName);
         }
-        rig.session.setParameter(0, "level", 0.1f + 0.001f * static_cast<float>(i));
+        rig.session.setParameter(1, "cutoff", 200.0f + static_cast<float>(i));
+        rig.session.setParameter(2, "lfoToCutoff", 0.002f * static_cast<float>(i));
+        rig.session.setParameter(0, "s1.tune", static_cast<float>(i % 12));
+        rig.session.setMixerParameter(i % 3, "eqLow", static_cast<float>(i % 30) - 15.0f);
+        rig.session.setMixerParameter(i % 3, "pan", static_cast<float>(i % 3) - 1.0f);
+        rig.session.setMixerParameter(i % 3, "width", static_cast<float>(i % 3) * 0.7f);
+        rig.session.setMixerParameter(0, "solo", (i / 60) % 2 == 0 ? 0.0f : 1.0f);
+        rig.session.setMasterParameter("delayBeats", 0.25f * static_cast<float>(1 + i % 6));
         rig.session.setTempo(100.0 + i % 40);
 
         AllocationCounter::start();

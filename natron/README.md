@@ -5,7 +5,7 @@ _Natron is a natural soda-ash mineral — a nod to Caustic without borrowing its
 A clean-room recreation of Caustic 3 — a rack-based synth and sequencer — for Android, built with
 JUCE. Natron is separate from Androtone, the other project in this repository.
 
-Status: Phase 1 done (live editing, parameters, pattern banks, song files). See `docs/roadmap.md`.
+Status: Phase 2 done — Subtractive, Acid and Drums machines, mixer with sends and master effects. See `docs/roadmap.md`.
 
 ## Build (desktop)
 

@@ -9,17 +9,19 @@
 
 // The document: everything a song file stores. Lives on the message thread; the engine holds its
 // own copy, kept in sync by Session.
+using ParameterValues = std::map<juce::String, float>; // parameter id → value
+
 struct MachineState {
     juce::String type;
     juce::String name;
-    float volume = 0.8f;
-    std::map<juce::String, float> parameters; // parameter id → value
+    ParameterValues parameters; // the machine's
+    ParameterValues mixer;      // its channel strip's (see ChannelStrip)
     std::array<Pattern, PatternBank::numPatterns> patterns {};
     int selectedPattern = 0;
 };
 
 struct Song {
     double tempo = 120.0;
-    float masterVolume = 0.8f;
+    ParameterValues master; // the master bus's (see MasterBus)
     std::vector<MachineState> machines;
 };

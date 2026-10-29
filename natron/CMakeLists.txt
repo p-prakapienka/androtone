@@ -31,7 +31,13 @@ set(NATRON_CORE_SOURCES
     source/core/PatternPlayer.cpp
     source/core/Session.cpp
     source/core/SongFile.cpp
-    source/core/machines/TestToneMachine.cpp)
+    source/core/dsp/DrumKit.cpp
+    source/core/machines/AcidBass.cpp
+    source/core/machines/DrumMachine.cpp
+    source/core/machines/SubtractiveSynth.cpp
+    source/core/machines/TestToneMachine.cpp
+    source/core/mixer/ChannelStrip.cpp
+    source/core/mixer/MasterBus.cpp)
 
 set(NATRON_CORE_MODULES
     juce::juce_audio_basics
@@ -56,6 +62,8 @@ target_sources(Natron
         ${NATRON_CORE_SOURCES}
         source/app/Main.cpp
         source/app/MainComponent.cpp
+        source/app/MixerView.cpp
+        source/app/ParameterPanel.cpp
         source/app/RackView.cpp)
 
 target_include_directories(Natron PRIVATE source)
@@ -97,10 +105,16 @@ if(NATRON_BUILD_TESTS)
             tests/PatternBankTests.cpp
             tests/EngineTests.cpp
             tests/SessionTests.cpp
-            tests/SongFileTests.cpp)
+            tests/SongFileTests.cpp
+            tests/MachineTests.cpp
+            tests/MixerTests.cpp
+            tests/GoldenTests.cpp)
 
     target_include_directories(NatronTests PRIVATE source tests)
-    target_compile_definitions(NatronTests PRIVATE ${NATRON_COMMON_DEFINITIONS})
+    target_compile_definitions(NatronTests
+        PRIVATE
+            ${NATRON_COMMON_DEFINITIONS}
+            NATRON_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/golden")
 
     target_link_libraries(NatronTests
         PRIVATE

@@ -6,7 +6,30 @@
 Session::Session(Engine& engineToControl) :
     engine(engineToControl) {
     engine.setTempo(song.tempo);
-    engine.setMasterVolume(song.masterVolume);
+    song.master = apply(engine.getMasterParameters(), {});
+}
+
+ParameterValues Session::apply(ParameterSet& parameters, const ParameterValues& values) {
+    ParameterValues result;
+    for (int i = 0; i < parameters.size(); i++) {
+        const auto& id = parameters.getSpec(i).id;
+        const auto it = values.find(id);
+        if (it != values.end()) {
+            parameters.set(i, it->second);
+        }
+        result[id] = parameters.get(i);
+    }
+    return result;
+}
+
+bool Session::setValue(ParameterSet& parameters, ParameterValues& stored, const juce::String& id, float value) {
+    const int index = parameters.indexOf(id);
+    if (index < 0) {
+        return false;
+    }
+    parameters.set(index, value);
+    stored[id] = parameters.get(index); // clamped
+    return true;
 }
 
 int Session::addMachine(const juce::String& type, const juce::String& name) {
@@ -18,44 +41,42 @@ int Session::addMachine(const juce::String& type, const juce::String& name) {
         return -1;
     }
 
+    auto channel = std::make_unique<ChannelStrip>();
+
     MachineState state;
     state.type = type;
     state.name = name.isNotEmpty() ? name : type + " " + juce::String(getNumMachines() + 1);
-    const auto& parameters = machine->getParameters();
-    for (int i = 0; i < parameters.size(); i++) {
-        state.parameters[parameters.getSpec(i).id] = parameters.get(i);
-    }
+    state.parameters = apply(machine->getParameters(), {});
+    state.mixer = apply(channel->getParameters(), {});
 
     const int index = getNumMachines();
-    postMachine(std::move(machine), state, index);
+    postMachine(std::move(machine), std::move(channel), state, index);
     song.machines.push_back(std::move(state));
     return index;
 }
 
-void Session::postMachine(std::unique_ptr<Machine> machine, const MachineState& state, int index) {
-    auto& parameters = machine->getParameters();
-    for (const auto& [id, value] : state.parameters) {
-        const int parameterIndex = parameters.indexOf(id);
-        if (parameterIndex >= 0) {
-            parameters.set(parameterIndex, value);
-        }
-    }
+void Session::postMachine(std::unique_ptr<Machine> machine, std::unique_ptr<ChannelStrip> channel,
+                          const MachineState& state, int index) {
+    // Parameters were applied by the caller; prepare at the engine's current settings (the engine
+    // re-prepares everything if the device changes later).
     machine->prepare(engine.getSampleRate(), engine.getMaxBlockSize());
+    channel->prepare(engine.getSampleRate());
 
     machines.push_back(machine.get());
+    channels.push_back(channel.get());
     EngineCommand add;
     add.type = EngineCommand::Type::addMachine;
     add.newMachine = machine.release();
+    add.newChannel = channel.release();
     engine.post(add);
-    engine.setMachineVolume(index, state.volume);
 
     for (int i = 0; i < PatternBank::numPatterns; i++) {
         const auto& pattern = state.patterns[static_cast<size_t>(i)];
         if (!pattern.isEmpty() || pattern.bars != 1) {
-            engine.post({ EngineCommand::Type::setPattern, index, i, nullptr, new Pattern(pattern) });
+            engine.post({ EngineCommand::Type::setPattern, index, i, nullptr, new Pattern(pattern), nullptr });
         }
     }
-    engine.post({ EngineCommand::Type::selectPattern, index, state.selectedPattern, nullptr, nullptr });
+    engine.post({ EngineCommand::Type::selectPattern, index, state.selectedPattern, nullptr, nullptr, nullptr });
 }
 
 bool Session::removeMachine(int index) {
@@ -64,8 +85,9 @@ bool Session::removeMachine(int index) {
     }
     // Forget the machine before the engine trashes it, so nothing here can touch it afterwards.
     machines.erase(machines.begin() + index);
+    channels.erase(channels.begin() + index);
     song.machines.erase(song.machines.begin() + index);
-    return engine.post({ EngineCommand::Type::removeMachine, index, -1, nullptr, nullptr });
+    return engine.post({ EngineCommand::Type::removeMachine, index, -1, nullptr, nullptr, nullptr });
 }
 
 bool Session::renameMachine(int index, const juce::String& name) {
@@ -81,7 +103,7 @@ bool Session::setPattern(int machine, int patternIndex, const Pattern& pattern) 
         return false;
     }
     song.machines[static_cast<size_t>(machine)].patterns[static_cast<size_t>(patternIndex)] = pattern;
-    return engine.post({ EngineCommand::Type::setPattern, machine, patternIndex, nullptr, new Pattern(pattern) });
+    return engine.post({ EngineCommand::Type::setPattern, machine, patternIndex, nullptr, new Pattern(pattern), nullptr });
 }
 
 const Pattern& Session::getPattern(int machine, int patternIndex) const {
@@ -93,21 +115,13 @@ bool Session::selectPattern(int machine, int patternIndex) {
         return false;
     }
     song.machines[static_cast<size_t>(machine)].selectedPattern = patternIndex;
-    return engine.post({ EngineCommand::Type::selectPattern, machine, patternIndex, nullptr, nullptr });
+    return engine.post({ EngineCommand::Type::selectPattern, machine, patternIndex, nullptr, nullptr, nullptr });
 }
 
 bool Session::setParameter(int machine, const juce::String& parameterId, float value) {
-    if (!isValidMachine(machine)) {
-        return false;
-    }
-    auto& parameters = machines[static_cast<size_t>(machine)]->getParameters();
-    const int index = parameters.indexOf(parameterId);
-    if (index < 0) {
-        return false;
-    }
-    parameters.set(index, value);
-    song.machines[static_cast<size_t>(machine)].parameters[parameterId] = parameters.get(index); // clamped
-    return true;
+    return isValidMachine(machine)
+           && setValue(machines[static_cast<size_t>(machine)]->getParameters(),
+                       song.machines[static_cast<size_t>(machine)].parameters, parameterId, value);
 }
 
 float Session::getParameter(int machine, const juce::String& parameterId) const {
@@ -120,21 +134,34 @@ const ParameterSet* Session::getParameters(int machine) const {
     return isValidMachine(machine) ? &machines[static_cast<size_t>(machine)]->getParameters() : nullptr;
 }
 
-void Session::setMachineVolume(int machine, float volume) {
-    if (isValidMachine(machine)) {
-        song.machines[static_cast<size_t>(machine)].volume = volume;
-        engine.setMachineVolume(machine, volume);
-    }
+bool Session::setMixerParameter(int machine, const juce::String& parameterId, float value) {
+    return isValidMachine(machine)
+           && setValue(channels[static_cast<size_t>(machine)]->getParameters(),
+                       song.machines[static_cast<size_t>(machine)].mixer, parameterId, value);
+}
+
+float Session::getMixerParameter(int machine, const juce::String& parameterId) const {
+    const auto& values = song.machines[static_cast<size_t>(machine)].mixer;
+    const auto it = values.find(parameterId);
+    return it != values.end() ? it->second : 0.0f;
+}
+
+const ParameterSet* Session::getMixerParameters(int machine) const {
+    return isValidMachine(machine) ? &channels[static_cast<size_t>(machine)]->getParameters() : nullptr;
+}
+
+bool Session::setMasterParameter(const juce::String& parameterId, float value) {
+    return setValue(engine.getMasterParameters(), song.master, parameterId, value);
+}
+
+float Session::getMasterParameter(const juce::String& parameterId) const {
+    const auto it = song.master.find(parameterId);
+    return it != song.master.end() ? it->second : 0.0f;
 }
 
 void Session::setTempo(double bpm) {
     engine.setTempo(bpm);
     song.tempo = engine.getTempo(); // clamped
-}
-
-void Session::setMasterVolume(float volume) {
-    song.masterVolume = volume;
-    engine.setMasterVolume(volume);
 }
 
 juce::Result Session::loadSong(const Song& newSong) {
@@ -153,31 +180,28 @@ juce::Result Session::loadSong(const Song& newSong) {
     }
 
     engine.setPlaying(false);
-    engine.post({ EngineCommand::Type::clearRack, -1, -1, nullptr, nullptr });
+    engine.post({ EngineCommand::Type::clearRack, -1, -1, nullptr, nullptr, nullptr });
     machines.clear();
+    channels.clear();
 
     song = Song {};
     song.tempo = newSong.tempo;
-    song.masterVolume = newSong.masterVolume;
     engine.setTempo(song.tempo);
-    engine.setMasterVolume(song.masterVolume);
+    // Master values not in the file go back to their defaults.
+    auto& masterParameters = engine.getMasterParameters();
+    for (int i = 0; i < masterParameters.size(); i++) {
+        masterParameters.set(i, masterParameters.getSpec(i).defaultValue);
+    }
+    song.master = apply(masterParameters, newSong.master);
 
     for (size_t i = 0; i < created.size(); i++) {
         auto state = newSong.machines[i];
-        // Keep only parameters the machine knows, at their clamped values.
-        auto& parameters = created[i]->getParameters();
-        std::map<juce::String, float> values;
-        for (int p = 0; p < parameters.size(); p++) {
-            const auto& id = parameters.getSpec(p).id;
-            const auto it = state.parameters.find(id);
-            if (it != state.parameters.end()) {
-                parameters.set(p, it->second);
-            }
-            values[id] = parameters.get(p);
-        }
-        state.parameters = values;
+        auto channel = std::make_unique<ChannelStrip>();
+        // Keep only parameters the machine and channel know, at their clamped values.
+        state.parameters = apply(created[i]->getParameters(), state.parameters);
+        state.mixer = apply(channel->getParameters(), state.mixer);
 
-        postMachine(std::move(created[i]), state, static_cast<int>(i));
+        postMachine(std::move(created[i]), std::move(channel), state, static_cast<int>(i));
         song.machines.push_back(std::move(state));
     }
     return juce::Result::ok();

@@ -3,6 +3,8 @@
 #include "TestHelpers.h"
 #include "TestMachines.h"
 #include "core/DemoSong.h"
+#include "core/machines/AcidBass.h"
+#include "core/machines/TestToneMachine.h"
 #include "core/MachineRegistry.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -47,17 +49,18 @@ TEST_CASE("Machines can be added and removed while playing", "[session][live]") 
 
     const int destroyedBefore = RecordingMachine::destroyed();
     const int added = rig.session.addMachine(RecordingMachine::typeName, "Probe");
-    CHECK(added == 2);
+    CHECK(added == 3);
+    rig.render(512);
+    CHECK(rig.engine.getNumMachines() == 4);
+
+    CHECK(rig.session.removeMachine(0)); // the drums; the others move up
     rig.render(512);
     CHECK(rig.engine.getNumMachines() == 3);
+    CHECK(rig.session.getSong().machines[0].name == "Acid");
+    CHECK(rig.session.getSong().machines[1].name == "Pad");
+    CHECK(rig.session.getSong().machines[2].name == "Probe");
 
-    CHECK(rig.session.removeMachine(0)); // the bass; chords and probe move up
-    rig.render(512);
-    CHECK(rig.engine.getNumMachines() == 2);
-    CHECK(rig.session.getSong().machines[0].name == "Chords");
-    CHECK(rig.session.getSong().machines[1].name == "Probe");
-
-    CHECK(rig.session.removeMachine(1));
+    CHECK(rig.session.removeMachine(2));
     rig.render(512);
     CHECK(RecordingMachine::destroyed() == destroyedBefore); // not freed on the audio thread...
     rig.session.collectGarbage();
@@ -65,21 +68,25 @@ TEST_CASE("Machines can be added and removed while playing", "[session][live]") 
 
     const auto stats = analyse(rig.render(bar));
     CHECK(stats.allFinite);
-    CHECK(stats.rms > 1.0e-4); // the chords play on
+    CHECK(stats.rms > 1.0e-4); // the acid and the pad play on
 }
 
-TEST_CASE("Volumes follow their machine when an earlier one is removed", "[session][mixer]") {
+TEST_CASE("Mixer settings follow their machine when an earlier one is removed", "[session][mixer]") {
     Rig rig;
     rig.session.addMachine(TestToneMachine::typeName);
     rig.session.addMachine(TestToneMachine::typeName);
     rig.session.setMachineVolume(1, 0.25f);
+    rig.session.setMixerParameter(1, "pan", -0.5f);
     rig.render(512);
 
     rig.session.removeMachine(0);
     rig.render(512);
 
-    CHECK(juce::exactlyEqual(rig.engine.getMachineVolume(0), 0.25f));
-    CHECK(juce::exactlyEqual(rig.session.getSong().machines[0].volume, 0.25f));
+    const auto* mixer = rig.session.getMixerParameters(0);
+    REQUIRE(mixer != nullptr);
+    CHECK(juce::exactlyEqual(mixer->get(ChannelStrip::volume), 0.25f));
+    CHECK(juce::exactlyEqual(mixer->get(ChannelStrip::pan), -0.5f));
+    CHECK(juce::exactlyEqual(rig.session.getMixerParameter(0, "volume"), 0.25f));
 }
 
 TEST_CASE("Parameters are clamped and reach the machine", "[session][parameters]") {
@@ -135,9 +142,9 @@ TEST_CASE("Loading a song replaces the rack and stops playback", "[session][load
     CHECK_FALSE(rig.session.isPlaying());
     rig.render(512);
 
-    CHECK(rig.engine.getNumMachines() == 2);
-    CHECK(rig.session.getNumMachines() == 2);
-    CHECK(juce::exactlyEqual(rig.engine.getTempo(), 110.0));
+    CHECK(rig.engine.getNumMachines() == 3);
+    CHECK(rig.session.getNumMachines() == 3);
+    CHECK(juce::exactlyEqual(rig.engine.getTempo(), 124.0));
 }
 
 TEST_CASE("A song with an unknown machine type is rejected without changes", "[session][load]") {
@@ -150,21 +157,24 @@ TEST_CASE("A song with an unknown machine type is rejected without changes", "[s
 
     CHECK(result.failed());
     CHECK(result.getErrorMessage().contains("FromTheFuture"));
-    CHECK(rig.session.getNumMachines() == 2);
-    CHECK(rig.session.getSong().machines[1].type == TestToneMachine::typeName);
+    CHECK(rig.session.getNumMachines() == 3);
+    CHECK(rig.session.getSong().machines[1].type == AcidBass::typeName);
 }
 
 TEST_CASE("Loading keeps known parameters and drops unknown ones", "[session][load]") {
     Rig rig;
     auto song = makeDemoSong();
-    song.machines[0].parameters["level"] = 0.9f;
-    song.machines[0].parameters["retired-parameter"] = 3.0f;
+    song.machines[2].parameters["level"] = 0.9f;
+    song.machines[2].parameters["retired-parameter"] = 3.0f;
+    song.machines[2].mixer["retired-mixer-parameter"] = 1.0f;
     REQUIRE(rig.session.loadSong(song).wasOk());
 
-    const auto& loaded = rig.session.getSong().machines[0].parameters;
-    CHECK(juce::exactlyEqual(loaded.at("level"), 0.9f));
-    CHECK(loaded.count("retired-parameter") == 0);
-    CHECK(loaded.count("attack") == 1); // filled in with the default
+    const auto& loaded = rig.session.getSong().machines[2];
+    CHECK(juce::exactlyEqual(loaded.parameters.at("level"), 0.9f));
+    CHECK(loaded.parameters.count("retired-parameter") == 0);
+    CHECK(loaded.parameters.count("lfoRate") == 1); // filled in with the default
+    CHECK(loaded.mixer.count("retired-mixer-parameter") == 0);
+    CHECK(loaded.mixer.count("eqMid") == 1);
 }
 
 TEST_CASE("The registry lists and creates the built-in machines", "[registry]") {
