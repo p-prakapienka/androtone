@@ -4,13 +4,13 @@
 
 // The desktop CMake defines these; the Projucer (Android) build may not.
 #ifndef JUCE_APPLICATION_NAME_STRING
-    #define JUCE_APPLICATION_NAME_STRING "Lye"
+    #define JUCE_APPLICATION_NAME_STRING "Natron"
 #endif
 #ifndef JUCE_APPLICATION_VERSION_STRING
     #define JUCE_APPLICATION_VERSION_STRING "0.0.1"
 #endif
 
-class LyeApplication : public juce::JUCEApplication {
+class NatronApplication : public juce::JUCEApplication {
 public:
     const juce::String getApplicationName() override { return JUCE_APPLICATION_NAME_STRING; }
     const juce::String getApplicationVersion() override { return JUCE_APPLICATION_VERSION_STRING; }
@@ -55,4 +55,4 @@ private:
     std::unique_ptr<MainWindow> mainWindow;
 };
 
-START_JUCE_APPLICATION(LyeApplication)
+START_JUCE_APPLICATION(NatronApplication)

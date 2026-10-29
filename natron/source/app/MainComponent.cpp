@@ -5,7 +5,7 @@
 MainComponent::MainComponent() {
     loadDemoSong(engine);
 
-    title.setText("Lye", juce::dontSendNotification);
+    title.setText("Natron", juce::dontSendNotification);
     title.setFont(juce::FontOptions(32.0f, juce::Font::bold));
     title.setJustificationType(juce::Justification::centred);
     addAndMakeVisible(title);

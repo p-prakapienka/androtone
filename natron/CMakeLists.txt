@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(Lye VERSION 0.0.1 LANGUAGES C CXX)
+project(Natron VERSION 0.0.1 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -13,7 +13,7 @@ file(
 )
 include(${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake)
 
-# JUCE is fetched into a fixed, checkout-relative folder (lye/external/JUCE, git-ignored) rather
+# JUCE is fetched into a fixed, checkout-relative folder (natron/external/JUCE, git-ignored) rather
 # than the build tree, so the Projucer-exported Android project can reference the same modules
 # through a relative path no matter which desktop build directory configured it.
 CPMAddPackage(
@@ -25,45 +25,45 @@ CPMAddPackage(
 )
 
 # The engine: no GUI, no audio-device code. Compiled into both the app and the tests.
-set(LYE_CORE_SOURCES
+set(NATRON_CORE_SOURCES
     source/core/Engine.cpp
     source/core/PatternPlayer.cpp
     source/core/machines/TestToneMachine.cpp)
 
-set(LYE_CORE_MODULES
+set(NATRON_CORE_MODULES
     juce::juce_audio_basics
     juce::juce_audio_formats
     juce::juce_dsp)
 
-set(LYE_COMMON_DEFINITIONS
+set(NATRON_COMMON_DEFINITIONS
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0)
 
 # ---------------------------------------------------------------------------
 # App (desktop). Android is built from the Projucer export in Builds/Android.
 # ---------------------------------------------------------------------------
-juce_add_gui_app(Lye
-    PRODUCT_NAME "Lye"
+juce_add_gui_app(Natron
+    PRODUCT_NAME "Natron"
     COMPANY_NAME "Restricted Space"
-    BUNDLE_ID    com.restrictedspace.lye)
+    BUNDLE_ID    com.restrictedspace.natron)
 
-target_sources(Lye
+target_sources(Natron
     PRIVATE
-        ${LYE_CORE_SOURCES}
+        ${NATRON_CORE_SOURCES}
         source/app/Main.cpp
         source/app/MainComponent.cpp)
 
-target_include_directories(Lye PRIVATE source)
+target_include_directories(Natron PRIVATE source)
 
-target_compile_definitions(Lye
+target_compile_definitions(Natron
     PRIVATE
-        ${LYE_COMMON_DEFINITIONS}
-        JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:Lye,JUCE_PRODUCT_NAME>"
-        JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Lye,JUCE_VERSION>")
+        ${NATRON_COMMON_DEFINITIONS}
+        JUCE_APPLICATION_NAME_STRING="$<TARGET_PROPERTY:Natron,JUCE_PRODUCT_NAME>"
+        JUCE_APPLICATION_VERSION_STRING="$<TARGET_PROPERTY:Natron,JUCE_VERSION>")
 
-target_link_libraries(Lye
+target_link_libraries(Natron
     PRIVATE
-        ${LYE_CORE_MODULES}
+        ${NATRON_CORE_MODULES}
         juce::juce_audio_utils
     PUBLIC
         juce::juce_recommended_config_flags
@@ -72,29 +72,29 @@ target_link_libraries(Lye
 
 # ---------------------------------------------------------------------------
 # Tests: headless Catch2 runner over the engine only (no GUI modules, so no X11/ALSA needed).
-#   cmake --build <build-dir> --target LyeTests
+#   cmake --build <build-dir> --target NatronTests
 #   ctest --test-dir <build-dir> --output-on-failure
 # ---------------------------------------------------------------------------
-option(LYE_BUILD_TESTS "Build the LyeTests offline test runner" ON)
+option(NATRON_BUILD_TESTS "Build the NatronTests offline test runner" ON)
 
-if(LYE_BUILD_TESTS)
+if(NATRON_BUILD_TESTS)
     CPMAddPackage("gh:catchorg/Catch2@3.7.1")
 
-    juce_add_console_app(LyeTests PRODUCT_NAME "LyeTests")
+    juce_add_console_app(NatronTests PRODUCT_NAME "NatronTests")
 
-    target_sources(LyeTests
+    target_sources(NatronTests
         PRIVATE
-            ${LYE_CORE_SOURCES}
+            ${NATRON_CORE_SOURCES}
             tests/TransportTests.cpp
             tests/PatternPlayerTests.cpp
             tests/EngineTests.cpp)
 
-    target_include_directories(LyeTests PRIVATE source tests)
-    target_compile_definitions(LyeTests PRIVATE ${LYE_COMMON_DEFINITIONS})
+    target_include_directories(NatronTests PRIVATE source tests)
+    target_compile_definitions(NatronTests PRIVATE ${NATRON_COMMON_DEFINITIONS})
 
-    target_link_libraries(LyeTests
+    target_link_libraries(NatronTests
         PRIVATE
-            ${LYE_CORE_MODULES}
+            ${NATRON_CORE_MODULES}
             Catch2::Catch2WithMain
         PUBLIC
             juce::juce_recommended_config_flags
@@ -103,5 +103,5 @@ if(LYE_BUILD_TESTS)
     enable_testing()
     list(APPEND CMAKE_MODULE_PATH ${Catch2_SOURCE_DIR}/extras)
     include(Catch)
-    catch_discover_tests(LyeTests)
+    catch_discover_tests(NatronTests)
 endif()

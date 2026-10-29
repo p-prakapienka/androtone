@@ -1,7 +1,7 @@
 # Roadmap
 
 Target: `docs/spec.md` (Caustic 3, clean room). Each step should be small, land with tests, and
-keep `LyeTests` green.
+keep `NatronTests` green.
 
 ## Principles
 
@@ -16,13 +16,13 @@ keep `LyeTests` green.
 
 ## Phase 0 — skeleton and test harness ✅
 
-- `lye/` app with its own desktop CMake (app + `LyeTests`) and a Projucer export for Android.
+- `natron/` app with its own desktop CMake (app + `NatronTests`) and a Projucer export for Android.
 - Engine core with no GUI dependency: `Transport` (block-size-independent beat ↔ sample
   mapping, tempo re-anchoring), polyphonic `Pattern` (notes in beats, any length, 1/2/4/8 bars),
   `PatternPlayer` (sample-accurate MIDI, notes longer than a step or the loop, retrigger, off
   before on), `Machine` interface, `Engine` (rack of up to 14 machines, volume, master).
 - Placeholder `TestToneMachine` and a demo song; minimal app shell (play/stop, tempo, position).
-- Offline Catch2 tests (transport, player, engine) and Linux CI (`.github/workflows/lye.yml`).
+- Offline Catch2 tests (transport, player, engine) and Linux CI (`.github/workflows/natron.yml`).
 
 ## Phase 1 — core model
 

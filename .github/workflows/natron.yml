@@ -1,0 +1,29 @@
+name: natron
+
+on:
+  push:
+    paths:
+      - "natron/**"
+      - ".github/workflows/natron.yml"
+  pull_request:
+    paths:
+      - "natron/**"
+      - ".github/workflows/natron.yml"
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Ninja
+        run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+      - name: Configure
+        run: cmake -S natron -B natron/build -G Ninja -DCMAKE_BUILD_TYPE=Debug
+
+      - name: Build tests
+        run: cmake --build natron/build --target NatronTests
+
+      - name: Run tests
+        run: ctest --test-dir natron/build --output-on-failure

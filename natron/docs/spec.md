@@ -1,6 +1,6 @@
 # Reference spec: Caustic 3
 
-Lye is a clean-room recreation of **Caustic 3** (Single Cell Software), the rack-based
+Natron is a clean-room recreation of **Caustic 3** (Single Cell Software), the rack-based
 music-making app for Android. This file is the feature inventory we build against. It is the
 canonical answer to "how should this behave?" — when unsure, check Caustic and update this file.
 
@@ -9,7 +9,7 @@ canonical answer to "how should this behave?" — when unsure, check Caustic and
 - **Clean room.** Work only from observed behaviour, the public user manual, and tutorials. Never
   decompile, disassemble, or copy assets (samples, presets, graphics) from the Caustic APK.
 - **Own names and assets.** Machine names below are Caustic's and are used here only as
-  reference labels; Lye ships its own names, artwork, samples, and presets.
+  reference labels; Natron ships its own names, artwork, samples, and presets.
 - **Unverified items are marked `(verify)`.** This inventory was written from memory of the public
   manual. Before building a feature, check it against the running app and fix this file first.
 

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="LyeApp" name="Lye" projectType="guiapp" useAppConfig="0"
+<JUCERPROJECT id="NatronApp" name="Natron" projectType="guiapp" useAppConfig="0"
               addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" version="0.0.1"
-              companyName="Restricted Space" bundleIdentifier="com.restrictedspace.lye"
+              companyName="Restricted Space" bundleIdentifier="com.restrictedspace.natron"
               headerPath="../../source" cppLanguageStandard="17">
-  <MAINGROUP id="LyeMgr" name="Lye">
+  <MAINGROUP id="NatronMgr" name="Natron">
     <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F01}" name="core">
       <FILE id="LyCoTr" name="Transport.h" compile="0" resource="0" file="source/core/Transport.h"/>
       <FILE id="LyCoPt" name="Pattern.h" compile="0" resource="0" file="source/core/Pattern.h"/>
