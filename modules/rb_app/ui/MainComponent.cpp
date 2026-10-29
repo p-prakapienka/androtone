@@ -180,13 +180,51 @@ void MainComponent::writeSnapshots (const juce::File& folder)
         auto& set = studio->getSet();
         if (! set.tracks.empty())
         {
-            showInstrument (set.tracks[0].id, 0);
+            const int id = set.tracks[0].id;
+            showInstrument (id, 0);
             save ("3-instrument-drums");
+
+            // Sample tab (second device tab) and the browser in each mode.
+            auto showSampleTab = [this]
+            {
+                if (view == nullptr)
+                    return;
+                for (auto* c : view->getChildren())
+                    if (auto* panel = dynamic_cast<DevicePanel*> (c))
+                    {
+                        const juce::Point<float> p (panel->getWidth() * 0.28f + 12.0f, 20.0f);
+                        const auto now = juce::Time::getCurrentTime();
+                        panel->mouseUp (juce::MouseEvent (juce::Desktop::getInstance().getMainMouseSource(), p, {}, 0.0f, 0.0f, 0.0f,
+                                                          0.0f, 0.0f, panel, panel, now, p, now, 1, false));
+                    }
+            };
+            showSampleTab();
+            save ("5-sample-tab");
+            showSheet (std::make_unique<BrowserSheet> (*studio, id, BrowserSheet::Mode::sample));
+            save ("6-browser-samples");
+            showSheet (std::make_unique<BrowserSheet> (*studio, id, BrowserSheet::Mode::trackPreset));
+            save ("7-browser-presets");
+            showSheet (std::make_unique<BrowserSheet> (*studio, id, BrowserSheet::Mode::effect2));
+            save ("8-browser-effects");
+            closeSheet();
+
+            const auto portrait = getBounds();
+            setSize (892, 412);
+            showInstrument (id, 0);
+            showSampleTab();
+            save ("9-sample-tab-landscape");
+            showSheet (std::make_unique<BrowserSheet> (*studio, id, BrowserSheet::Mode::trackPreset));
+            save ("10-browser-landscape");
+            closeSheet();
+            setBounds (portrait);
         }
         if (set.tracks.size() > 2)
         {
             showInstrument (set.tracks[2].id, 0);
             save ("4-instrument-melodic");
+            showSheet (std::make_unique<BrowserSheet> (*studio, set.tracks[2].id, BrowserSheet::Mode::trackPreset));
+            save ("11-browser-melodic");
+            closeSheet();
         }
 
         // The expanded MIDI editor; the drum shot has a selection to show the note-edit menu.

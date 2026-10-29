@@ -45,6 +45,7 @@
 #include "devices/Presets.h"
 #include "model/Edits.h"
 #include "model/EditorOps.h"
+#include "model/SampleOps.h"
 
 #include "engine/Snapshot.h"
 #include "engine/Commands.h"

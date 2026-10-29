@@ -30,6 +30,7 @@
 #include "model/Music.cpp"
 #include "model/Params.cpp"
 #include "model/SampleData.cpp"
+#include "model/SampleOps.cpp"
 #include "model/Set.cpp"
 #include "model/SetJson.cpp"
 #include "devices/DeviceRegistry.cpp"
