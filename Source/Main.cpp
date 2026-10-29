@@ -7,9 +7,22 @@ public:
     const juce::String getApplicationVersion() override { return JUCE_APPLICATION_VERSION_STRING; }
     bool moreThanOneInstanceAllowed() override { return false; }
 
-    void initialise (const juce::String&) override
+    void initialise (const juce::String& commandLine) override
     {
         mainWindow = std::make_unique<MainWindow> (getApplicationName());
+
+        // --snapshot <folder>: render each screen to PNG and quit (headless visual checks).
+        auto args = juce::StringArray::fromTokens (commandLine, true);
+        if (const int i = args.indexOf ("--snapshot"); i >= 0 && i + 1 < args.size())
+        {
+            const juce::File folder (args[i + 1].unquoted());
+            juce::MessageManager::callAsync ([this, folder]
+            {
+                if (auto* main = dynamic_cast<rb::MainComponent*> (mainWindow->getContentComponent()))
+                    main->writeSnapshots (folder);
+                quit();
+            });
+        }
     }
 
     void shutdown() override { mainWindow = nullptr; }

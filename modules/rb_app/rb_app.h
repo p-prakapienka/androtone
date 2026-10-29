@@ -21,5 +21,22 @@
 #include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_gui_extra/juce_gui_extra.h>
 
+#include <set>
+
 #include "app/AudioEngine.h"
+#include "app/AppSettings.h"
+#include "app/SetLibrary.h"
+#include "app/Studio.h"
+
+#include "ui/Theme.h"
+#include "ui/Widgets.h"
 #include "ui/MainComponent.h"
+#include "ui/PadViews.h"
+#include "ui/SampleView.h"
+#include "ui/ClipEditor.h"
+#include "ui/BrowserSheet.h"
+#include "ui/SettingsSheets.h"
+#include "ui/DevicePanel.h"
+#include "ui/InstrumentView.h"
+#include "ui/SessionView.h"
+#include "ui/LibraryView.h"

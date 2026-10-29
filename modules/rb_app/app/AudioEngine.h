@@ -17,6 +17,7 @@ public:
     bool hasInput() const { return inputEnabled; }
 
     SessionProcessor& getSession() { return session; }
+    const SessionProcessor& getSession() const { return session; }
     SampleLibrary& getSamples() { return samples; }
     Document& getDocument() { return document; }
     juce::AudioDeviceManager& getDeviceManager() { return deviceManager; }

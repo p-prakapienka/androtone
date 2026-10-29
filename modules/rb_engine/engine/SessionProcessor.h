@@ -65,6 +65,7 @@ public:
     };
 
     bool isRunning() const { return running.load(); }
+    double getElapsedSeconds() const { return elapsedForUi.load(); } // engine time, as in CaptureEvent
     double getSongBeat() const { return songBeatForUi.load(); }
     float getMasterLevel() const { return masterLevel.load(); }
 
@@ -165,6 +166,7 @@ private:
     double songOrigin = 0.0;     // clockBeat at song beat 0
     double elapsedSeconds = 0.0;
     std::atomic<double> songBeatForUi { 0.0 };
+    std::atomic<double> elapsedForUi { 0.0 };
     double tempo = 120.0;
 
     std::array<PlayState, maxTracks> states;

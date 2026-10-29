@@ -249,6 +249,7 @@ void SessionProcessor::processChunk (juce::AudioBuffer<float>& output, int start
         songBeat += numSamples * beatsPerSample;
     elapsedSeconds += numSamples / sampleRate;
     songBeatForUi.store (songBeat);
+    elapsedForUi.store (elapsedSeconds);
     wasRunning = running.load();
 
     acknowledged.store (active->sequence);
