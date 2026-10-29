@@ -35,6 +35,9 @@ public:
 
     Studio& getStudio() { return *studio; }
 
+    // Android back button: closes a sheet, or goes up one screen. False at the top level.
+    bool goBack();
+
     // Renders each main screen to PNG files (used for headless visual checks).
     void writeSnapshots (const juce::File& folder);
 

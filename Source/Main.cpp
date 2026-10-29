@@ -26,9 +26,27 @@ public:
     }
 
     void shutdown() override { mainWindow = nullptr; }
+
+    // Save as soon as the app leaves the foreground; Android may kill it afterwards.
+    void suspended() override
+    {
+        if (auto* main = getMain())
+            main->getStudio().getDocument().saveNow();
+    }
+
+    bool backButtonPressed() override
+    {
+        auto* main = getMain();
+        return main != nullptr && main->goBack();
+    }
     void systemRequestedQuit() override { quit(); }
 
 private:
+    rb::MainComponent* getMain() const
+    {
+        return mainWindow != nullptr ? dynamic_cast<rb::MainComponent*> (mainWindow->getContentComponent()) : nullptr;
+    }
+
     class MainWindow : public juce::DocumentWindow
     {
     public:

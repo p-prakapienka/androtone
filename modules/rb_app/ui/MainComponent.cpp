@@ -110,6 +110,26 @@ void MainComponent::closeSheet()
         view->repaint();
 }
 
+bool MainComponent::goBack()
+{
+    if (sheet != nullptr)
+    {
+        closeSheet();
+        return true;
+    }
+    if (dynamic_cast<InstrumentView*> (view.get()) != nullptr)
+    {
+        showSession();
+        return true;
+    }
+    if (dynamic_cast<SessionView*> (view.get()) != nullptr)
+    {
+        showLibrary();
+        return true;
+    }
+    return false;
+}
+
 void MainComponent::changeListenerCallback (juce::ChangeBroadcaster*)
 {
     auto& settings = studio->getSettings();
