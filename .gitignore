@@ -1,0 +1,10 @@
+/build*/
+/cmake-build-*/
+/JUCE
+/Builds/
+/Riffbook.filtergraph
+.idea/
+.vscode/
+*.user
+.DS_Store
+/JuceLibraryCode/
