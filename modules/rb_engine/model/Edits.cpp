@@ -184,7 +184,7 @@ static ClipEdit finish (Clip clip, std::vector<bool> selected)
 
     std::stable_sort (tagged.begin(), tagged.end(), [] (auto& a, auto& b)
     {
-        if (a.first.start != b.first.start) return a.first.start < b.first.start;
+        if (! juce::exactlyEqual (a.first.start, b.first.start)) return a.first.start < b.first.start;
         return a.first.pitch < b.first.pitch;
     });
 

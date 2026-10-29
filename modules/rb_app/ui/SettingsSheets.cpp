@@ -193,7 +193,7 @@ void SetSettingsSheet::paint (juce::Graphics& g)
 
     g.setColour (t.text);
     g.setFont (Theme::font (34.0f, true));
-    g.drawText (juce::String (studio.getSet().tempo, studio.getSet().tempo == std::round (studio.getSet().tempo) ? 0 : 1),
+    g.drawText (juce::String (studio.getSet().tempo, juce::exactlyEqual (studio.getSet().tempo, std::round (studio.getSet().tempo)) ? 0 : 1),
                 tempoLabelArea, juce::Justification::centredLeft);
     g.setColour (t.textDim);
     g.setFont (Theme::font (14.0f));

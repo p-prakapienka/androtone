@@ -24,7 +24,7 @@ void Clip::sortNotes()
 {
     std::stable_sort (notes.begin(), notes.end(), [] (const Note& a, const Note& b)
     {
-        if (a.start != b.start) return a.start < b.start;
+        if (! juce::exactlyEqual (a.start, b.start)) return a.start < b.start;
         return a.pitch < b.pitch;
     });
 }

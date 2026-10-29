@@ -16,8 +16,8 @@ struct Note
 
     bool operator== (const Note& o) const
     {
-        return start == o.start && length == o.length && pitch == o.pitch && velocity == o.velocity
-            && pitchOffset == o.pitchOffset;
+        return juce::exactlyEqual (start, o.start) && juce::exactlyEqual (length, o.length) && pitch == o.pitch
+            && juce::exactlyEqual (velocity, o.velocity) && juce::exactlyEqual (pitchOffset, o.pitchOffset);
     }
 };
 

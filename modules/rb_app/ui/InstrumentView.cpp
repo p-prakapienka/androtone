@@ -458,7 +458,7 @@ void InstrumentView::showQuantizeMenu()
     menu.addSectionHeader ("Quantize to");
     int id = 1;
     for (auto& d : getGridDivisions())
-        menu.addItem (id++, d.label, true, ! quantizeTriplets && quantizeGrid == d.beats);
+        menu.addItem (id++, d.label, true, ! quantizeTriplets && juce::exactlyEqual (quantizeGrid, d.beats));
     menu.addItem (100, "Triplets", true, quantizeTriplets);
     menu.addSeparator();
     menu.addItem (200, "Strength 100%", true, quantizeStrength >= 0.99f);

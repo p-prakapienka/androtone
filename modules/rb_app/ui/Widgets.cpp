@@ -40,7 +40,7 @@ void IconButton::paintButton (juce::Graphics& g, bool highlighted, bool down)
 }
 
 //==============================================================================
-PillButton::PillButton (const juce::String& text, Style s) : juce::Button (text), style (s) {}
+PillButton::PillButton (const juce::String& buttonText, Style s) : juce::Button (buttonText), style (s) {}
 
 void PillButton::paintButton (juce::Graphics& g, bool highlighted, bool down)
 {
@@ -288,7 +288,7 @@ void ParamKnob::mouseDrag (const juce::MouseEvent& e)
     const float normalised = juce::jlimit (0.0f, 1.0f, dragStartNormalised + (delta.x - delta.y) / 220.0f * sensitivity);
     const float value = spec->fromNormalised (normalised);
 
-    if (value != valueFor (studio.getSet(), trackId, target))
+    if (! juce::exactlyEqual (value, valueFor (studio.getSet(), trackId, target)))
     {
         const auto t = target;
         const int id = trackId;
@@ -368,22 +368,22 @@ void ParamKnob::showOptions()
         if (safe == nullptr || result == 0)
             return;
 
-        auto& studio = safe->studio;
+        auto& owner = safe->studio;
         const auto t = safe->target;
         const int id = safe->trackId;
-        auto* sp = specFor (studio.getSet(), id, t);
+        auto* sp = specFor (owner.getSet(), id, t);
         if (sp == nullptr)
             return;
 
         if (result == 1)
         {
             const float def = sp->defaultValue;
-            studio.getDocument().edit ([=] (Set& s) { setValue (s, id, t, def); });
+            owner.getDocument().edit ([=] (Set& s) { setValue (s, id, t, def); });
         }
         else if (result == 2 || result == 3)
         {
-            const float current = valueFor (studio.getSet(), id, t);
-            studio.getDocument().edit ([=] (Set& s)
+            const float current = valueFor (owner.getSet(), id, t);
+            owner.getDocument().edit ([=] (Set& s)
             {
                 auto* tr = s.findTrack (id);
                 if (tr == nullptr || slot < 0 || tr->slots[(size_t) slot] == nullptr)

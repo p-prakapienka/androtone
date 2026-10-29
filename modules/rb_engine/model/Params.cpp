@@ -90,14 +90,14 @@ float ParamSpec::toNormalised (float value) const
         return 0.0f;
     const float proportion = juce::jlimit (0.0f, 1.0f, (value - minValue) / (maxValue - minValue));
     const float skew = skewExponent (*this);
-    return skew == 1.0f ? proportion : std::pow (proportion, skew);
+    return juce::exactlyEqual (skew, 1.0f) ? proportion : std::pow (proportion, skew);
 }
 
 float ParamSpec::fromNormalised (float normalised) const
 {
     normalised = juce::jlimit (0.0f, 1.0f, normalised);
     const float skew = skewExponent (*this);
-    const float proportion = skew == 1.0f ? normalised : std::pow (normalised, 1.0f / skew);
+    const float proportion = juce::exactlyEqual (skew, 1.0f) ? normalised : std::pow (normalised, 1.0f / skew);
     return clamp (minValue + proportion * (maxValue - minValue));
 }
 

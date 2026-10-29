@@ -287,7 +287,7 @@ public:
             g.setColour (juce::Colours::black.withAlpha (0.6f));
             g.setFont (Theme::font (11.0f, true));
             const double bars = c->loopLength / beatsPerBar;
-            g.drawText (juce::String (bars, bars == std::round (bars) ? 0 : 1) + (bars == 1.0 ? " bar" : " bars"),
+            g.drawText (juce::String (bars, juce::exactlyEqual (bars, std::round (bars)) ? 0 : 1) + (juce::exactlyEqual (bars, 1.0) ? " bar" : " bars"),
                         bounds.reduced (6.0f, 4.0f), juce::Justification::bottomLeft);
         }
 
@@ -398,7 +398,7 @@ public:
             {
                 const float v = (float) volume.getValue();
                 const int id = column.trackId;
-                if (auto* t = column.track(); t != nullptr && t->volume != v)
+                if (auto* t = column.track(); t != nullptr && ! juce::exactlyEqual (t->volume, v))
                     column.owner.studio.getDocument().edit ([id, v] (Set& s) { if (auto* tr = s.findTrack (id)) tr->volume = v; });
             };
 

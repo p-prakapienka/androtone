@@ -70,7 +70,7 @@ static ParamValues valuesTo (const DeviceSpec& spec, const std::vector<float>& v
 {
     ParamValues result;
     for (size_t i = 0; i < spec.params.size() && i < values.size(); ++i)
-        if (values[i] != spec.params[i].defaultValue)
+        if (! juce::exactlyEqual (values[i], spec.params[i].defaultValue))
             result[spec.params[i].id] = values[i];
     return result;
 }
