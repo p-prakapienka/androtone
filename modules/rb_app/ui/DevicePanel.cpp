@@ -344,6 +344,20 @@ void DevicePanel::resized()
 
     if (sampleView != nullptr)
     {
+        // Short panels (landscape): waveform beside the knobs instead of above them.
+        if (bounds.getHeight() < 190 && ! knobs.empty())
+        {
+            auto knobArea = bounds.removeFromRight (juce::jmin (bounds.getWidth() * 2 / 5, 80 * (int) knobs.size()));
+            sampleView->setBounds (bounds.reduced (4, 2));
+            const int w = knobArea.getWidth() / (int) knobs.size();
+            for (auto& k : knobs)
+            {
+                k->setBounds (knobArea.removeFromLeft (w).withSizeKeepingCentre (w, juce::jmin (knobArea.getHeight(), 96)).reduced (2));
+                k->setCompact (true);
+            }
+            return;
+        }
+
         const int knobRow = knobs.empty() ? 0 : 84;
         sampleView->setBounds (bounds.removeFromTop (bounds.getHeight() - knobRow).reduced (4, 2));
         const int w = bounds.getWidth() / juce::jmax (4, (int) knobs.size());
