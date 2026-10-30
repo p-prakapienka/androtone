@@ -36,13 +36,22 @@ canonical answer to "how should this behave?" — when unsure, check Caustic and
 | KSSynth    | Karplus-Strong plucked string | excitation, damping, decay (verify) |
 | SawSynth   | supersaw-style synth | voices, detune, filter, ADSR (verify) |
 
-### Natron's machines so far
+### Natron's machines
 
 | Natron | Caustic slot | Notes |
 | ------ | ------------ | ----- |
 | `Subtractive` | SubSynth | 2 PolyBLEP oscs (saw/square/tri/sine), osc 2 semi + fine, LP/HP/BP state-variable filter with ADSR, amp ADSR, LFO → cutoff/pitch, 8 voices |
+| `Sampler` | PCMSynth | multi-sample zones (root, key range, loop), imported WAV/AIFF/FLAC/Ogg or the built-in keys; filter, ADSR |
 | `Acid` | BassLine | mono, saw/square, 4-pole ladder, env mod, decay. Pattern conventions: velocity ≥ 0.9 = **accent**; a note that overlaps the next = **slide** (verify against Caustic's own step editor, which has explicit accent/slide toggles) |
-| `Drums` | BeatBox | 8 slots on notes 36–43; per slot tune/decay/pan/level/mute; kit synthesised in code (`dsp/DrumKit.cpp`), no samples shipped |
+| `Drums` | BeatBox | 8 slots on notes 36–43; per slot tune/decay/pan/level/mute; kit synthesised in code (`dsp/DrumKit.cpp`), any slot can load a sample |
+| `PadSynth` | PadSynth | PADsynth wavetable from 8 harmonic levels + bandwidth (rebuilt on change), ADSR |
+| `Bytebeat` | 8BitSynth | C-style integer formula of `t` (compiled, fixed-stack evaluation); rate transposed by the note |
+| `Modular` | Modular | fixed modules (2 osc, noise, filter, 2 env, 2 LFO) + six patch cables (source → destination × amount) instead of free cabling (verify how close this needs to be) |
+| `Organ` | Organ | 9 drawbars, percussion 2nd/3rd fast/slow, click, vibrato, rotary with spin-up |
+| `Vocoder` | Vocoder | 16-band channel vocoder; carrier from the notes (saw + noise); voice = built-in vowels or an imported sample |
+| `FM` | FMSynth | 4 operators, 8 algorithms, op 4 feedback (Caustic's operator count and algorithms: verify) |
+| `Pluck` | KSSynth | Karplus-Strong, decay calibrated to −60 dB, damping, brightness |
+| `Supersaw` | SawSynth | up to 9 detuned saws spread in stereo, filter + envelope |
 
 ## 2. Pattern sequencer (per machine)
 
@@ -77,7 +86,7 @@ pattern (verify).
 - **2 insert effect slots per machine**. Effect types (verify full list):
   Distortion, Compressor, Bitcrusher, Flanger, Phaser, Chorus, AutoWah, Parametric EQ, Limiter,
   Vinyl simulator, Comb filter, Cabinet simulator, Static flanger, Filter, Octaver, Vibrato,
-  Tremolo, AutoPan.
+  Tremolo, AutoPan. Natron implements all 18 (`effects/Effects.h`, `effects/MoreEffects.h`).
 - Master delay: time synced to tempo, feedback, damping, stereo/ping-pong mode.
 - Master reverb: size, damping, width, pre-delay (verify).
 

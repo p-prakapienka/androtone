@@ -19,11 +19,16 @@ never decompile Caustic or copy its assets.
   into both the app and the tests.
   - `Transport` — beat ↔ sample mapping; `Pattern` / `PatternBank` / `PatternPlayer` — patterns →
     MIDI; `Machine` + `Parameter` — instrument interface and parameters; `MachineRegistry` —
-    create machines by type name; `machines/` — `SubtractiveSynth`, `AcidBass`, `DrumMachine`, and the
+    create machines by type name; `machines/` — one class per machine (`SubtractiveSynth`, `AcidBass`,
+    `DrumMachine`, `Sampler`, `PadSynth`, `Bytebeat` + `BytebeatProgram`, `Modular`, `Organ`, `Vocoder`,
+    `FmSynth`, `Pluck`, `Supersaw`), `VoiceMachine` (base for juce::Synthesiser-based ones), and the
     `TestToneMachine` placeholder (kept for tests).
+  - `Automation` — automation lanes (pattern and song); `SampleData` — samples (import, song
+    embedding); `SwappableResource` — lock-free swap for data the audio thread reads.
   - `dsp/` — shared DSP (`Biquad`, `Oscillator`, `DrumKit`). `mixer/` — `ChannelStrip` (one per
     machine, created and freed with it) and `MasterBus` (send returns, volume, limiter).
-    `effects/` — `Effect` interface + registry, and the 8 insert effects (`Effects.h`).
+    `effects/` — `Effect` interface + registry (`Effects.cpp`), and the 18 insert effects
+    (`Effects.h`, `MoreEffects.h`).
   - `Arrangement` — song timeline rows and their editing operations; `PatternEditing` — note
     editing operations for the piano roll. Pure functions: put new editing logic here, with tests,
     not in the views.
@@ -32,11 +37,13 @@ never decompile Caustic or copy its assets.
   - `Song` — the document; `SongFile` — save/load; `Session` — message-thread API that edits the
     Song and posts the matching commands. **UI code talks to `Session`, never to `Engine`'s
     rack directly.**
-- `source/app/` — the JUCE app shell and UI: `MainComponent` (transport bar, tabs, export job),
-  `RackView`, `PatternEditorView`, `SongView`, `MixerView`, `ParameterPanel` (generic controls).
+- `source/app/` — the JUCE app shell and UI: `MainComponent` (transport bar, tabs, export job, MIDI
+  inputs, keyboard), `RackView`, `PatternEditorView`, `SongView`, `MixerView`, `ParameterPanel`
+  (generic controls; choices become menus), `MachineExtrasPanel` (samples, formulas),
+  `AutomationEditor` (lanes).
 - `tests/` — Catch2 tests. `TestHelpers.h`: offline renderers and `Rig` (engine + session +
   renderer) and `MachineRig` (one machine); `Analysis.h`: pitch, centroid, band energy, onset;
-  `TestMachines.h`: `RecordingMachine`, which logs the MIDI it receives;
+  `TestMachines.h`: `RecordingMachine` (logs the MIDI it receives) and `DataMachine` (machine data);
   `AllocationCounter`: replaces global new/delete to prove the audio path never touches the heap.
 
 Fingerprint tests (`GoldenTests.cpp`, `tests/golden/*.txt`) store RMS and spectral centroid per
@@ -80,6 +87,9 @@ Android Studio or run `./gradlew assembleDebug` there.
   the audio thread reads from it is swapped with a `SwappableResource` (never freed on the audio thread).
 - Song format changes: bump `SongFile::currentVersion` and upgrade older versions in
   `fromValueTree` (see the version notes in `SongFile.h`), with a test.
+- Live MIDI (`Engine::pushLiveMidi`) is the only engine entry point safe from any thread; everything
+  else goes through Session on the message thread.
+- Catch2 treats commas in a test-name filter as "or": keep commas out of test names.
 - Engine loops over sample ranges must always make progress: a segment end clamped to the current
   position must be followed by a jump or a return (see `Engine::generateMidi`).
 - Musical time is in beats (double); sample positions are `int64_t` from `Transport`.

@@ -77,12 +77,23 @@ Deferred: master parametric EQ (Phase 4 with the other effects); importing sampl
 
 Deferred: undo/redo; copy/paste of patterns and blocks; per-step automation (Phase 4).
 
-## Phase 4 — breadth
+## Phase 4 — breadth ✅
 
-14. Remaining machines: PCMSynth, FMSynth, KSSynth, SawSynth, Organ, PadSynth, 8BitSynth,
-    Vocoder, Modular (roughly by effort).
-15. Remaining effects; pattern and song automation.
-16. MIDI input, sample import from device storage, swing.
+- **4a infrastructure:** swing; `Machine::getData/setData` (samples, formulas) saved under `<Data>`;
+  `SwappableResource` (hazard-pointer swap of audio-thread data); song format v4;
+  `scripts/sync-jucer.py`.
+- **4b/4c machines:** Supersaw, Pluck, Organ, FM, PadSynth, Bytebeat, Sampler, Vocoder, Modular — all 12
+  Caustic machine slots now have a Natron machine (table in `docs/spec.md`). Drums slots can load
+  samples. `SampleData` imports WAV/AIFF/FLAC/Ogg and embeds samples in songs.
+- **4d effects:** AutoWah, Limiter, Vinyl, Comb, Static Flanger, Cabinet, Octaver, Vibrato, Tremolo,
+  AutoPan (18 in all); master 3-band parametric EQ.
+- **4e automation:** pattern lanes (per pattern, its machine/mixer/effects) and song lanes (timeline,
+  any machine or the master); linear interpolation; by parameter id.
+- **4f live and UI:** live MIDI queue + all MIDI inputs + on-screen keyboard (play the selected
+  machine); sample import and formula editing panels; automation lane editors; swing control.
+
+Deferred: recording live input into patterns; parameter smoothing within notes for every machine;
+undo/redo; copy/paste of patterns and blocks; MIDI learn for knobs.
 
 ## Phase 5 — Android polish
 
