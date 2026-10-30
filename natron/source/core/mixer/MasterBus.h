@@ -1,6 +1,9 @@
 #pragma once
 
 #include "../Parameter.h"
+#include "../dsp/Biquad.h"
+
+#include <array>
 
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <vector>
@@ -9,9 +12,12 @@
 // and a peak limiter that never lets the output exceed its ceiling.
 class MasterBus {
 public:
+    static constexpr int numEqBands = 3;
+
     enum ParameterIndex {
         volume, delayBeats, delayFeedback, delayDamping, reverbSize, reverbDamping, reverbWidth, limiterCeiling,
-        numParameters
+        eqFirst, // then frequency, gain, Q for each band
+        numParameters = eqFirst + numEqBands * 3
     };
 
     static constexpr double maxDelaySeconds = 4.0;
@@ -38,6 +44,9 @@ private:
     float dampingState[2] {};
 
     juce::Reverb reverb;
+
+    std::array<Biquad, numEqBands> eq;
+    std::array<std::array<float, 3>, numEqBands> eqApplied {};
 
     float limiterGain = 1.0f;
     float lastVolume = 0.8f;

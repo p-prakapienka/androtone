@@ -1,4 +1,5 @@
 #include "Effects.h"
+#include "MoreEffects.h"
 
 #include <cmath>
 #include <map>
@@ -252,6 +253,16 @@ namespace {
             { Compressor::typeName, [] () -> std::unique_ptr<Effect> { return std::make_unique<Compressor>(); } },
             { FilterEffect::typeName, [] () -> std::unique_ptr<Effect> { return std::make_unique<FilterEffect>(); } },
             { ParametricEq::typeName, [] () -> std::unique_ptr<Effect> { return std::make_unique<ParametricEq>(); } },
+            { AutoWah::typeName, [] () -> std::unique_ptr<Effect> { return std::make_unique<AutoWah>(); } },
+            { Limiter::typeName, [] () -> std::unique_ptr<Effect> { return std::make_unique<Limiter>(); } },
+            { Vinyl::typeName, [] () -> std::unique_ptr<Effect> { return std::make_unique<Vinyl>(); } },
+            { Comb::typeName, [] () -> std::unique_ptr<Effect> { return std::make_unique<Comb>(); } },
+            { StaticFlanger::typeName, [] () -> std::unique_ptr<Effect> { return std::make_unique<StaticFlanger>(); } },
+            { Cabinet::typeName, [] () -> std::unique_ptr<Effect> { return std::make_unique<Cabinet>(); } },
+            { Octaver::typeName, [] () -> std::unique_ptr<Effect> { return std::make_unique<Octaver>(); } },
+            { Vibrato::typeName, [] () -> std::unique_ptr<Effect> { return std::make_unique<Vibrato>(); } },
+            { Tremolo::typeName, [] () -> std::unique_ptr<Effect> { return std::make_unique<Tremolo>(); } },
+            { AutoPan::typeName, [] () -> std::unique_ptr<Effect> { return std::make_unique<AutoPan>(); } },
         };
         return registered;
     }

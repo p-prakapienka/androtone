@@ -61,7 +61,7 @@ namespace {
 
 TEST_CASE("Every effect type is registered and produces finite output", "[effects]") {
     const auto types = EffectRegistry::getTypeNames();
-    CHECK(types.size() == 8);
+    CHECK(types.size() == 18);
     for (const auto& type : types) {
         CAPTURE(type);
         auto effect = EffectRegistry::create(type);

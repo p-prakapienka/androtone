@@ -51,6 +51,8 @@
         <FILE id="NtFxEh" name="Effect.h" compile="0" resource="0" file="source/core/effects/Effect.h" />
         <FILE id="NtFxSc" name="Effects.cpp" compile="1" resource="0" file="source/core/effects/Effects.cpp" />
         <FILE id="NtFxSh" name="Effects.h" compile="0" resource="0" file="source/core/effects/Effects.h" />
+        <FILE id="gBOhNf" name="MoreEffects.cpp" compile="1" resource="0" file="source/core/effects/MoreEffects.cpp" />
+        <FILE id="iNtNBE" name="MoreEffects.h" compile="0" resource="0" file="source/core/effects/MoreEffects.h" />
       </GROUP>
       <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F02}" name="machines">
         <FILE id="NtMaAc" name="AcidBass.cpp" compile="1" resource="0" file="source/core/machines/AcidBass.cpp" />

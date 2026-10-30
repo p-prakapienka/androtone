@@ -11,6 +11,13 @@ MasterBus::MasterBus() {
     parameters.add({ "reverbDamping", "Reverb Damp", 0.0f, 1.0f, 0.5f });
     parameters.add({ "reverbWidth", "Reverb Width", 0.0f, 1.0f, 1.0f });
     parameters.add({ "limiterCeiling", "Ceiling", -12.0f, 0.0f, -0.3f }); // dBFS
+    const float eqFrequencies[numEqBands] = { 120.0f, 1000.0f, 6000.0f };
+    for (int band = 0; band < numEqBands; band++) {
+        const juce::String n = juce::String(band + 1);
+        parameters.add({ "eq" + n + "Freq", "EQ " + n + " Freq", 20.0f, 20000.0f, eqFrequencies[band] });
+        parameters.add({ "eq" + n + "Gain", "EQ " + n + " Gain", -18.0f, 18.0f, 0.0f });
+        parameters.add({ "eq" + n + "Q", "EQ " + n + " Q", 0.1f, 10.0f, 0.8f });
+    }
     jassert(parameters.size() == numParameters);
 }
 
@@ -26,6 +33,10 @@ void MasterBus::reset() {
     delayWrite = 0;
     dampingState[0] = dampingState[1] = 0.0f;
     reverb.reset();
+    for (int band = 0; band < numEqBands; band++) {
+        eq[static_cast<size_t>(band)].reset();
+        eqApplied[static_cast<size_t>(band)] = { -1.0f, -1.0f, -1.0f };
+    }
     limiterGain = 1.0f;
     primed = false;
 }
@@ -73,6 +84,30 @@ void MasterBus::process(juce::AudioBuffer<float>& mix, juce::AudioBuffer<float>&
     reverb.processStereo(reverbBus.getWritePointer(0), reverbBus.getWritePointer(1), numSamples);
     for (int ch = 0; ch < 2; ch++) {
         mix.addFrom(ch, 0, reverbBus, ch, 0, numSamples);
+    }
+
+    // Parametric EQ (skipped while every band is flat).
+    bool eqActive = false;
+    for (int band = 0; band < numEqBands; band++) {
+        const std::array<float, 3> values { parameters.get(eqFirst + band * 3), parameters.get(eqFirst + band * 3 + 1),
+                                            parameters.get(eqFirst + band * 3 + 2) };
+        if (values != eqApplied[static_cast<size_t>(band)]) {
+            eq[static_cast<size_t>(band)].setPeak(sampleRate, values[0], values[2], values[1]);
+            eqApplied[static_cast<size_t>(band)] = values;
+        }
+        eqActive = eqActive || !juce::exactlyEqual(values[1], 0.0f);
+    }
+    if (eqActive) {
+        for (int ch = 0; ch < 2; ch++) {
+            float* data = mix.getWritePointer(ch);
+            for (int i = 0; i < numSamples; i++) {
+                float x = data[i];
+                for (auto& band : eq) {
+                    x = band.process(ch, x);
+                }
+                data[i] = x;
+            }
+        }
     }
 
     // Volume.

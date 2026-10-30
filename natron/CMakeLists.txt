@@ -30,6 +30,7 @@ set(NATRON_CORE_SOURCES
     source/core/Engine.cpp
     source/core/SongExport.cpp
     source/core/effects/Effects.cpp
+    source/core/effects/MoreEffects.cpp
     source/core/MachineRegistry.cpp
     source/core/PatternPlayer.cpp
     source/core/SampleData.cpp
@@ -131,7 +132,8 @@ if(NATRON_BUILD_TESTS)
             tests/ExportTests.cpp
             tests/InfrastructureTests.cpp
             tests/MachineTests4b.cpp
-            tests/MachineTests4c.cpp)
+            tests/MachineTests4c.cpp
+            tests/EffectTests4d.cpp)
 
     target_include_directories(NatronTests PRIVATE source tests)
     target_compile_definitions(NatronTests
