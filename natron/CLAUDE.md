@@ -24,8 +24,10 @@ never decompile Caustic or copy its assets.
     `FmSynth`, `Pluck`, `Supersaw`), `VoiceMachine` (base for juce::Synthesiser-based ones), and the
     `TestToneMachine` placeholder (kept for tests).
   - `Automation` — automation lanes (pattern and song); `SampleData` — samples (import, song
-    embedding); `SwappableResource` — lock-free swap for data the audio thread reads.
-  - `dsp/` — shared DSP (`Biquad`, `Oscillator`, `DrumKit`). `mixer/` — `ChannelStrip` (one per
+    embedding); `SwappableResource` — lock-free swap for data the audio thread reads; `Autosave` —
+    save on suspend/quit, restore on launch.
+  - `dsp/` — shared DSP (`Biquad`, `Oscillator`, `DrumKit`, `FastSine` — use it rather than `std::sin`
+    in per-sample loops). `mixer/` — `ChannelStrip` (one per
     machine, created and freed with it) and `MasterBus` (send returns, volume, limiter).
     `effects/` — `Effect` interface + registry (`Effects.cpp`), and the 18 insert effects
     (`Effects.h`, `MoreEffects.h`).
@@ -38,13 +40,15 @@ never decompile Caustic or copy its assets.
     Song and posts the matching commands. **UI code talks to `Session`, never to `Engine`'s
     rack directly.**
 - `source/app/` — the JUCE app shell and UI: `MainComponent` (transport bar, tabs, export job, MIDI
-  inputs, keyboard), `RackView`, `PatternEditorView`, `SongView`, `MixerView`, `ParameterPanel`
-  (generic controls; choices become menus), `MachineExtrasPanel` (samples, formulas),
-  `AutomationEditor` (lanes).
+  inputs, keyboard, autosave, back button), `RackView`, `PatternEditorView`, `SongView`, `MixerView`,
+  `SettingsView` (audio device, CPU), `ParameterPanel` (generic controls; choices become menus),
+  `TouchKnob` (long-press fine adjust), `MachineExtrasPanel` (samples, formulas), `AutomationEditor`
+  (lanes), `Theme` (machine colours, touch sizes).
 - `tests/` — Catch2 tests. `TestHelpers.h`: offline renderers and `Rig` (engine + session +
   renderer) and `MachineRig` (one machine); `Analysis.h`: pitch, centroid, band energy, onset;
   `TestMachines.h`: `RecordingMachine` (logs the MIDI it receives) and `DataMachine` (machine data);
   `AllocationCounter`: replaces global new/delete to prove the audio path never touches the heap.
+  `Benchmarks.cpp`: hidden `[.benchmark]` CPU measurements (run them in a Release build).
 
 Fingerprint tests (`GoldenTests.cpp`, `tests/golden/*.txt`) store RMS and spectral centroid per
 50 ms rather than audio, with tolerances. If you change how something sounds **on purpose**,

@@ -1,5 +1,7 @@
 #include "PatternEditorView.h"
 
+#include "Theme.h"
+
 #include "core/PatternEditing.h"
 #include "core/dsp/DrumKit.h"
 #include "core/machines/DrumMachine.h"
@@ -10,7 +12,6 @@ namespace {
     const juce::Colour blackKeyLane { 0xff1f2023 };
     const juce::Colour gridLine { 0xff2f3236 };
     const juce::Colour barLine { 0xff4a4f55 };
-    const juce::Colour noteColour { 0xff81a2be };
     const juce::Colour accentColour { 0xffde935f };
     const juce::Colour text { 0xffc5c8c6 };
 
@@ -102,6 +103,7 @@ public:
             g.drawVerticalLine(juce::roundToInt(gutterWidth + step * stepWidth()), 0.0f, static_cast<float>(rows * rowHeight));
         }
 
+        const auto noteColour = Theme::machineColour(owner.session.getSong().machines[static_cast<size_t>(owner.machine)].type);
         for (const auto& note : pattern().notes) {
             if (note.start >= pattern().lengthInBeats() || rowForPitch(note.pitch) < 0 || rowForPitch(note.pitch) >= rows) {
                 continue;

@@ -34,6 +34,7 @@ set(NATRON_CORE_SOURCES
     source/core/MachineRegistry.cpp
     source/core/PatternPlayer.cpp
     source/core/SampleData.cpp
+    source/core/Autosave.cpp
     source/core/Session.cpp
     source/core/SongFile.cpp
     source/core/dsp/DrumKit.cpp
@@ -83,6 +84,7 @@ target_sources(Natron
         source/app/ParameterPanel.cpp
         source/app/PatternEditorView.cpp
         source/app/RackView.cpp
+        source/app/SettingsView.cpp
         source/app/SongView.cpp)
 
 target_include_directories(Natron PRIVATE source)
@@ -138,6 +140,7 @@ if(NATRON_BUILD_TESTS)
             tests/EffectTests4d.cpp
             tests/AutomationTests.cpp
             tests/LiveMidiTests.cpp
+            tests/AutosaveTests.cpp
             tests/Benchmarks.cpp)
 
     target_include_directories(NatronTests PRIVATE source tests)

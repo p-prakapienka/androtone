@@ -17,13 +17,19 @@
       <FILE id="NtApEh" name="PatternEditorView.h" compile="0" resource="0" file="source/app/PatternEditorView.h" />
       <FILE id="NtApRc" name="RackView.cpp" compile="1" resource="0" file="source/app/RackView.cpp" />
       <FILE id="NtApRh" name="RackView.h" compile="0" resource="0" file="source/app/RackView.h" />
+      <FILE id="NOHZYa" name="SettingsView.cpp" compile="1" resource="0" file="source/app/SettingsView.cpp" />
+      <FILE id="ZEaAbR" name="SettingsView.h" compile="0" resource="0" file="source/app/SettingsView.h" />
       <FILE id="NtApSc" name="SongView.cpp" compile="1" resource="0" file="source/app/SongView.cpp" />
       <FILE id="NtApSh" name="SongView.h" compile="0" resource="0" file="source/app/SongView.h" />
+      <FILE id="nTOWij" name="Theme.h" compile="0" resource="0" file="source/app/Theme.h" />
+      <FILE id="cggMwn" name="TouchKnob.h" compile="0" resource="0" file="source/app/TouchKnob.h" />
     </GROUP>
     <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F01}" name="core">
       <FILE id="NtCoAc" name="Arrangement.cpp" compile="1" resource="0" file="source/core/Arrangement.cpp" />
       <FILE id="NtCoAh" name="Arrangement.h" compile="0" resource="0" file="source/core/Arrangement.h" />
       <FILE id="LPGxZo" name="Automation.h" compile="0" resource="0" file="source/core/Automation.h" />
+      <FILE id="JgEOqd" name="Autosave.cpp" compile="1" resource="0" file="source/core/Autosave.cpp" />
+      <FILE id="lYGlfX" name="Autosave.h" compile="0" resource="0" file="source/core/Autosave.h" />
       <FILE id="LyCoDs" name="DemoSong.h" compile="0" resource="0" file="source/core/DemoSong.h" />
       <FILE id="LyCoEc" name="Engine.cpp" compile="1" resource="0" file="source/core/Engine.cpp" />
       <FILE id="LyCoEh" name="Engine.h" compile="0" resource="0" file="source/core/Engine.h" />

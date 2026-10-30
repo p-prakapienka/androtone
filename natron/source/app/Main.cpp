@@ -21,7 +21,22 @@ public:
     }
 
     void shutdown() override {
+        if (auto* main = getMainComponent()) {
+            main->saveAutosave();
+        }
         mainWindow = nullptr;
+    }
+
+    // Android kills backgrounded apps without warning: save whenever we leave the foreground.
+    void suspended() override {
+        if (auto* main = getMainComponent()) {
+            main->saveAutosave();
+        }
+    }
+
+    bool backButtonPressed() override {
+        auto* main = getMainComponent();
+        return main != nullptr && main->handleBackButton();
     }
 
     void systemRequestedQuit() override {
@@ -29,6 +44,10 @@ public:
     }
 
 private:
+    MainComponent* getMainComponent() const {
+        return mainWindow != nullptr ? dynamic_cast<MainComponent*>(mainWindow->getContentComponent()) : nullptr;
+    }
+
     class MainWindow : public juce::DocumentWindow {
     public:
         explicit MainWindow(const juce::String& name) :
@@ -37,11 +56,14 @@ private:
             setContentOwned(new MainComponent(), true);
 #if JUCE_ANDROID || JUCE_IOS
             setFullScreen(true);
+            setVisible(true);
+            // Immersive: hide the status and navigation bars; a swipe from the edge shows them.
+            juce::Desktop::getInstance().setKioskModeComponent(this, false);
 #else
             setResizable(true, true);
             centreWithSize(getWidth(), getHeight());
-#endif
             setVisible(true);
+#endif
         }
 
         void closeButtonPressed() override {

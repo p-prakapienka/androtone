@@ -27,12 +27,11 @@ ParameterPanel::ParameterPanel(const ParameterSet& parametersToShow, Setter onCh
             };
             addAndMakeVisible(*control.toggle);
         } else {
-            control.slider = std::make_unique<juce::Slider>(juce::Slider::RotaryHorizontalVerticalDrag,
-                                                            juce::Slider::TextBoxBelow);
+            control.slider = std::make_unique<TouchKnob>();
             control.slider->setRange(spec.minValue, spec.maxValue, spec.interval);
             control.slider->setDoubleClickReturnValue(true, spec.defaultValue);
             control.slider->setScrollWheelEnabled(false); // wheel scrolls the page, never turns a knob
-            control.slider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, cellWidth - 8, 18);
+            control.slider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, cellWidth() - 8, 18);
             control.slider->setNumDecimalPlacesToDisplay(spec.interval > 0.0f ? 0 : 2);
             // Wide ranges (Hz, seconds) are easier to set logarithmically.
             if (spec.minValue > 0.0f && spec.maxValue / spec.minValue >= 100.0f) {
@@ -70,14 +69,20 @@ void ParameterPanel::refresh() {
 int ParameterPanel::getHeightForWidth(int width) const {
     const int columns = columnsFor(width);
     const int rows = (static_cast<int>(controls.size()) + columns - 1) / columns;
-    return (title.isNotEmpty() ? titleHeight : 0) + rows * cellHeight;
+    return (title.isNotEmpty() ? titleHeight : 0) + rows * cellHeight();
 }
 
 void ParameterPanel::paint(juce::Graphics& g) {
     if (title.isNotEmpty()) {
+        auto bar = getLocalBounds().removeFromTop(titleHeight);
+        if (!accentColour.isTransparent()) {
+            g.setColour(accentColour);
+            g.fillRoundedRectangle(bar.removeFromLeft(6).reduced(0, 4).toFloat(), 3.0f);
+            bar.removeFromLeft(4);
+        }
         g.setColour(juce::Colour(0xffc5c8c6));
         g.setFont(juce::FontOptions(16.0f, juce::Font::bold));
-        g.drawText(title, getLocalBounds().removeFromTop(titleHeight).reduced(4, 0), juce::Justification::centredLeft);
+        g.drawText(title, bar.reduced(4, 0), juce::Justification::centredLeft);
     }
 }
 
@@ -87,18 +92,18 @@ void ParameterPanel::resized() {
     for (size_t i = 0; i < controls.size(); i++) {
         const int column = static_cast<int>(i) % columns;
         const int row = static_cast<int>(i) / columns;
-        const juce::Rectangle<int> cell(column * cellWidth, top + row * cellHeight, cellWidth, cellHeight);
+        const juce::Rectangle<int> cell(column * cellWidth(), top + row * cellHeight(), cellWidth(), cellHeight());
         auto& control = controls[i];
         if (control.menu != nullptr) {
             auto area = cell.reduced(4);
             control.label->setBounds(area.removeFromTop(16));
-            control.menu->setBounds(area.withSizeKeepingCentre(cellWidth - 8, 30));
+            control.menu->setBounds(area.withSizeKeepingCentre(cellWidth() - 8, 30));
         } else if (control.slider != nullptr) {
             auto area = cell.reduced(4);
             control.label->setBounds(area.removeFromTop(16));
             control.slider->setBounds(area);
         } else {
-            control.toggle->setBounds(cell.reduced(4).withSizeKeepingCentre(cellWidth - 8, 32));
+            control.toggle->setBounds(cell.reduced(4).withSizeKeepingCentre(cellWidth() - 8, 32));
         }
     }
 }

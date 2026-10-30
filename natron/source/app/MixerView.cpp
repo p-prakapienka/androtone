@@ -1,5 +1,7 @@
 #include "MixerView.h"
 
+#include "Theme.h"
+
 MixerView::MixerView(Session& sessionToUse) :
     session(sessionToUse) {
     viewport.setViewedComponent(&content, false);
@@ -18,6 +20,7 @@ void MixerView::rebuild() {
         panels.push_back(std::make_unique<ParameterPanel>(
             *parameters, [this, m](const juce::String& id, float value) { session.setMixerParameter(m, id, value); },
             session.getSong().machines[static_cast<size_t>(m)].name));
+        panels.back()->setAccentColour(Theme::machineColour(session.getSong().machines[static_cast<size_t>(m)].type));
     }
     panels.push_back(std::make_unique<ParameterPanel>(
         session.getMasterParameters(),

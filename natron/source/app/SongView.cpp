@@ -1,12 +1,13 @@
 #include "SongView.h"
 
+#include "Theme.h"
+
 #include "core/Arrangement.h"
 
 namespace {
     const juce::Colour background { 0xff1d1f21 };
     const juce::Colour rowColour { 0xff282a2e };
     const juce::Colour gridLine { 0xff34373b };
-    const juce::Colour blockColour { 0xff5f819d };
     const juce::Colour loopColour { 0xffde935f };
     const juce::Colour text { 0xffc5c8c6 };
 
@@ -67,6 +68,8 @@ public:
             const float y = static_cast<float>(rulerHeight + row * rowHeight);
             g.setColour(rowColour);
             g.fillRect(juce::Rectangle<float>(0.0f, y + 1.0f, nameWidth - 2.0f, rowHeight - 2.0f));
+            g.setColour(Theme::machineColour(machine.type));
+            g.fillRect(juce::Rectangle<float>(0.0f, y + 1.0f, 4.0f, rowHeight - 2.0f));
             g.setColour(text);
             g.setFont(juce::FontOptions(14.0f));
             g.drawText(machine.name, juce::Rectangle<float>(8.0f, y, nameWidth - 12.0f, rowHeight),
@@ -74,7 +77,7 @@ public:
 
             for (const auto& block : machine.blocks) {
                 const auto bounds = blockBounds(row, block);
-                g.setColour(blockColour);
+                g.setColour(Theme::machineColour(machine.type));
                 g.fillRoundedRectangle(bounds, 4.0f);
                 g.setColour(background.withAlpha(0.5f));
                 g.fillRect(bounds.withLeft(bounds.getRight() - 5.0f).reduced(0.0f, 8.0f)); // resize handle

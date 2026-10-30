@@ -95,7 +95,23 @@ Deferred: undo/redo; copy/paste of patterns and blocks; per-step automation (Pha
 Deferred: recording live input into patterns; parameter smoothing within notes for every machine;
 undo/redo; copy/paste of patterns and blocks; MIDI learn for knobs.
 
-## Phase 5 — Android polish
+## Phase 5 — Android polish ✅ (pending on-device checks)
 
-17. Touch-first layout (landscape, big knobs, long-press fine adjust), one colour per machine.
-18. Latency and CPU: Oboe/AAudio settings, profiling on a mid-range device.
+- **5a performance:** `dsp/FastSine.h` (table sine) for drawbars, FM operators, sine oscillators and
+  LFOs; per-block increments in Organ; AcidBass only calls `pow` when its pitch moves. Hidden
+  benchmarks (`NatronTests "[.benchmark]"`): each machine at full polyphony costs 0.5–2% of a
+  desktop core; a worst-case rack (14 machines, 28 effects, sends) ~14%. A mid-range phone core is
+  roughly 3–5× slower, so a typical song (4–8 machines) should fit comfortably.
+- **5b touch UI:** one colour per machine type (`Theme.h`) on rack rows, pattern pads, song blocks,
+  notes and mixer strips; bigger knob cells on phones; `TouchKnob` — hold still for a moment, then
+  drag, for 10× finer adjustment; narrow screens fold Save/Load/Export into a File menu.
+- **5c Android:** Settings tab (output device, buffer size, live latency and CPU readout; new/demo
+  song), saved between launches; Oboe (AAudio) is JUCE's first device type on Android; immersive
+  full screen; the back button returns to the Rack tab before leaving the app; the song is
+  autosaved (`core/Autosave`) when the app is backgrounded or closed and restored on launch.
+
+Still to do on real hardware (needs an APK build on a device): measure output latency per buffer
+size, profile on a mid-range phone, and check touch sizes by hand.
+
+Deferred: periodic autosave while in the foreground; per-machine colour choice; tablet portrait
+layout.

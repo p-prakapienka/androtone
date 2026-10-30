@@ -1,12 +1,12 @@
 #include "RackView.h"
 
+#include "Theme.h"
 #include "core/MachineRegistry.h"
 
 namespace {
     const juce::Colour background { 0xff1d1f21 };
     const juce::Colour rowColour { 0xff282a2e };
     const juce::Colour emptyPad { 0xff373b41 };
-    const juce::Colour filledPad { 0xff5f6b7a };
     const juce::Colour accent { 0xffde935f };
     const juce::Colour text { 0xffc5c8c6 };
 }
@@ -57,8 +57,11 @@ void RackView::paint(juce::Graphics& g) {
     for (int m = 0; m < session.getNumMachines(); m++) {
         const auto& state = session.getSong().machines[static_cast<size_t>(m)];
         const auto row = rowBounds(m);
+        const auto colour = Theme::machineColour(state.type);
         g.setColour(rowColour);
         g.fillRoundedRectangle(row.toFloat(), 6.0f);
+        g.setColour(colour);
+        g.fillRoundedRectangle(row.toFloat().withWidth(6.0f), 3.0f);
         if (m == selected) {
             g.setColour(accent);
             g.drawRoundedRectangle(row.toFloat().reduced(1.0f), 6.0f, 2.0f);
@@ -90,7 +93,7 @@ void RackView::paint(juce::Graphics& g) {
             const auto bounds = padBounds(m, slot).toFloat();
             const bool hasNotes = !state.patterns[static_cast<size_t>(index)].isEmpty();
 
-            g.setColour(index == current ? accent : (hasNotes ? filledPad : emptyPad));
+            g.setColour(index == current ? accent : (hasNotes ? colour.withMultipliedBrightness(0.75f) : emptyPad));
             g.fillRoundedRectangle(bounds, 4.0f);
             if (index == queued && blinkOn) {
                 g.setColour(accent);

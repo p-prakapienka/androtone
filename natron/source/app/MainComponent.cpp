@@ -1,5 +1,7 @@
 #include "MainComponent.h"
 
+#include "Theme.h"
+#include "core/Autosave.h"
 #include "core/DemoSong.h"
 #include "core/SongExport.h"
 #include "core/effects/Effect.h"
@@ -56,9 +58,19 @@ private:
 };
 
 MainComponent::MainComponent() {
-    const auto loaded = session.loadSong(makeDemoSong());
-    jassert(loaded.wasOk());
-    juce::ignoreUnused(loaded);
+    // Pick up where the last run left off; the demo song on first launch (or a damaged autosave).
+    if (Autosave::restore(session, Autosave::defaultFile()).failed()) {
+        const auto loaded = session.loadSong(makeDemoSong());
+        jassert(loaded.wasOk());
+        juce::ignoreUnused(loaded);
+    }
+
+    juce::PropertiesFile::Options options;
+    options.applicationName = "Natron";
+    options.filenameSuffix = ".settings";
+    options.folderName = "Natron";
+    options.osxLibrarySubFolder = "Application Support";
+    settings.setStorageParameters(options);
 
     title.setText("Natron", juce::dontSendNotification);
     title.setFont(juce::FontOptions(24.0f, juce::Font::bold));
@@ -78,8 +90,10 @@ MainComponent::MainComponent() {
     addAndMakeVisible(saveButton);
     loadButton.onClick = [this] { loadSong(); };
     addAndMakeVisible(loadButton);
-    exportButton.onClick = [this] { exportAudio(); };
+    exportButton.onClick = [this] { exportAudio(exportButton); };
     addAndMakeVisible(exportButton);
+    fileButton.onClick = [this] { showFileMenu(); };
+    addChildComponent(fileButton);
 
     tempoSlider.setRange(40.0, 240.0, 1.0);
     tempoSlider.setTextValueSuffix(" BPM");
@@ -96,26 +110,74 @@ MainComponent::MainComponent() {
     keyboardState.addListener(this);
     songView = new SongView(session, engine);
     mixerView = new MixerView(session);
+    settingsView = new SettingsView(deviceManager);
+    settingsView->onNewSong = [this] { loadNewSong(Song {}); };
+    settingsView->onDemoSong = [this] { loadNewSong(makeDemoSong()); };
     const juce::Colour tabColour(0xff282a2e);
     tabs.addTab("Rack", tabColour, rackPage, true);
     tabs.addTab("Pattern", tabColour, patternEditor, true);
     tabs.addTab("Song", tabColour, songView, true);
     tabs.addTab("Mixer", tabColour, mixerView, true);
+    tabs.addTab("Settings", tabColour, settingsView, true);
     tabs.setTabBarDepth(40);
     addAndMakeVisible(tabs);
     refreshFromSong();
 
     setSize(1100, 640);
-    setAudioChannels(0, 2);
+    // The last audio device and buffer size; on Android the default device type is Oboe (AAudio).
+    const auto savedAudio = settings.getUserSettings()->getXmlValue("audioDevice");
+    setAudioChannels(0, 2, savedAudio.get());
+    deviceManager.addChangeListener(this);
     startTimerHz(30);
 }
 
 MainComponent::~MainComponent() {
+    deviceManager.removeChangeListener(this);
     keyboardState.removeListener(this);
     for (const auto& identifier : openMidiInputs) {
         deviceManager.removeMidiInputDeviceCallback(identifier, this);
     }
     shutdownAudio();
+}
+
+void MainComponent::changeListenerCallback(juce::ChangeBroadcaster*) {
+    // The audio device or buffer size changed (Settings tab): remember it for the next launch.
+    if (const auto state = deviceManager.createStateXml()) {
+        settings.getUserSettings()->setValue("audioDevice", state.get());
+        settings.saveIfNeeded();
+    }
+}
+
+void MainComponent::saveAutosave() {
+    const auto result = Autosave::save(session, Autosave::defaultFile());
+    if (result.failed()) {
+        DBG("Autosave failed: " << result.getErrorMessage());
+    }
+}
+
+bool MainComponent::handleBackButton() {
+    if (tabs.getCurrentTabIndex() != 0) {
+        tabs.setCurrentTabIndex(0);
+        return true;
+    }
+    return false;
+}
+
+void MainComponent::loadNewSong(const Song& song) {
+    session.setPlaying(false);
+    const auto result = session.loadSong(song);
+    if (result.failed()) {
+        showError(result.getErrorMessage());
+    }
+    refreshFromSong();
+}
+
+void MainComponent::showFileMenu() {
+    juce::PopupMenu menu;
+    menu.addItem("Save...", [this] { saveSong(); });
+    menu.addItem("Load...", [this] { loadSong(); });
+    menu.addItem("Export...", [this] { exportAudio(fileButton); });
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&fileButton));
 }
 
 void MainComponent::handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) {
@@ -159,17 +221,30 @@ void MainComponent::paint(juce::Graphics& g) {
 }
 
 void MainComponent::resized() {
-    auto area = getLocalBounds().reduced(12);
+    // Narrow screens (phones in landscape) drop the title and fold Save/Load/Export into a menu.
+    const bool narrow = getWidth() < 860;
+    auto area = getLocalBounds().reduced(narrow ? 6 : 12);
     auto bar = area.removeFromTop(44);
-    title.setBounds(bar.removeFromLeft(110));
-    playButton.setBounds(bar.removeFromLeft(90).reduced(3, 0));
-    modeButton.setBounds(bar.removeFromLeft(90).reduced(3, 0));
-    positionLabel.setBounds(bar.removeFromLeft(70));
-    exportButton.setBounds(bar.removeFromRight(84).reduced(3, 0));
-    loadButton.setBounds(bar.removeFromRight(76).reduced(3, 0));
-    saveButton.setBounds(bar.removeFromRight(76).reduced(3, 0));
+    title.setVisible(!narrow);
+    if (!narrow) {
+        title.setBounds(bar.removeFromLeft(110));
+    }
+    playButton.setBounds(bar.removeFromLeft(84).reduced(3, 0));
+    modeButton.setBounds(bar.removeFromLeft(84).reduced(3, 0));
+    positionLabel.setBounds(bar.removeFromLeft(60));
+    for (auto* button : { &saveButton, &loadButton, &exportButton }) {
+        button->setVisible(!narrow);
+    }
+    fileButton.setVisible(narrow);
+    if (narrow) {
+        fileButton.setBounds(bar.removeFromRight(76).reduced(3, 0));
+    } else {
+        exportButton.setBounds(bar.removeFromRight(84).reduced(3, 0));
+        loadButton.setBounds(bar.removeFromRight(76).reduced(3, 0));
+        saveButton.setBounds(bar.removeFromRight(76).reduced(3, 0));
+    }
     tempoSlider.setBounds(bar.reduced(6, 0));
-    area.removeFromTop(10);
+    area.removeFromTop(narrow ? 6 : 10);
     tabs.setBounds(area);
 }
 
@@ -251,6 +326,7 @@ void MainComponent::RackPage::showMachine(int machine) {
             *owner.session.getParameters(machine),
             [this, machine](const juce::String& id, float value) { owner.session.setParameter(machine, id, value); },
             state.name + " (" + state.type + ")");
+        machinePanel->setAccentColour(Theme::machineColour(state.type));
         content.addAndMakeVisible(*machinePanel);
         if (MachineExtrasPanel::hasExtras(state.type)) {
             extras = std::make_unique<MachineExtrasPanel>(owner.session, machine, [](const juce::String& message) { showError(message); });
@@ -346,11 +422,11 @@ void MainComponent::loadSong() {
     });
 }
 
-void MainComponent::exportAudio() {
+void MainComponent::exportAudio(juce::Component& anchor) {
     juce::PopupMenu menu;
     menu.addItem(1, "Export song (timeline)", session.getSong().endBar() > 0);
     menu.addItem(2, "Export pattern loop (4 bars)");
-    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&exportButton), [this](int result) {
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&anchor), [this](int result) {
         if (result > 0) {
             startExport(result == 1);
         }
