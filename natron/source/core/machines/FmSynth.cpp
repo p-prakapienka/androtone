@@ -116,10 +116,10 @@ namespace {
 }
 
 FmSynth::FmSynth() {
-    // A classic electric-piano-ish default: algorithm 4, two modulator/carrier pairs.
-    const float ratios[numOperators] = { 1.0f, 1.0f, 1.0f, 14.0f };
-    const float levels[numOperators] = { 1.0f, 0.35f, 0.8f, 0.15f };
-    const float decays[numOperators] = { 1.5f, 0.6f, 1.2f, 0.2f };
+    // An electric-piano-ish default: algorithm 2, operator 3 (a bright tine) modulating 1 and 2.
+    const float ratios[numOperators] = { 1.0f, 2.0f, 14.0f };
+    const float levels[numOperators] = { 1.0f, 0.4f, 0.2f };
+    const float decays[numOperators] = { 1.5f, 0.8f, 0.25f };
     for (int op = 0; op < numOperators; op++) {
         const juce::String n = juce::String(op + 1);
         parameters.add({ "op" + n + "Ratio", "Op" + n + " Ratio", 0.5f, 16.0f, ratios[op] });
@@ -129,8 +129,8 @@ FmSynth::FmSynth() {
         parameters.add({ "op" + n + "Sustain", "Op" + n + " Sustain", 0.0f, 1.0f, 0.2f });
         parameters.add({ "op" + n + "Release", "Op" + n + " Release", 0.001f, 4.0f, 0.3f });
     }
-    parameters.add({ "algorithm", "Algorithm", 0.0f, static_cast<float>(numAlgorithms - 1), 4.0f, 1.0f,
-                     { "4>3>2>1", "(3+4)>2>1", "(2+4>3)>1", "(3>2+4)>1", "2>1 + 4>3", "4>(1,2,3)", "4>3 + 2 + 1", "1+2+3+4" } });
+    parameters.add({ "algorithm", "Algorithm", 0.0f, static_cast<float>(numAlgorithms - 1), 2.0f, 1.0f,
+                     { "3>2>1", "(2+3)>1", "3>(1,2)", "3>2 + 1", "2>1 + 3", "1+2+3" } });
     parameters.add({ "feedback", "Feedback", 0.0f, 1.0f, 0.0f });
     parameters.add({ "level", "Level", 0.0f, 1.0f, 0.4f });
     jassert(parameters.size() == numParameters);

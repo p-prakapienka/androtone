@@ -32,7 +32,7 @@ canonical answer to "how should this behave?" — when unsure, check Caustic and
 | Modular    | semi-modular patch synth | modules in bays, patch cables (verify) |
 | Organ      | tonewheel organ | drawbars, percussion, rotary/leslie (verify) |
 | Vocoder    | vocoder fed by a sample | carrier/modulator, bands (verify) |
-| FMSynth    | FM synth | operators, algorithms, envelopes (verify) |
+| FMSynth    | FM synth | 3 operators, algorithms, envelopes (algorithm list: verify) |
 | KSSynth    | Karplus-Strong plucked string | excitation, damping, decay (verify) |
 | SawSynth   | supersaw-style synth | voices, detune, filter, ADSR (verify) |
 
@@ -49,7 +49,7 @@ canonical answer to "how should this behave?" — when unsure, check Caustic and
 | `Modular` | Modular | fixed modules (2 osc, noise, filter, 2 env, 2 LFO) + six patch cables (source → destination × amount) instead of free cabling (verify how close this needs to be) |
 | `Organ` | Organ | 9 drawbars, percussion 2nd/3rd fast/slow, click, vibrato, rotary with spin-up |
 | `Vocoder` | Vocoder | 16-band channel vocoder; carrier from the notes (saw + noise); voice = built-in vowels or an imported sample |
-| `FM` | FMSynth | 4 operators, 8 algorithms, op 4 feedback (Caustic's operator count and algorithms: verify) |
+| `FM` | FMSynth | 3 operators (as Caustic), 6 algorithms, op 3 feedback (Caustic's algorithm list: verify) |
 | `Pluck` | KSSynth | Karplus-Strong, decay calibrated to −60 dB, damping, brightness |
 | `Supersaw` | SawSynth | up to 9 detuned saws spread in stereo, filter + envelope |
 

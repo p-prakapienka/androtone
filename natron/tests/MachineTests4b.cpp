@@ -42,8 +42,8 @@ TEST_CASE("Phase 4 machines play in tune and stop cleanly", "[machines][4b]") {
         rig.set("drawbar2", 0.0f); // ...and drop 5 1/3' too, so the fundamental is the played note
     }
     if (type == FmSynth::typeName) {
-        rig.set("algorithm", 7.0f); // additive: all four sines at ratio 1
-        for (const auto* op : { "op1", "op2", "op3", "op4" }) {
+        rig.set("algorithm", 5.0f); // additive: all three sines at ratio 1
+        for (const auto* op : { "op1", "op2", "op3" }) {
             rig.set(juce::String(op) + "Ratio", 1.0f);
         }
     }
@@ -163,9 +163,9 @@ TEST_CASE("Organ rotary moves the sound between left and right", "[machines][4b]
 
 TEST_CASE("FM carrier ratio sets the pitch", "[machines][4b]") {
     MachineRig rig(FmSynth::typeName);
-    rig.set("algorithm", 7.0f);
+    rig.set("algorithm", 5.0f);
     rig.set("op1Ratio", 2.0f);
-    for (const auto* op : { "op2Level", "op3Level", "op4Level" }) {
+    for (const auto* op : { "op2Level", "op3Level" }) {
         rig.set(op, 0.0f);
     }
     const auto audio = rig.play({ { 0.0, 2.0, 57, 0.9f } }, 0.4);
@@ -175,10 +175,9 @@ TEST_CASE("FM carrier ratio sets the pitch", "[machines][4b]") {
 TEST_CASE("FM modulation brightens the carrier", "[machines][4b]") {
     auto centroidAt = [](float modulatorLevel) {
         MachineRig rig(FmSynth::typeName);
-        rig.set("algorithm", 0.0f); // 4 > 3 > 2 > 1
+        rig.set("algorithm", 0.0f); // 3 > 2 > 1
         rig.set("op2Level", modulatorLevel);
         rig.set("op3Level", 0.0f);
-        rig.set("op4Level", 0.0f);
         rig.set("op2Ratio", 1.0f);
         rig.set("op1Sustain", 1.0f);
         rig.set("op2Sustain", 1.0f);
@@ -189,6 +188,13 @@ TEST_CASE("FM modulation brightens the carrier", "[machines][4b]") {
     CAPTURE(pure, modulated);
     CHECK(pure < 150.0);
     CHECK(modulated > 2.0 * pure);
+}
+
+TEST_CASE("FM has three operators", "[machines][4b]") {
+    FmSynth fm;
+    CHECK(fm.getParameters().indexOf("op3Ratio") >= 0);
+    CHECK(fm.getParameters().indexOf("op4Ratio") < 0);
+    CHECK(fm.getParameters().size() == FmSynth::numParameters);
 }
 
 TEST_CASE("FM algorithms define which operators are heard", "[machines][4b]") {
