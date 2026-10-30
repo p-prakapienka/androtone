@@ -32,17 +32,24 @@ set(NATRON_CORE_SOURCES
     source/core/effects/Effects.cpp
     source/core/MachineRegistry.cpp
     source/core/PatternPlayer.cpp
+    source/core/SampleData.cpp
     source/core/Session.cpp
     source/core/SongFile.cpp
     source/core/dsp/DrumKit.cpp
     source/core/machines/AcidBass.cpp
+    source/core/machines/Bytebeat.cpp
+    source/core/machines/BytebeatProgram.cpp
     source/core/machines/DrumMachine.cpp
     source/core/machines/FmSynth.cpp
+    source/core/machines/Modular.cpp
     source/core/machines/Organ.cpp
+    source/core/machines/PadSynth.cpp
     source/core/machines/Pluck.cpp
+    source/core/machines/Sampler.cpp
     source/core/machines/Supersaw.cpp
     source/core/machines/SubtractiveSynth.cpp
     source/core/machines/TestToneMachine.cpp
+    source/core/machines/Vocoder.cpp
     source/core/mixer/ChannelStrip.cpp
     source/core/mixer/MasterBus.cpp)
 
@@ -123,7 +130,8 @@ if(NATRON_BUILD_TESTS)
             tests/EffectTests.cpp
             tests/ExportTests.cpp
             tests/InfrastructureTests.cpp
-            tests/MachineTests4b.cpp)
+            tests/MachineTests4b.cpp
+            tests/MachineTests4c.cpp)
 
     target_include_directories(NatronTests PRIVATE source tests)
     target_compile_definitions(NatronTests

@@ -115,7 +115,7 @@ Organ::Organ() {
     parameters.add({ "click", "Click", 0.0f, 1.0f, 0.3f });
     parameters.add({ "vibratoDepth", "Vibrato", 0.0f, 1.0f, 0.0f });
     parameters.add({ "vibratoRate", "Vib Rate", 1.0f, 10.0f, 6.5f });
-    parameters.add({ "rotarySpeed", "Rotary", 0.0f, 2.0f, 1.0f, 1.0f }); // off, slow, fast
+    parameters.add({ "rotarySpeed", "Rotary", 0.0f, 2.0f, 1.0f, 1.0f, { "Off", "Slow", "Fast" } });
     parameters.add({ "rotaryDepth", "Rot Depth", 0.0f, 1.0f, 0.5f });
     parameters.add({ "level", "Level", 0.0f, 1.0f, 0.4f });
     jassert(parameters.size() == numParameters);

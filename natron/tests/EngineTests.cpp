@@ -6,6 +6,8 @@
 #include "TestMachines.h"
 #include "core/DemoSong.h"
 #include "core/effects/Effect.h"
+#include "core/machines/Bytebeat.h"
+#include "core/machines/DrumMachine.h"
 #include "core/machines/TestToneMachine.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -144,7 +146,7 @@ TEST_CASE("The audio callback never touches the heap, even while edits arrive", 
     Rig rig;
     REQUIRE(rig.session.loadSong(makeDemoSong()).wasOk());
     rig.session.addMachine(RecordingMachine::typeName);
-    for (const auto* type : { "Supersaw", "Pluck", "Organ", "FM" }) { // indices 4-7
+    for (const auto* type : { "Supersaw", "Pluck", "Organ", "FM", "PadSynth", "Bytebeat", "Sampler", "Vocoder", "Modular" }) { // 4-12
         const int m = rig.session.addMachine(type);
         Pattern chords;
         chords.notes = { { 0.0, 0.5, 48, 0.9f }, { 0.0, 0.5, 55, 0.9f }, { 0.5, 1.0, 60, 0.9f }, { 1.5, 0.25, 72, 1.0f } };
@@ -155,6 +157,12 @@ TEST_CASE("The audio callback never touches the heap, even while edits arrive", 
     rig.session.setMixerParameter(2, "reverbSend", 0.8f);
     rig.session.setLoop(true, 0, 2);
     rig.session.setPlaying(true);
+
+    SampleData blip; // a short sample to swap into the drums while playing
+    blip.audio.setSize(1, 2400);
+    for (int i = 0; i < 2400; i++) {
+        blip.audio.setSample(0, i, std::sin(i * 0.2f) * (1.0f - i / 2400.0f));
+    }
 
     juce::AudioBuffer<float> block(2, 512);
     rig.engine.process(block); // first block applies the load
@@ -184,6 +192,11 @@ TEST_CASE("The audio callback never touches the heap, even while edits arrive", 
         rig.session.setMixerParameter(0, "solo", (i / 60) % 2 == 0 ? 0.0f : 1.0f);
         rig.session.setMasterParameter("delayBeats", 0.25f * static_cast<float>(1 + i % 6));
         rig.session.setTempo(100.0 + i % 40);
+        if (i % 50 == 20) { // swap machine data (samples, formulas, tables) while playing
+            rig.session.setMachineData(9, Bytebeat::dataFor(i % 100 == 20 ? "t*(t>>8)" : "t&t>>4"));
+            rig.session.setParameter(8, "harmonic3", static_cast<float>(i % 7) / 7.0f);
+            rig.session.setMachineData(0, DrumMachine::withSample({}, i % 8, blip));
+        }
         if (i % 40 == 5) {
             const auto types = EffectRegistry::getTypeNames();
             rig.session.setEffect(i % 2, (i / 40) % 2, types[(i / 40) % types.size()]);

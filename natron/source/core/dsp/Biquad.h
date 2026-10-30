@@ -43,6 +43,30 @@ public:
         set(1 + alpha * a, -2 * cosW, 1 - alpha * a, 1 + alpha / a, -2 * cosW, 1 - alpha / a);
     }
 
+    // Constant 0 dB peak band-pass.
+    void setBandPass(double sampleRate, double frequency, double q) {
+        const double w = omega(sampleRate, frequency);
+        const double alpha = std::sin(w) / (2.0 * q);
+        const double cosW = std::cos(w);
+        set(alpha, 0.0, -alpha, 1 + alpha, -2 * cosW, 1 - alpha);
+    }
+
+    // Second-order high-pass (Butterworth at q = 0.707).
+    void setHighPass(double sampleRate, double frequency, double q = 0.7071) {
+        const double w = omega(sampleRate, frequency);
+        const double alpha = std::sin(w) / (2.0 * q);
+        const double cosW = std::cos(w);
+        set((1 + cosW) / 2, -(1 + cosW), (1 + cosW) / 2, 1 + alpha, -2 * cosW, 1 - alpha);
+    }
+
+    // Second-order low-pass (Butterworth at q = 0.707).
+    void setLowPass(double sampleRate, double frequency, double q = 0.7071) {
+        const double w = omega(sampleRate, frequency);
+        const double alpha = std::sin(w) / (2.0 * q);
+        const double cosW = std::cos(w);
+        set((1 - cosW) / 2, 1 - cosW, (1 - cosW) / 2, 1 + alpha, -2 * cosW, 1 - alpha);
+    }
+
     float process(int channel, float x) {
         auto& s = state[channel];
         const float y = b0 * x + s.z1;

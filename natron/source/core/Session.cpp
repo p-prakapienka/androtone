@@ -60,6 +60,7 @@ int Session::addMachine(const juce::String& type, const juce::String& name) {
 
 void Session::postMachine(std::unique_ptr<Machine> machine, std::unique_ptr<ChannelStrip> channel,
                           EffectSlots machineEffects, const MachineState& state, int index) {
+    machine->parameterChanged(-1);
     // Parameters were applied by the caller; prepare at the engine's current settings (the engine
     // re-prepares everything if the device changes later).
     machine->prepare(engine.getSampleRate(), engine.getMaxBlockSize());
@@ -149,9 +150,15 @@ bool Session::selectPattern(int machine, int patternIndex) {
 }
 
 bool Session::setParameter(int machine, const juce::String& parameterId, float value) {
-    return isValidMachine(machine)
-           && setValue(machines[static_cast<size_t>(machine)]->getParameters(),
-                       song.machines[static_cast<size_t>(machine)].parameters, parameterId, value);
+    if (!isValidMachine(machine)) {
+        return false;
+    }
+    auto* live = machines[static_cast<size_t>(machine)];
+    if (!setValue(live->getParameters(), song.machines[static_cast<size_t>(machine)].parameters, parameterId, value)) {
+        return false;
+    }
+    live->parameterChanged(live->getParameters().indexOf(parameterId));
+    return true;
 }
 
 float Session::getParameter(int machine, const juce::String& parameterId) const {

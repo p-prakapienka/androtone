@@ -129,7 +129,8 @@ FmSynth::FmSynth() {
         parameters.add({ "op" + n + "Sustain", "Op" + n + " Sustain", 0.0f, 1.0f, 0.2f });
         parameters.add({ "op" + n + "Release", "Op" + n + " Release", 0.001f, 4.0f, 0.3f });
     }
-    parameters.add({ "algorithm", "Algorithm", 0.0f, static_cast<float>(numAlgorithms - 1), 4.0f, 1.0f });
+    parameters.add({ "algorithm", "Algorithm", 0.0f, static_cast<float>(numAlgorithms - 1), 4.0f, 1.0f,
+                     { "4>3>2>1", "(3+4)>2>1", "(2+4>3)>1", "(3>2+4)>1", "2>1 + 4>3", "4>(1,2,3)", "4>3 + 2 + 1", "1+2+3+4" } });
     parameters.add({ "feedback", "Feedback", 0.0f, 1.0f, 0.0f });
     parameters.add({ "level", "Level", 0.0f, 1.0f, 0.4f });
     jassert(parameters.size() == numParameters);

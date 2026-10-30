@@ -30,6 +30,10 @@ public:
     virtual juce::ValueTree getData() const { return {}; }
     virtual juce::Result setData(const juce::ValueTree&) { return juce::Result::ok(); }
 
+    // Message thread: a parameter was set through the Session (index, or -1 for "all of them", after
+    // loading). For machines that derive heavy data from parameters (PadSynth's wavetable).
+    virtual void parameterChanged(int index) { juce::ignoreUnused(index); }
+
     // Message thread, called regularly: free whatever setData() replaced.
     virtual void collectGarbage() {}
 

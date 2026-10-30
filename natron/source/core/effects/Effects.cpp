@@ -160,7 +160,7 @@ void Compressor::process(juce::AudioBuffer<float>& buffer, int numSamples) {
 // ------------------------------------------------------------------------------------------------ Filter
 
 FilterEffect::FilterEffect() {
-    parameters.add({ "type", "Type", 0.0f, 2.0f, 0.0f, 1.0f }); // low, high, band
+    parameters.add({ "type", "Type", 0.0f, 2.0f, 0.0f, 1.0f, { "Low-pass", "High-pass", "Band-pass" } });
     parameters.add({ "cutoff", "Cutoff", 20.0f, 20000.0f, 1000.0f });
     parameters.add({ "resonance", "Resonance", 0.0f, 1.0f, 0.3f });
     jassert(parameters.size() == numParameters);

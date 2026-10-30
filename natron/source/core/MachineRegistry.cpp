@@ -1,6 +1,11 @@
 #include "MachineRegistry.h"
 
 #include "machines/AcidBass.h"
+#include "machines/Bytebeat.h"
+#include "machines/Modular.h"
+#include "machines/PadSynth.h"
+#include "machines/Sampler.h"
+#include "machines/Vocoder.h"
 #include "machines/DrumMachine.h"
 #include "machines/FmSynth.h"
 #include "machines/Organ.h"
@@ -21,6 +26,11 @@ namespace {
             { Pluck::typeName, [] { return std::make_unique<Pluck>(); } },
             { Organ::typeName, [] { return std::make_unique<Organ>(); } },
             { FmSynth::typeName, [] { return std::make_unique<FmSynth>(); } },
+            { PadSynth::typeName, [] { return std::make_unique<PadSynth>(); } },
+            { Bytebeat::typeName, [] { return std::make_unique<Bytebeat>(); } },
+            { Sampler::typeName, [] { return std::make_unique<Sampler>(); } },
+            { Vocoder::typeName, [] { return std::make_unique<Vocoder>(); } },
+            { Modular::typeName, [] { return std::make_unique<Modular>(); } },
             { TestToneMachine::typeName, [] { return std::make_unique<TestToneMachine>(); } },
         };
         return registered;

@@ -10,7 +10,7 @@ namespace {
 }
 
 AcidBass::AcidBass() {
-    parameters.add({ "shape", "Wave", 0.0f, 1.0f, 0.0f, 1.0f }); // saw, square
+    parameters.add({ "shape", "Wave", 0.0f, 1.0f, 0.0f, 1.0f, { "Saw", "Square" } });
     parameters.add({ "tune", "Tune", -12.0f, 12.0f, 0.0f });
     parameters.add({ "cutoff", "Cutoff", 30.0f, 8000.0f, 350.0f });
     parameters.add({ "resonance", "Resonance", 0.0f, 1.0f, 0.65f });

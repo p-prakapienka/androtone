@@ -79,8 +79,17 @@ TEST_CASE("Golden: every effect on a fixed signal", "[golden]") {
     checkGolden("effects", all);
 }
 
-TEST_CASE("Golden: Phase 4 machines, batch 1", "[golden]") {
+TEST_CASE("Golden: Phase 4 machines batch 1", "[golden]") {
     const juce::String types[] = { "Supersaw", "Pluck", "Organ", "FM" };
+    for (const auto& type : types) {
+        MachineRig rig(type);
+        std::vector<Note> phrase { { 0.0, 1.5, 48, 0.9f }, { 0.0, 1.5, 55, 0.7f }, { 2.0, 1.0, 60, 0.8f }, { 3.0, 0.5, 67, 1.0f } };
+        checkGolden(type.toLowerCase(), rig.play(phrase, 2.0));
+    }
+}
+
+TEST_CASE("Golden: Phase 4 machines batch 2", "[golden]") {
+    const juce::String types[] = { "PadSynth", "Bytebeat", "Sampler", "Vocoder", "Modular" };
     for (const auto& type : types) {
         MachineRig rig(type);
         std::vector<Note> phrase { { 0.0, 1.5, 48, 0.9f }, { 0.0, 1.5, 55, 0.7f }, { 2.0, 1.0, 60, 0.8f }, { 3.0, 0.5, 67, 1.0f } };

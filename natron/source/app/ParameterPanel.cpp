@@ -7,7 +7,20 @@ ParameterPanel::ParameterPanel(const ParameterSet& parametersToShow, Setter onCh
         Control control;
         control.id = spec.id;
 
-        if (spec.isToggle()) {
+        if (!spec.choices.isEmpty()) {
+            control.menu = std::make_unique<juce::ComboBox>(spec.name);
+            for (int c = 0; c < spec.choices.size(); c++) {
+                control.menu->addItem(spec.choices[c], c + 1);
+            }
+            control.menu->onChange = [this, id = spec.id, min = spec.minValue, menu = control.menu.get()] {
+                setter(id, min + static_cast<float>(menu->getSelectedId() - 1));
+            };
+            addAndMakeVisible(*control.menu);
+            control.label = std::make_unique<juce::Label>(spec.id, spec.name);
+            control.label->setJustificationType(juce::Justification::centred);
+            control.label->setFont(juce::FontOptions(12.0f));
+            addAndMakeVisible(*control.label);
+        } else if (spec.isToggle()) {
             control.toggle = std::make_unique<juce::ToggleButton>(spec.name);
             control.toggle->onClick = [this, id = spec.id, button = control.toggle.get()] {
                 setter(id, button->getToggleState() ? 1.0f : 0.0f);
@@ -42,7 +55,10 @@ ParameterPanel::ParameterPanel(const ParameterSet& parametersToShow, Setter onCh
 void ParameterPanel::refresh() {
     for (size_t i = 0; i < controls.size(); i++) {
         const float value = parameters.get(static_cast<int>(i));
-        if (controls[i].slider != nullptr) {
+        if (controls[i].menu != nullptr) {
+            controls[i].menu->setSelectedId(juce::roundToInt(value - parameters.getSpec(static_cast<int>(i)).minValue) + 1,
+                                            juce::dontSendNotification);
+        } else if (controls[i].slider != nullptr) {
             controls[i].slider->setValue(value, juce::dontSendNotification);
         } else {
             controls[i].toggle->setToggleState(value >= 0.5f, juce::dontSendNotification);
@@ -72,7 +88,11 @@ void ParameterPanel::resized() {
         const int row = static_cast<int>(i) / columns;
         const juce::Rectangle<int> cell(column * cellWidth, top + row * cellHeight, cellWidth, cellHeight);
         auto& control = controls[i];
-        if (control.slider != nullptr) {
+        if (control.menu != nullptr) {
+            auto area = cell.reduced(4);
+            control.label->setBounds(area.removeFromTop(16));
+            control.menu->setBounds(area.withSizeKeepingCentre(cellWidth - 8, 30));
+        } else if (control.slider != nullptr) {
             auto area = cell.reduced(4);
             control.label->setBounds(area.removeFromTop(16));
             control.slider->setBounds(area);

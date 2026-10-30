@@ -32,6 +32,7 @@ private:
         juce::String id;
         std::unique_ptr<juce::Slider> slider;
         std::unique_ptr<juce::ToggleButton> toggle;
+        std::unique_ptr<juce::ComboBox> menu;
         std::unique_ptr<juce::Label> label;
     };
 

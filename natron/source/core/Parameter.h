@@ -12,10 +12,12 @@ struct ParameterSpec {
     float maxValue = 1.0f;
     float defaultValue = 0.0f;
     float interval = 0.0f; // step size for discrete choices (1 = whole numbers); 0 = continuous
+    juce::StringArray choices {}; // names for the values minValue, minValue + 1, ... (shown as a menu)
 
     // A 0/1 parameter (mute, solo): shown as a toggle.
     bool isToggle() const {
-        return juce::exactlyEqual(interval, 1.0f) && juce::exactlyEqual(minValue, 0.0f) && juce::exactlyEqual(maxValue, 1.0f);
+        return choices.isEmpty() && juce::exactlyEqual(interval, 1.0f) && juce::exactlyEqual(minValue, 0.0f)
+               && juce::exactlyEqual(maxValue, 1.0f);
     }
 };
 

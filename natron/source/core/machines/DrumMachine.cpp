@@ -3,14 +3,24 @@
 #include <cmath>
 
 namespace {
+    const juce::Identifier dataType { "Drums" };
+    const juce::Identifier slotType { "Slot" };
+
     const std::array<juce::AudioBuffer<float>, DrumMachine::numSlots>& sharedKit() {
-        static const auto kit = DrumKit::generate(); // generated once, shared by every instance
-        return kit;
+        static const auto generated = DrumKit::generate(); // generated once, shared by every instance
+        return generated;
+    }
+
+    SampleData kitSound(int slot) {
+        SampleData sound;
+        sound.name = DrumKit::names()[static_cast<size_t>(slot)];
+        sound.sampleRate = DrumKit::sampleRate;
+        sound.audio.makeCopyOf(sharedKit()[static_cast<size_t>(slot)]);
+        return sound;
     }
 }
 
-DrumMachine::DrumMachine() :
-    kit(sharedKit()) {
+DrumMachine::DrumMachine() {
     for (int slot = 0; slot < numSlots; slot++) {
         const juce::String prefix = "s" + juce::String(slot + 1) + ".";
         const juce::String name = DrumKit::names()[static_cast<size_t>(slot)];
@@ -21,6 +31,64 @@ DrumMachine::DrumMachine() :
         parameters.add({ prefix + "mute", name + " Mute", 0.0f, 1.0f, 0.0f, 1.0f });
     }
     jassert(parameters.size() == numSlots * parametersPerSlot);
+    setData({});
+}
+
+juce::ValueTree DrumMachine::getData() const {
+    juce::ValueTree tree(dataType);
+    if (const auto* current = kit.get()) {
+        for (int slot = 0; slot < numSlots; slot++) {
+            if (current->custom[static_cast<size_t>(slot)]) {
+                juce::ValueTree slotTree(slotType);
+                slotTree.setProperty("index", slot, nullptr);
+                slotTree.appendChild(current->sounds[static_cast<size_t>(slot)].toTree(), nullptr);
+                tree.appendChild(slotTree, nullptr);
+            }
+        }
+    }
+    return tree;
+}
+
+juce::Result DrumMachine::setData(const juce::ValueTree& data) {
+    auto next = std::make_unique<Kit>();
+    for (int slot = 0; slot < numSlots; slot++) {
+        next->sounds[static_cast<size_t>(slot)] = kitSound(slot);
+    }
+    for (const auto& slotTree : data) {
+        if (!slotTree.hasType(slotType)) {
+            continue;
+        }
+        const int slot = slotTree.getProperty("index", -1);
+        if (slot < 0 || slot >= numSlots) {
+            return juce::Result::fail("Drum slot out of range: " + juce::String(slot));
+        }
+        if (const auto loaded = SampleData::fromTree(slotTree.getChildWithName("Sample"), next->sounds[static_cast<size_t>(slot)]);
+            loaded.failed()) {
+            return loaded;
+        }
+        next->custom[static_cast<size_t>(slot)] = true;
+    }
+    kit.set(std::move(next));
+    return juce::Result::ok();
+}
+
+juce::ValueTree DrumMachine::withSample(const juce::ValueTree& data, int slot, const SampleData& sample) {
+    auto result = withoutSample(data, slot);
+    juce::ValueTree slotTree(slotType);
+    slotTree.setProperty("index", slot, nullptr);
+    slotTree.appendChild(sample.toTree(), nullptr);
+    result.appendChild(slotTree, nullptr);
+    return result;
+}
+
+juce::ValueTree DrumMachine::withoutSample(const juce::ValueTree& data, int slot) {
+    juce::ValueTree result(dataType);
+    for (const auto& child : data) {
+        if (child.hasType(slotType) && static_cast<int>(child.getProperty("index", -1)) != slot) {
+            result.appendChild(child.createCopy(), nullptr);
+        }
+    }
+    return result;
 }
 
 void DrumMachine::prepare(double newSampleRate, int) {
@@ -35,6 +103,7 @@ void DrumMachine::reset() {
 }
 
 void DrumMachine::process(juce::AudioBuffer<float>& output, const juce::MidiBuffer& midi) {
+    blockKit = kit.acquire();
     int position = 0;
     for (const auto metadata : midi) {
         const int eventPosition = juce::jlimit(0, output.getNumSamples(), metadata.samplePosition);
@@ -67,12 +136,12 @@ void DrumMachine::render(juce::AudioBuffer<float>& output, int start, int end) {
             continue;
         }
 
-        const auto& sound = kit[static_cast<size_t>(slot)];
-        const float* data = sound.getReadPointer(0);
-        const int length = sound.getNumSamples();
+        const auto& sound = blockKit->sounds[static_cast<size_t>(slot)];
+        const float* data = sound.audio.getReadPointer(0); // drums play mono (then pan)
+        const int length = sound.audio.getNumSamples();
 
         const auto get = [&](SlotParameter parameter) { return parameters.get(parameterIndex(slot, parameter)); };
-        const double rate = DrumKit::sampleRate / sampleRate * std::pow(2.0, get(tune) / 12.0);
+        const double rate = sound.sampleRate / sampleRate * std::pow(2.0, get(tune) / 12.0);
         const float muteGain = get(mute) >= 0.5f ? 0.0f : 1.0f;
         const float slotLevel = get(level) * muteGain * p.gain;
         const float panValue = get(pan);

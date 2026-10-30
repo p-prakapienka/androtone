@@ -133,12 +133,12 @@ namespace {
 }
 
 SubtractiveSynth::SubtractiveSynth() {
-    parameters.add({ "osc1Shape", "Osc 1 Shape", 0.0f, 3.0f, 0.0f, 1.0f }); // saw, square, triangle, sine
-    parameters.add({ "osc2Shape", "Osc 2 Shape", 0.0f, 3.0f, 1.0f, 1.0f });
+    parameters.add({ "osc1Shape", "Osc 1 Shape", 0.0f, 3.0f, 0.0f, 1.0f, { "Saw", "Square", "Triangle", "Sine" } });
+    parameters.add({ "osc2Shape", "Osc 2 Shape", 0.0f, 3.0f, 1.0f, 1.0f, { "Saw", "Square", "Triangle", "Sine" } });
     parameters.add({ "osc2Semitones", "Osc 2 Semi", -24.0f, 24.0f, 0.0f, 1.0f });
     parameters.add({ "osc2Fine", "Osc 2 Fine", -50.0f, 50.0f, 7.0f }); // cents
     parameters.add({ "oscMix", "Osc Mix", 0.0f, 1.0f, 0.5f });
-    parameters.add({ "filterType", "Filter Type", 0.0f, 2.0f, 0.0f, 1.0f }); // low, high, band
+    parameters.add({ "filterType", "Filter Type", 0.0f, 2.0f, 0.0f, 1.0f, { "Low-pass", "High-pass", "Band-pass" } });
     parameters.add({ "cutoff", "Cutoff", 20.0f, 20000.0f, 1800.0f });
     parameters.add({ "resonance", "Resonance", 0.0f, 1.0f, 0.2f });
     parameters.add({ "filterEnvAmount", "Filter Env", -1.0f, 1.0f, 0.3f });
