@@ -11,6 +11,8 @@ namespace {
         const juce::Identifier slot { "slot" };
         const juce::Identifier pattern_ { "pattern" };
         const juce::Identifier songMode { "songMode" };
+        const juce::Identifier swing { "swing" };
+        const juce::Identifier data { "Data" };
         const juce::Identifier loop { "loop" };
         const juce::Identifier loopStart { "loopStart" };
         const juce::Identifier loopEnd { "loopEnd" };
@@ -53,6 +55,7 @@ juce::ValueTree SongFile::toValueTree(const Song& song) {
     juce::ValueTree root(ids::song);
     root.setProperty(ids::version, currentVersion, nullptr);
     root.setProperty(ids::tempo, song.tempo, nullptr);
+    root.setProperty(ids::swing, song.swing, nullptr);
     root.setProperty(ids::songMode, song.songMode, nullptr);
     root.setProperty(ids::loop, song.loopEnabled, nullptr);
     root.setProperty(ids::loopStart, song.loopStartBar, nullptr);
@@ -98,6 +101,12 @@ juce::ValueTree SongFile::toValueTree(const Song& song) {
             machineTree.appendChild(patternTree, nullptr);
         }
 
+        if (machine.data.isValid()) {
+            juce::ValueTree dataTree(ids::data);
+            dataTree.appendChild(machine.data.createCopy(), nullptr);
+            machineTree.appendChild(dataTree, nullptr);
+        }
+
         for (const auto& songBlock : machine.blocks) {
             juce::ValueTree blockTree(ids::block);
             blockTree.setProperty(ids::start, songBlock.startBar, nullptr);
@@ -126,6 +135,7 @@ juce::Result SongFile::fromValueTree(const juce::ValueTree& tree, Song& song) {
     Song loaded;
     loaded.tempo = tree.getProperty(ids::tempo, loaded.tempo);
     loaded.songMode = tree.getProperty(ids::songMode, loaded.songMode);
+    loaded.swing = juce::jlimit(Song::minSwing, Song::maxSwing, static_cast<float>(tree.getProperty(ids::swing, loaded.swing)));
     loaded.loopEnabled = tree.getProperty(ids::loop, loaded.loopEnabled);
     loaded.loopStartBar = tree.getProperty(ids::loopStart, loaded.loopStartBar);
     loaded.loopEndBar = tree.getProperty(ids::loopEnd, loaded.loopEndBar);
@@ -168,6 +178,10 @@ juce::Result SongFile::fromValueTree(const juce::ValueTree& tree, Song& song) {
                     if (parameterTree.hasType(ids::parameter)) {
                         effectState.parameters[parameterTree.getProperty(ids::id).toString()] = parameterTree.getProperty(ids::value);
                     }
+                }
+            } else if (child.hasType(ids::data)) {
+                if (child.getNumChildren() > 0) {
+                    machine.data = child.getChild(0).createCopy();
                 }
             } else if (child.hasType(ids::block)) {
                 const SongBlock songBlock { child.getProperty(ids::start, -1), child.getProperty(ids::length, 0),

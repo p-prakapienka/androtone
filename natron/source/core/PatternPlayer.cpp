@@ -16,7 +16,7 @@ PatternPlayer::PatternPlayer() {
 
 void PatternPlayer::process(const Pattern& pattern, double originBeat, const Transport& transport,
                             int64_t fromSample, int64_t toSample, int64_t blockStart, juce::MidiBuffer& midi,
-                            int channel) {
+                            int channel, float swing) {
     const double loopLength = pattern.lengthInBeats();
     noteOns.clear();
 
@@ -33,7 +33,8 @@ void PatternPlayer::process(const Pattern& pattern, double originBeat, const Tra
                 if (note.start < 0.0 || note.start >= loopLength) {
                     continue;
                 }
-                const double startBeat = originBeat + static_cast<double>(loop) * loopLength + note.start;
+                const double startBeat =
+                    originBeat + static_cast<double>(loop) * loopLength + note.start + swingOffset(note.start, swing);
                 const int64_t sample = transport.sampleAt(startBeat);
                 if (sample >= fromSample && sample < toSample) {
                     noteOns.push_back({ sample, note.pitch, note.velocity,
@@ -69,6 +70,15 @@ void PatternPlayer::process(const Pattern& pattern, double originBeat, const Tra
     }
 
     releaseEndingBefore(toSample, false, transport, fromSample, blockStart, midi, channel);
+}
+
+double PatternPlayer::swingOffset(double start, float swing) {
+    // An off-beat 1/16 sits at 0.25 within its 1/8 pair; swing moves it to `swing` of the pair.
+    const double positionInPair = std::fmod(start, 2.0 * Pattern::stepLength);
+    if (std::abs(positionInPair - Pattern::stepLength) > 1.0e-6) {
+        return 0.0;
+    }
+    return (juce::jlimit(0.5, 0.75, static_cast<double>(swing)) - 0.5) * (2.0 * Pattern::stepLength);
 }
 
 void PatternPlayer::releaseEndingBefore(int64_t limit, bool inclusive, const Transport& transport,

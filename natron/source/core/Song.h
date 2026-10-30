@@ -4,6 +4,7 @@
 #include "Pattern.h"
 
 #include <juce_core/juce_core.h>
+#include <juce_data_structures/juce_data_structures.h>
 #include <algorithm>
 #include <array>
 #include <map>
@@ -27,6 +28,7 @@ struct MachineState {
     ParameterValues mixer;      // its channel strip's (see ChannelStrip)
     std::array<EffectState, numEffects> effects;
     BlockList blocks;           // its row on the song timeline
+    juce::ValueTree data;       // machine-specific data (see Machine::getData); treat as immutable
     std::array<Pattern, PatternBank::numPatterns> patterns {};
     int selectedPattern = 0;
 };
@@ -35,6 +37,11 @@ struct Song {
     double tempo = 120.0;
     ParameterValues master; // the master bus's (see MasterBus)
     std::vector<MachineState> machines;
+
+    // Swing: where the off-beat 1/16 notes fall within each 1/8, from 0.5 (straight) to 0.75.
+    static constexpr float minSwing = 0.5f;
+    static constexpr float maxSwing = 0.75f;
+    float swing = minSwing;
 
     // Song mode plays the timeline; pattern mode loops the selected patterns.
     bool songMode = false;

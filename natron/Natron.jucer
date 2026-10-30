@@ -1,113 +1,109 @@
-<?xml version="1.0" encoding="UTF-8"?>
-
-<JUCERPROJECT id="NatronApp" name="Natron" projectType="guiapp" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" version="0.0.1"
-              companyName="Restricted Space" bundleIdentifier="com.restrictedspace.natron"
-              headerPath="../../source" cppLanguageStandard="17">
+<?xml version='1.0' encoding='UTF-8'?>
+<JUCERPROJECT id="NatronApp" name="Natron" projectType="guiapp" useAppConfig="0" addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" version="0.0.1" companyName="Restricted Space" bundleIdentifier="com.restrictedspace.natron" headerPath="../../source" cppLanguageStandard="17">
   <MAINGROUP id="NatronMgr" name="Natron">
+    <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F03}" name="app">
+      <FILE id="LyApMn" name="Main.cpp" compile="1" resource="0" file="source/app/Main.cpp" />
+      <FILE id="LyApCc" name="MainComponent.cpp" compile="1" resource="0" file="source/app/MainComponent.cpp" />
+      <FILE id="LyApCh" name="MainComponent.h" compile="0" resource="0" file="source/app/MainComponent.h" />
+      <FILE id="NtApMc" name="MixerView.cpp" compile="1" resource="0" file="source/app/MixerView.cpp" />
+      <FILE id="NtApMh" name="MixerView.h" compile="0" resource="0" file="source/app/MixerView.h" />
+      <FILE id="NtApPc" name="ParameterPanel.cpp" compile="1" resource="0" file="source/app/ParameterPanel.cpp" />
+      <FILE id="NtApPh" name="ParameterPanel.h" compile="0" resource="0" file="source/app/ParameterPanel.h" />
+      <FILE id="NtApEc" name="PatternEditorView.cpp" compile="1" resource="0" file="source/app/PatternEditorView.cpp" />
+      <FILE id="NtApEh" name="PatternEditorView.h" compile="0" resource="0" file="source/app/PatternEditorView.h" />
+      <FILE id="NtApRc" name="RackView.cpp" compile="1" resource="0" file="source/app/RackView.cpp" />
+      <FILE id="NtApRh" name="RackView.h" compile="0" resource="0" file="source/app/RackView.h" />
+      <FILE id="NtApSc" name="SongView.cpp" compile="1" resource="0" file="source/app/SongView.cpp" />
+      <FILE id="NtApSh" name="SongView.h" compile="0" resource="0" file="source/app/SongView.h" />
+    </GROUP>
     <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F01}" name="core">
-      <FILE id="LyCoTr" name="Transport.h" compile="0" resource="0" file="source/core/Transport.h"/>
-      <FILE id="LyCoPt" name="Pattern.h" compile="0" resource="0" file="source/core/Pattern.h"/>
-      <FILE id="LyCoPh" name="PatternPlayer.h" compile="0" resource="0" file="source/core/PatternPlayer.h"/>
-      <FILE id="LyCoPc" name="PatternPlayer.cpp" compile="1" resource="0" file="source/core/PatternPlayer.cpp"/>
-      <FILE id="LyCoMa" name="Machine.h" compile="0" resource="0" file="source/core/Machine.h"/>
-      <FILE id="LyCoEh" name="Engine.h" compile="0" resource="0" file="source/core/Engine.h"/>
-      <FILE id="LyCoEc" name="Engine.cpp" compile="1" resource="0" file="source/core/Engine.cpp"/>
-      <FILE id="NtCoPa" name="Parameter.h" compile="0" resource="0" file="source/core/Parameter.h"/>
-      <FILE id="NtCoRh" name="MachineRegistry.h" compile="0" resource="0" file="source/core/MachineRegistry.h"/>
-      <FILE id="NtCoRc" name="MachineRegistry.cpp" compile="1" resource="0" file="source/core/MachineRegistry.cpp"/>
-      <FILE id="NtCoSo" name="Song.h" compile="0" resource="0" file="source/core/Song.h"/>
-      <FILE id="NtCoFh" name="SongFile.h" compile="0" resource="0" file="source/core/SongFile.h"/>
-      <FILE id="NtCoFc" name="SongFile.cpp" compile="1" resource="0" file="source/core/SongFile.cpp"/>
-      <FILE id="NtCoSh" name="Session.h" compile="0" resource="0" file="source/core/Session.h"/>
-      <FILE id="NtCoSc" name="Session.cpp" compile="1" resource="0" file="source/core/Session.cpp"/>
-      <FILE id="NtCoAh" name="Arrangement.h" compile="0" resource="0" file="source/core/Arrangement.h"/>
-      <FILE id="NtCoAc" name="Arrangement.cpp" compile="1" resource="0" file="source/core/Arrangement.cpp"/>
-      <FILE id="NtCoPe" name="PatternEditing.h" compile="0" resource="0" file="source/core/PatternEditing.h"/>
-      <FILE id="NtCoXh" name="SongExport.h" compile="0" resource="0" file="source/core/SongExport.h"/>
-      <FILE id="NtCoXc" name="SongExport.cpp" compile="1" resource="0" file="source/core/SongExport.cpp"/>
-      <FILE id="LyCoDs" name="DemoSong.h" compile="0" resource="0" file="source/core/DemoSong.h"/>
-      <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F02}" name="machines">
-        <FILE id="NtMaSh" name="SubtractiveSynth.h" compile="0" resource="0" file="source/core/machines/SubtractiveSynth.h"/>
-        <FILE id="NtMaSc" name="SubtractiveSynth.cpp" compile="1" resource="0" file="source/core/machines/SubtractiveSynth.cpp"/>
-        <FILE id="NtMaAh" name="AcidBass.h" compile="0" resource="0" file="source/core/machines/AcidBass.h"/>
-        <FILE id="NtMaAc" name="AcidBass.cpp" compile="1" resource="0" file="source/core/machines/AcidBass.cpp"/>
-        <FILE id="NtMaDh" name="DrumMachine.h" compile="0" resource="0" file="source/core/machines/DrumMachine.h"/>
-        <FILE id="NtMaDc" name="DrumMachine.cpp" compile="1" resource="0" file="source/core/machines/DrumMachine.cpp"/>
-        <FILE id="LyMaTh" name="TestToneMachine.h" compile="0" resource="0" file="source/core/machines/TestToneMachine.h"/>
-        <FILE id="LyMaTc" name="TestToneMachine.cpp" compile="1" resource="0" file="source/core/machines/TestToneMachine.cpp"/>
-      </GROUP>
+      <FILE id="NtCoAc" name="Arrangement.cpp" compile="1" resource="0" file="source/core/Arrangement.cpp" />
+      <FILE id="NtCoAh" name="Arrangement.h" compile="0" resource="0" file="source/core/Arrangement.h" />
+      <FILE id="LyCoDs" name="DemoSong.h" compile="0" resource="0" file="source/core/DemoSong.h" />
+      <FILE id="LyCoEc" name="Engine.cpp" compile="1" resource="0" file="source/core/Engine.cpp" />
+      <FILE id="LyCoEh" name="Engine.h" compile="0" resource="0" file="source/core/Engine.h" />
+      <FILE id="LyCoMa" name="Machine.h" compile="0" resource="0" file="source/core/Machine.h" />
+      <FILE id="NtCoRc" name="MachineRegistry.cpp" compile="1" resource="0" file="source/core/MachineRegistry.cpp" />
+      <FILE id="NtCoRh" name="MachineRegistry.h" compile="0" resource="0" file="source/core/MachineRegistry.h" />
+      <FILE id="NtCoPa" name="Parameter.h" compile="0" resource="0" file="source/core/Parameter.h" />
+      <FILE id="LyCoPt" name="Pattern.h" compile="0" resource="0" file="source/core/Pattern.h" />
+      <FILE id="NtCoPe" name="PatternEditing.h" compile="0" resource="0" file="source/core/PatternEditing.h" />
+      <FILE id="LyCoPc" name="PatternPlayer.cpp" compile="1" resource="0" file="source/core/PatternPlayer.cpp" />
+      <FILE id="LyCoPh" name="PatternPlayer.h" compile="0" resource="0" file="source/core/PatternPlayer.h" />
+      <FILE id="NtCoSc" name="Session.cpp" compile="1" resource="0" file="source/core/Session.cpp" />
+      <FILE id="NtCoSh" name="Session.h" compile="0" resource="0" file="source/core/Session.h" />
+      <FILE id="NtCoSo" name="Song.h" compile="0" resource="0" file="source/core/Song.h" />
+      <FILE id="NtCoXc" name="SongExport.cpp" compile="1" resource="0" file="source/core/SongExport.cpp" />
+      <FILE id="NtCoXh" name="SongExport.h" compile="0" resource="0" file="source/core/SongExport.h" />
+      <FILE id="NtCoFc" name="SongFile.cpp" compile="1" resource="0" file="source/core/SongFile.cpp" />
+      <FILE id="NtCoFh" name="SongFile.h" compile="0" resource="0" file="source/core/SongFile.h" />
+      <FILE id="vglwLT" name="SwappableResource.h" compile="0" resource="0" file="source/core/SwappableResource.h" />
+      <FILE id="LyCoTr" name="Transport.h" compile="0" resource="0" file="source/core/Transport.h" />
       <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F04}" name="dsp">
-        <FILE id="NtDsBq" name="Biquad.h" compile="0" resource="0" file="source/core/dsp/Biquad.h"/>
-        <FILE id="NtDsOs" name="Oscillator.h" compile="0" resource="0" file="source/core/dsp/Oscillator.h"/>
-        <FILE id="NtDsKh" name="DrumKit.h" compile="0" resource="0" file="source/core/dsp/DrumKit.h"/>
-        <FILE id="NtDsKc" name="DrumKit.cpp" compile="1" resource="0" file="source/core/dsp/DrumKit.cpp"/>
+        <FILE id="NtDsBq" name="Biquad.h" compile="0" resource="0" file="source/core/dsp/Biquad.h" />
+        <FILE id="NtDsKc" name="DrumKit.cpp" compile="1" resource="0" file="source/core/dsp/DrumKit.cpp" />
+        <FILE id="NtDsKh" name="DrumKit.h" compile="0" resource="0" file="source/core/dsp/DrumKit.h" />
+        <FILE id="NtDsOs" name="Oscillator.h" compile="0" resource="0" file="source/core/dsp/Oscillator.h" />
       </GROUP>
       <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F06}" name="effects">
-        <FILE id="NtFxEh" name="Effect.h" compile="0" resource="0" file="source/core/effects/Effect.h"/>
-        <FILE id="NtFxSh" name="Effects.h" compile="0" resource="0" file="source/core/effects/Effects.h"/>
-        <FILE id="NtFxSc" name="Effects.cpp" compile="1" resource="0" file="source/core/effects/Effects.cpp"/>
+        <FILE id="NtFxEh" name="Effect.h" compile="0" resource="0" file="source/core/effects/Effect.h" />
+        <FILE id="NtFxSc" name="Effects.cpp" compile="1" resource="0" file="source/core/effects/Effects.cpp" />
+        <FILE id="NtFxSh" name="Effects.h" compile="0" resource="0" file="source/core/effects/Effects.h" />
+      </GROUP>
+      <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F02}" name="machines">
+        <FILE id="NtMaAc" name="AcidBass.cpp" compile="1" resource="0" file="source/core/machines/AcidBass.cpp" />
+        <FILE id="NtMaAh" name="AcidBass.h" compile="0" resource="0" file="source/core/machines/AcidBass.h" />
+        <FILE id="NtMaDc" name="DrumMachine.cpp" compile="1" resource="0" file="source/core/machines/DrumMachine.cpp" />
+        <FILE id="NtMaDh" name="DrumMachine.h" compile="0" resource="0" file="source/core/machines/DrumMachine.h" />
+        <FILE id="NtMaSc" name="SubtractiveSynth.cpp" compile="1" resource="0" file="source/core/machines/SubtractiveSynth.cpp" />
+        <FILE id="NtMaSh" name="SubtractiveSynth.h" compile="0" resource="0" file="source/core/machines/SubtractiveSynth.h" />
+        <FILE id="LyMaTc" name="TestToneMachine.cpp" compile="1" resource="0" file="source/core/machines/TestToneMachine.cpp" />
+        <FILE id="LyMaTh" name="TestToneMachine.h" compile="0" resource="0" file="source/core/machines/TestToneMachine.h" />
       </GROUP>
       <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F05}" name="mixer">
-        <FILE id="NtMxCh" name="ChannelStrip.h" compile="0" resource="0" file="source/core/mixer/ChannelStrip.h"/>
-        <FILE id="NtMxCc" name="ChannelStrip.cpp" compile="1" resource="0" file="source/core/mixer/ChannelStrip.cpp"/>
-        <FILE id="NtMxMh" name="MasterBus.h" compile="0" resource="0" file="source/core/mixer/MasterBus.h"/>
-        <FILE id="NtMxMc" name="MasterBus.cpp" compile="1" resource="0" file="source/core/mixer/MasterBus.cpp"/>
+        <FILE id="NtMxCc" name="ChannelStrip.cpp" compile="1" resource="0" file="source/core/mixer/ChannelStrip.cpp" />
+        <FILE id="NtMxCh" name="ChannelStrip.h" compile="0" resource="0" file="source/core/mixer/ChannelStrip.h" />
+        <FILE id="NtMxMc" name="MasterBus.cpp" compile="1" resource="0" file="source/core/mixer/MasterBus.cpp" />
+        <FILE id="NtMxMh" name="MasterBus.h" compile="0" resource="0" file="source/core/mixer/MasterBus.h" />
       </GROUP>
-    </GROUP>
-    <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F03}" name="app">
-      <FILE id="LyApMn" name="Main.cpp" compile="1" resource="0" file="source/app/Main.cpp"/>
-      <FILE id="LyApCh" name="MainComponent.h" compile="0" resource="0" file="source/app/MainComponent.h"/>
-      <FILE id="LyApCc" name="MainComponent.cpp" compile="1" resource="0" file="source/app/MainComponent.cpp"/>
-      <FILE id="NtApRh" name="RackView.h" compile="0" resource="0" file="source/app/RackView.h"/>
-      <FILE id="NtApRc" name="RackView.cpp" compile="1" resource="0" file="source/app/RackView.cpp"/>
-      <FILE id="NtApEh" name="PatternEditorView.h" compile="0" resource="0" file="source/app/PatternEditorView.h"/>
-      <FILE id="NtApEc" name="PatternEditorView.cpp" compile="1" resource="0" file="source/app/PatternEditorView.cpp"/>
-      <FILE id="NtApSh" name="SongView.h" compile="0" resource="0" file="source/app/SongView.h"/>
-      <FILE id="NtApSc" name="SongView.cpp" compile="1" resource="0" file="source/app/SongView.cpp"/>
-      <FILE id="NtApPh" name="ParameterPanel.h" compile="0" resource="0" file="source/app/ParameterPanel.h"/>
-      <FILE id="NtApPc" name="ParameterPanel.cpp" compile="1" resource="0" file="source/app/ParameterPanel.cpp"/>
-      <FILE id="NtApMh" name="MixerView.h" compile="0" resource="0" file="source/app/MixerView.h"/>
-      <FILE id="NtApMc" name="MixerView.cpp" compile="1" resource="0" file="source/app/MixerView.cpp"/>
     </GROUP>
   </MAINGROUP>
   <MODULES>
-    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
-    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
-    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
-    <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
-    <MODULE id="juce_audio_processors_headless" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
-    <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
-    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
-    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
-    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
-    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
-    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
-    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
-    <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="0"/>
+    <MODULE id="juce_audio_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="0" />
+    <MODULE id="juce_audio_devices" showAllCode="1" useLocalCopy="0" useGlobalPath="0" />
+    <MODULE id="juce_audio_formats" showAllCode="1" useLocalCopy="0" useGlobalPath="0" />
+    <MODULE id="juce_audio_processors" showAllCode="1" useLocalCopy="0" useGlobalPath="0" />
+    <MODULE id="juce_audio_processors_headless" showAllCode="1" useLocalCopy="0" useGlobalPath="0" />
+    <MODULE id="juce_audio_utils" showAllCode="1" useLocalCopy="0" useGlobalPath="0" />
+    <MODULE id="juce_core" showAllCode="1" useLocalCopy="0" useGlobalPath="0" />
+    <MODULE id="juce_data_structures" showAllCode="1" useLocalCopy="0" useGlobalPath="0" />
+    <MODULE id="juce_dsp" showAllCode="1" useLocalCopy="0" useGlobalPath="0" />
+    <MODULE id="juce_events" showAllCode="1" useLocalCopy="0" useGlobalPath="0" />
+    <MODULE id="juce_graphics" showAllCode="1" useLocalCopy="0" useGlobalPath="0" />
+    <MODULE id="juce_gui_basics" showAllCode="1" useLocalCopy="0" useGlobalPath="0" />
+    <MODULE id="juce_gui_extra" showAllCode="1" useLocalCopy="0" useGlobalPath="0" />
   </MODULES>
-  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_WEB_BROWSER="0" JUCE_USE_CURL="0"/>
+  <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_WEB_BROWSER="0" JUCE_USE_CURL="0" />
   <EXPORTFORMATS>
-    <ANDROIDSTUDIO targetFolder="Builds/Android" microphonePermissionNeeded="0"
-                   androidScreenOrientation="landscape">
+    <ANDROIDSTUDIO targetFolder="Builds/Android" microphonePermissionNeeded="0" androidScreenOrientation="landscape">
       <CONFIGURATIONS>
-        <CONFIGURATION isDebug="1" name="Debug"/>
-        <CONFIGURATION isDebug="0" name="Release"/>
+        <CONFIGURATION isDebug="1" name="Debug" />
+        <CONFIGURATION isDebug="0" name="Release" />
       </CONFIGURATIONS>
       <MODULEPATHS>
-        <MODULEPATH id="juce_audio_basics" path="external/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_devices" path="external/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_formats" path="external/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors" path="external/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_processors_headless" path="external/JUCE/modules"/>
-        <MODULEPATH id="juce_audio_utils" path="external/JUCE/modules"/>
-        <MODULEPATH id="juce_core" path="external/JUCE/modules"/>
-        <MODULEPATH id="juce_data_structures" path="external/JUCE/modules"/>
-        <MODULEPATH id="juce_dsp" path="external/JUCE/modules"/>
-        <MODULEPATH id="juce_events" path="external/JUCE/modules"/>
-        <MODULEPATH id="juce_graphics" path="external/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_basics" path="external/JUCE/modules"/>
-        <MODULEPATH id="juce_gui_extra" path="external/JUCE/modules"/>
+        <MODULEPATH id="juce_audio_basics" path="external/JUCE/modules" />
+        <MODULEPATH id="juce_audio_devices" path="external/JUCE/modules" />
+        <MODULEPATH id="juce_audio_formats" path="external/JUCE/modules" />
+        <MODULEPATH id="juce_audio_processors" path="external/JUCE/modules" />
+        <MODULEPATH id="juce_audio_processors_headless" path="external/JUCE/modules" />
+        <MODULEPATH id="juce_audio_utils" path="external/JUCE/modules" />
+        <MODULEPATH id="juce_core" path="external/JUCE/modules" />
+        <MODULEPATH id="juce_data_structures" path="external/JUCE/modules" />
+        <MODULEPATH id="juce_dsp" path="external/JUCE/modules" />
+        <MODULEPATH id="juce_events" path="external/JUCE/modules" />
+        <MODULEPATH id="juce_graphics" path="external/JUCE/modules" />
+        <MODULEPATH id="juce_gui_basics" path="external/JUCE/modules" />
+        <MODULEPATH id="juce_gui_extra" path="external/JUCE/modules" />
       </MODULEPATHS>
     </ANDROIDSTUDIO>
   </EXPORTFORMATS>

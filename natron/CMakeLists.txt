@@ -117,7 +117,8 @@ if(NATRON_BUILD_TESTS)
             tests/ArrangementTests.cpp
             tests/SongModeTests.cpp
             tests/EffectTests.cpp
-            tests/ExportTests.cpp)
+            tests/ExportTests.cpp
+            tests/InfrastructureTests.cpp)
 
     target_include_directories(NatronTests PRIVATE source tests)
     target_compile_definitions(NatronTests
@@ -125,9 +126,11 @@ if(NATRON_BUILD_TESTS)
             ${NATRON_COMMON_DEFINITIONS}
             NATRON_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/golden")
 
+    find_package(Threads REQUIRED)
     target_link_libraries(NatronTests
         PRIVATE
             ${NATRON_CORE_MODULES}
+            Threads::Threads
             Catch2::Catch2WithMain
         PUBLIC
             juce::juce_recommended_config_flags

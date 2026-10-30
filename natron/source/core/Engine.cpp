@@ -284,6 +284,7 @@ void Engine::processChunk(juce::AudioBuffer<float>& output, int startSample, int
     }
 
     const int64_t from = transport.getPosition();
+    swingNow = swing.load();
     if (shouldPlay) {
         generateMidi(from, from + numSamples, songModeNow);
     }
@@ -392,18 +393,18 @@ void Engine::playPatternMode(Slot& slot, int index, int64_t from, int64_t to, in
         const int64_t boundary = juce::jmax(from, transport.sampleAt(boundaryBeat));
 
         if (boundary < to) {
-            slot.player.process(current, slot.originBeat, transport, from, boundary, blockStart, slot.midi);
+            slot.player.process(current, slot.originBeat, transport, from, boundary, blockStart, slot.midi, 1, swingNow);
             slot.current = slot.queued;
             slot.queued = -1;
             slot.originBeat = boundaryBeat;
             publish(index);
             slot.player.process(patternAt(slot, slot.current), slot.originBeat, transport, boundary, to, blockStart,
-                                slot.midi);
+                                slot.midi, 1, swingNow);
             return;
         }
     }
 
-    slot.player.process(current, slot.originBeat, transport, from, to, blockStart, slot.midi);
+    slot.player.process(current, slot.originBeat, transport, from, to, blockStart, slot.midi, 1, swingNow);
 }
 
 void Engine::playSongMode(Slot& slot, int index, int64_t from, int64_t to, int64_t blockStart) {
@@ -422,10 +423,10 @@ void Engine::playSongMode(Slot& slot, int index, int64_t from, int64_t to, int64
         if (blockIndex >= 0) {
             const auto& block = (*slot.blocks)[static_cast<size_t>(blockIndex)];
             slot.player.process(patternAt(slot, block.pattern), block.startBar * static_cast<double>(Transport::beatsPerBar),
-                                transport, position, segmentEnd, blockStart, slot.midi);
+                                transport, position, segmentEnd, blockStart, slot.midi, 1, swingNow);
         } else {
             // No block: nothing starts, but notes still sounding end on time.
-            slot.player.process(emptyPattern, 0.0, transport, position, segmentEnd, blockStart, slot.midi);
+            slot.player.process(emptyPattern, 0.0, transport, position, segmentEnd, blockStart, slot.midi, 1, swingNow);
         }
         position = segmentEnd;
     }

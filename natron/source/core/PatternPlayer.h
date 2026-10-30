@@ -18,8 +18,13 @@ public:
     // relative to `blockStart`. The pattern loops from `originBeat` (where it started playing).
     // A note-off always comes before a note-on on the same sample. Calling this for consecutive
     // ranges, with a different pattern for each, is how the engine switches patterns mid-block.
+    //
+    // `swing` (0.5 = straight ... 0.75) delays notes that start exactly on an off-beat 1/16 step.
     void process(const Pattern& pattern, double originBeat, const Transport& transport, int64_t fromSample,
-                 int64_t toSample, int64_t blockStart, juce::MidiBuffer& midi, int channel = 1);
+                 int64_t toSample, int64_t blockStart, juce::MidiBuffer& midi, int channel = 1, float swing = 0.5f);
+
+    // How far swing moves a note starting at `start` (beats into its pattern).
+    static double swingOffset(double start, float swing);
 
     // Ends every sounding note at block-relative sample `samplePosition` (transport stop).
     void releaseAll(juce::MidiBuffer& midi, int samplePosition, int channel = 1);

@@ -3,6 +3,7 @@
 #include "Parameter.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <juce_data_structures/juce_data_structures.h>
 
 // One instrument in the rack (Caustic calls these machines). The engine gives each machine a
 // stereo buffer per block, already cleared, plus the MIDI its pattern produced for that block.
@@ -22,6 +23,15 @@ public:
 
     // Silences the machine immediately, dropping voices and tails.
     virtual void reset() = 0;
+
+    // Machine-specific data beyond parameters (samples, formulas, harmonic tables), saved in the
+    // song. Message thread. setData() may be called while the machine is playing: swap what the
+    // audio thread reads through a SwappableResource. A tree that isn't valid restores defaults.
+    virtual juce::ValueTree getData() const { return {}; }
+    virtual juce::Result setData(const juce::ValueTree&) { return juce::Result::ok(); }
+
+    // Message thread, called regularly: free whatever setData() replaced.
+    virtual void collectGarbage() {}
 
     ParameterSet& getParameters() { return parameters; }
     const ParameterSet& getParameters() const { return parameters; }

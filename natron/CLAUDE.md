@@ -64,8 +64,8 @@ Android Studio or run `./gradlew assembleDebug` there.
 
 - Add to `CMakeLists.txt` (`NATRON_CORE_SOURCES` for engine code, `Natron` target for app code, `NatronTests`
   for tests).
-- Add engine and app files (not tests) to `Natron.jucer`, then regenerate the Android project:
-  `Projucer --resave natron/Natron.jucer`.
+- Sync `Natron.jucer` with the source tree (`python3 natron/scripts/sync-jucer.py`), then regenerate
+  the Android project: `Projucer --resave natron/Natron.jucer`.
 
 ## Conventions
 
@@ -76,6 +76,8 @@ Android Studio or run `./gradlew assembleDebug` there.
   discrete choices; 0/1 + interval 1 shows as a toggle), register the type in `MachineRegistry.cpp`.
   Parameter ids are saved in song files: never rename one. Do control-rate work on the voice's
   own sample counter, not per block, so output doesn't depend on block size (a test checks).
+- Machine-specific data (samples, formulas, tables) goes through `Machine::getData/setData`; anything
+  the audio thread reads from it is swapped with a `SwappableResource` (never freed on the audio thread).
 - Song format changes: bump `SongFile::currentVersion` and upgrade older versions in
   `fromValueTree` (see the version notes in `SongFile.h`), with a test.
 - Engine loops over sample ranges must always make progress: a segment end clamped to the current

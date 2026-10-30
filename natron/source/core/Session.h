@@ -51,6 +51,13 @@ public:
     bool setBlocks(int machine, const BlockList& blocks);
     const BlockList& getBlocks(int machine) const { return song.machines[static_cast<size_t>(machine)].blocks; }
 
+    // Machine-specific data (samples, formulas...): see Machine::getData. The machine validates it.
+    juce::Result setMachineData(int machine, const juce::ValueTree& data);
+    juce::ValueTree getMachineData(int machine) const;
+
+    void setSwing(float amount);
+    float getSwing() const { return song.swing; }
+
     void setSongMode(bool enabled);
     bool isSongMode() const { return song.songMode; }
     // Loop region in bars [startBar, endBar); rejected unless 0 <= startBar < endBar.
@@ -68,7 +75,7 @@ public:
     juce::Result saveToStream(juce::OutputStream& stream) const;
 
     // Frees what the audio thread has finished with; call from a timer.
-    void collectGarbage() { engine.collectGarbage(); }
+    void collectGarbage();
 
 private:
     Engine& engine;

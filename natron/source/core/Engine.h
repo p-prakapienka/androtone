@@ -79,6 +79,10 @@ public:
     void setTempo(double bpm) { tempo.store(juce::jlimit(20.0, 400.0, bpm)); }
     double getTempo() const { return tempo.load(); }
 
+    // 0.5 (straight) ... 0.75; see Song::swing.
+    void setSwing(float amount) { swing.store(juce::jlimit(0.5f, 0.75f, amount)); }
+    float getSwing() const { return swing.load(); }
+
     void setSongMode(bool enabled) { songMode.store(enabled); }
     bool isSongMode() const { return songMode.load(); }
     // Song-mode loop region in bars [startBar, endBar). Ignored unless endBar > startBar.
@@ -136,6 +140,8 @@ private:
     std::atomic<bool> playing { false };
     std::atomic<double> tempo { 120.0 };
     std::atomic<bool> songMode { false };
+    std::atomic<float> swing { 0.5f };
+    float swingNow = 0.5f; // read once per chunk
     std::atomic<bool> loopEnabled { false };
     std::atomic<int> loopStartBar { 0 };
     std::atomic<int> loopEndBar { 0 };

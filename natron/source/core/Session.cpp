@@ -50,6 +50,7 @@ int Session::addMachine(const juce::String& type, const juce::String& name) {
     state.name = name.isNotEmpty() ? name : type + " " + juce::String(getNumMachines() + 1);
     state.parameters = apply(machine->getParameters(), {});
     state.mixer = apply(channel->getParameters(), {});
+    state.data = machine->getData().createCopy();
 
     const int index = getNumMachines();
     postMachine(std::move(machine), std::move(channel), {}, state, index);
@@ -206,6 +207,11 @@ juce::Result Session::loadSong(const Song& newSong) {
         if (machine == nullptr) {
             return juce::Result::fail("Unknown machine type: " + state.type);
         }
+        if (state.data.isValid()) {
+            if (const auto loaded = machine->setData(state.data); loaded.failed()) {
+                return juce::Result::fail(state.name + ": " + loaded.getErrorMessage());
+            }
+        }
         created.push_back(std::move(machine));
 
         EffectSlots slots;
@@ -230,6 +236,7 @@ juce::Result Session::loadSong(const Song& newSong) {
     song = Song {};
     song.tempo = newSong.tempo;
     song.songMode = newSong.songMode;
+    song.swing = juce::jlimit(Song::minSwing, Song::maxSwing, newSong.swing);
     song.loopEnabled = newSong.loopEnabled;
     song.loopStartBar = newSong.loopStartBar;
     song.loopEndBar = newSong.loopEndBar;
@@ -248,6 +255,7 @@ juce::Result Session::loadSong(const Song& newSong) {
         // Keep only parameters the machine and channel know, at their clamped values.
         state.parameters = apply(created[i]->getParameters(), state.parameters);
         state.mixer = apply(channel->getParameters(), state.mixer);
+        state.data = created[i]->getData().createCopy();
         for (size_t e = 0; e < state.effects.size(); e++) {
             auto& effect = createdEffects[i][e];
             state.effects[e].parameters = effect != nullptr ? apply(effect->getParameters(), state.effects[e].parameters)
@@ -334,7 +342,36 @@ bool Session::setLoop(bool enabled, int startBar, int endBar) {
     return true;
 }
 
+void Session::collectGarbage() {
+    engine.collectGarbage();
+    for (auto* machine : machines) {
+        machine->collectGarbage();
+    }
+}
+
+juce::Result Session::setMachineData(int machine, const juce::ValueTree& data) {
+    if (!isValidMachine(machine)) {
+        return juce::Result::fail("No such machine");
+    }
+    auto* live = machines[static_cast<size_t>(machine)];
+    const auto result = live->setData(data);
+    if (result.wasOk()) {
+        song.machines[static_cast<size_t>(machine)].data = live->getData().createCopy();
+    }
+    return result;
+}
+
+juce::ValueTree Session::getMachineData(int machine) const {
+    return isValidMachine(machine) ? song.machines[static_cast<size_t>(machine)].data : juce::ValueTree();
+}
+
+void Session::setSwing(float amount) {
+    song.swing = juce::jlimit(Song::minSwing, Song::maxSwing, amount);
+    syncTransportSettings();
+}
+
 void Session::syncTransportSettings() {
+    engine.setSwing(song.swing);
     engine.setSongMode(song.songMode);
     engine.setLoop(song.loopEnabled, song.loopStartBar, song.loopEndBar);
 }
