@@ -26,6 +26,7 @@ struct EngineCommand {
         selectPattern, // machine plays pattern `index`: now when stopped, at the current pattern's end when playing
         setEffect,     // newEffect → machine's effect slot `index` (nullptr = none)
         setBlocks,     // newBlocks → machine's song timeline row (nullptr = empty)
+        setSongAutomation, // newAutomation → the song's automation lanes (nullptr = none)
     };
 
     Type type = Type::clearRack;
@@ -36,6 +37,7 @@ struct EngineCommand {
     Pattern* newPattern = nullptr;
     Effect* newEffect = nullptr;
     BlockList* newBlocks = nullptr;
+    AutomationLanes* newAutomation = nullptr;
 };
 
 // The audio engine: a rack of up to 14 machines, each with 64 patterns (4 banks of 16), two insert
@@ -125,6 +127,7 @@ private:
 
     std::array<Slot, maxMachines> slots;
     int numMachines = 0;
+    AutomationLanes* songAutomation = nullptr; // owned
 
     juce::AbstractFifo commandFifo { 8192 };
     std::vector<EngineCommand> commands;
@@ -182,4 +185,7 @@ private:
     void generateMidi(int64_t from, int64_t to, bool songModeNow);
     void playPatternMode(Slot& slot, int index, int64_t from, int64_t to, int64_t blockStart);
     void playSongMode(Slot& slot, int index, int64_t from, int64_t to, int64_t blockStart);
+    void applyAutomation(double beat, bool songModeNow);
+    ParameterSet* targetParameters(const AutomationTarget& target, int machine);
+    static void write(ParameterSet* parameters, const AutomationLane& lane, double beat);
 };

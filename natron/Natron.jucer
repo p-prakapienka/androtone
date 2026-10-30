@@ -19,6 +19,7 @@
     <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F01}" name="core">
       <FILE id="NtCoAc" name="Arrangement.cpp" compile="1" resource="0" file="source/core/Arrangement.cpp" />
       <FILE id="NtCoAh" name="Arrangement.h" compile="0" resource="0" file="source/core/Arrangement.h" />
+      <FILE id="LPGxZo" name="Automation.h" compile="0" resource="0" file="source/core/Automation.h" />
       <FILE id="LyCoDs" name="DemoSong.h" compile="0" resource="0" file="source/core/DemoSong.h" />
       <FILE id="LyCoEc" name="Engine.cpp" compile="1" resource="0" file="source/core/Engine.cpp" />
       <FILE id="LyCoEh" name="Engine.h" compile="0" resource="0" file="source/core/Engine.h" />

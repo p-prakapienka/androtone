@@ -38,6 +38,9 @@ struct Song {
     ParameterValues master; // the master bus's (see MasterBus)
     std::vector<MachineState> machines;
 
+    // Song automation (song mode only): lanes on the song timeline, targeting any machine or the master.
+    AutomationLanes automation;
+
     // Swing: where the off-beat 1/16 notes fall within each 1/8, from 0.5 (straight) to 0.75.
     static constexpr float minSwing = 0.5f;
     static constexpr float maxSwing = 0.75f;

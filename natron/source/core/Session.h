@@ -58,6 +58,10 @@ public:
     void setSwing(float amount);
     float getSwing() const { return song.swing; }
 
+    // Song automation (song mode). Lanes must target valid machines, with points sorted by beat.
+    bool setSongAutomation(const AutomationLanes& lanes);
+    const AutomationLanes& getSongAutomation() const { return song.automation; }
+
     void setSongMode(bool enabled);
     bool isSongMode() const { return song.songMode; }
     // Loop region in bars [startBar, endBar); rejected unless 0 <= startBar < endBar.
@@ -95,6 +99,8 @@ private:
     void postEffect(int machine, int slot, std::unique_ptr<Effect> effect);
     void syncTransportSettings();
     bool post(const EngineCommand& command);
+    bool isValidLane(const AutomationLane& lane, bool songLane) const;
+    void postSongAutomation();
 
     // Sets every value `values` has for a parameter in `parameters`; returns all parameters'
     // resulting (clamped) values, so unknown ids drop out and missing ones get defaults.

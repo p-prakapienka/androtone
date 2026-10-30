@@ -28,6 +28,8 @@ Engine::~Engine() {
         delete slot.blocks;
         slot.blocks = nullptr;
     }
+    delete songAutomation;
+    songAutomation = nullptr;
     collectGarbage();
 }
 
@@ -55,6 +57,7 @@ void Engine::deletePayload(const EngineCommand& command) {
     delete command.newPattern;
     delete command.newEffect;
     delete command.newBlocks;
+    delete command.newAutomation;
 }
 
 void Engine::prepare(double newSampleRate, int maxBlockSize) {
@@ -157,6 +160,11 @@ void Engine::apply(const EngineCommand& command) {
             } else {
                 trash(command.newEffect);
             }
+            break;
+
+        case EngineCommand::Type::setSongAutomation:
+            trash(songAutomation);
+            songAutomation = command.newAutomation;
             break;
 
         case EngineCommand::Type::setBlocks:
@@ -286,7 +294,9 @@ void Engine::processChunk(juce::AudioBuffer<float>& output, int startSample, int
     const int64_t from = transport.getPosition();
     swingNow = swing.load();
     if (shouldPlay) {
+        const double startBeat = transport.beatAt(from);
         generateMidi(from, from + numSamples, songModeNow);
+        applyAutomation(startBeat, songModeNow);
     }
 
     bool anySolo = false;
@@ -429,5 +439,75 @@ void Engine::playSongMode(Slot& slot, int index, int64_t from, int64_t to, int64
             slot.player.process(emptyPattern, 0.0, transport, position, segmentEnd, blockStart, slot.midi, 1, swingNow);
         }
         position = segmentEnd;
+    }
+}
+
+ParameterSet* Engine::targetParameters(const AutomationTarget& target, int machine) {
+    if (target.scope == AutomationTarget::Scope::master) {
+        return &master.getParameters();
+    }
+    if (machine < 0 || machine >= numMachines) {
+        return nullptr;
+    }
+    auto& slot = slots[static_cast<size_t>(machine)];
+    switch (target.scope) {
+        case AutomationTarget::Scope::machine: return &slot.machine->getParameters();
+        case AutomationTarget::Scope::mixer: return &slot.channel->getParameters();
+        case AutomationTarget::Scope::effect:
+            if (target.effectSlot >= 0 && target.effectSlot < effectsPerMachine && slot.effects[static_cast<size_t>(target.effectSlot)] != nullptr) {
+                return &slot.effects[static_cast<size_t>(target.effectSlot)]->getParameters();
+            }
+            return nullptr;
+        case AutomationTarget::Scope::master: break;
+    }
+    return nullptr;
+}
+
+void Engine::write(ParameterSet* parameters, const AutomationLane& lane, double beat) {
+    if (parameters == nullptr || lane.points.empty()) {
+        return;
+    }
+    const int index = parameters->indexOf(lane.target.parameterId); // by id: no allocation
+    if (index >= 0) {
+        parameters->set(index, lane.valueAt(beat));
+    }
+}
+
+void Engine::applyAutomation(double beat, bool songModeNow) {
+    // Pattern automation: each machine's playing pattern, at its position within the pattern.
+    for (int i = 0; i < numMachines; i++) {
+        auto& slot = slots[static_cast<size_t>(i)];
+        const Pattern* pattern = nullptr;
+        double position = 0.0;
+        if (songModeNow) {
+            const int bar = static_cast<int>(std::floor(beat / Transport::beatsPerBar + 1.0e-9));
+            const int blockIndex = slot.blocks != nullptr ? Arrangement::indexAt(*slot.blocks, bar) : -1;
+            if (blockIndex >= 0) {
+                const auto& block = (*slot.blocks)[static_cast<size_t>(blockIndex)];
+                pattern = &patternAt(slot, block.pattern);
+                position = beat - block.startBar * static_cast<double>(Transport::beatsPerBar);
+            }
+        } else {
+            pattern = &patternAt(slot, slot.current);
+            position = beat - slot.originBeat;
+        }
+        if (pattern == nullptr || pattern->automation.empty()) {
+            continue;
+        }
+        const double length = pattern->lengthInBeats();
+        position = std::fmod(position, length);
+        if (position < 0.0) {
+            position += length;
+        }
+        for (const auto& lane : pattern->automation) {
+            write(targetParameters(lane.target, i), lane, position);
+        }
+    }
+
+    // Song automation, on the song timeline.
+    if (songModeNow && songAutomation != nullptr) {
+        for (const auto& lane : *songAutomation) {
+            write(targetParameters(lane.target, lane.target.machine), lane, beat);
+        }
     }
 }

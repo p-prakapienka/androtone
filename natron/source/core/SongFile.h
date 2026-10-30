@@ -8,6 +8,7 @@
 //
 //   <NatronSong version="4" tempo="120" swing="0.5" songMode="0" loop="0" loopStart="0" loopEnd="4">
 //     <Master id="volume" value="0.8"/>
+//     <Automation scope="master" machine="0" id="volume"><Point beat="0" value="0.8"/></Automation>
 //     <Machine type="Acid" name="Bass" selectedPattern="0">
 //       <Parameter id="cutoff" value="350"/>
 //       <Mixer id="volume" value="0.8"/>
@@ -16,6 +17,7 @@
 //       </Effect>
 //       <Pattern index="0" bars="2">
 //         <Note start="0" length="0.25" pitch="45" velocity="1"/>
+//         <Automation scope="mixer" id="volume"><Point beat="0" value="0.2"/>...</Automation>
 //       </Pattern>
 //       <Block start="0" length="4" pattern="0"/>
 //       <Data> (machine-specific, see Machine::getData) </Data>

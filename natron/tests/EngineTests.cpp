@@ -202,6 +202,18 @@ TEST_CASE("The audio callback never touches the heap, even while edits arrive", 
             rig.session.setEffect(i % 2, (i / 40) % 2, types[(i / 40) % types.size()]);
         }
         rig.session.setEffectParameter(0, 0, "mix", 0.5f + 0.001f * static_cast<float>(i % 100));
+        if (i % 25 == 3) { // automation lanes in patterns and on the song
+            Pattern automated = pattern;
+            AutomationLane lane;
+            lane.target.scope = AutomationTarget::Scope::mixer;
+            lane.target.parameterId = "pan";
+            lane.points = { { 0.0, -1.0f }, { 2.0, 1.0f } };
+            automated.automation = { lane };
+            rig.session.setPattern(i % 3, 0, automated);
+            lane.target.scope = AutomationTarget::Scope::master;
+            lane.target.parameterId = "eq2Gain";
+            rig.session.setSongAutomation({ lane });
+        }
         if (i % 30 == 15) {
             rig.session.setSongMode((i / 30) % 2 == 0);
             rig.session.setBlocks(0, { { 0, 1 + i % 3, i % 4 }, { 4, 2, 1 } });

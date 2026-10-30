@@ -38,7 +38,44 @@ namespace {
     }
 
     bool isEmptyPattern(const Pattern& pattern) {
-        return pattern.notes.empty() && pattern.bars == 1;
+        return pattern.notes.empty() && pattern.automation.empty() && pattern.bars == 1;
+    }
+
+    const juce::Identifier automationType { "Automation" };
+    const juce::Identifier pointType { "Point" };
+
+    juce::ValueTree laneToTree(const AutomationLane& lane, bool withMachine) {
+        juce::ValueTree tree(automationType);
+        tree.setProperty("scope", AutomationTarget::scopeName(lane.target.scope), nullptr);
+        if (withMachine) {
+            tree.setProperty("machine", lane.target.machine, nullptr);
+        }
+        if (lane.target.scope == AutomationTarget::Scope::effect) {
+            tree.setProperty("effect", lane.target.effectSlot, nullptr);
+        }
+        tree.setProperty("id", lane.target.parameterId, nullptr);
+        for (const auto& point : lane.points) {
+            juce::ValueTree pointTree(pointType);
+            pointTree.setProperty("beat", point.beat, nullptr);
+            pointTree.setProperty("value", point.value, nullptr);
+            tree.appendChild(pointTree, nullptr);
+        }
+        return tree;
+    }
+
+    juce::Result laneFromTree(const juce::ValueTree& tree, AutomationLane& lane) {
+        if (!AutomationTarget::scopeFromName(tree.getProperty("scope").toString(), lane.target.scope)) {
+            return juce::Result::fail("Unknown automation scope: " + tree.getProperty("scope").toString());
+        }
+        lane.target.machine = tree.getProperty("machine", 0);
+        lane.target.effectSlot = tree.getProperty("effect", 0);
+        lane.target.parameterId = tree.getProperty("id").toString();
+        for (const auto& pointTree : tree) {
+            if (pointTree.hasType(pointType)) {
+                lane.setPoint(pointTree.getProperty("beat", 0.0), pointTree.getProperty("value", 0.0f));
+            }
+        }
+        return juce::Result::ok();
     }
 
     void writeValues(juce::ValueTree& parent, const juce::Identifier& type, const ParameterValues& values) {
@@ -61,6 +98,9 @@ juce::ValueTree SongFile::toValueTree(const Song& song) {
     root.setProperty(ids::loopStart, song.loopStartBar, nullptr);
     root.setProperty(ids::loopEnd, song.loopEndBar, nullptr);
     writeValues(root, ids::master, song.master);
+    for (const auto& lane : song.automation) {
+        root.appendChild(laneToTree(lane, true), nullptr);
+    }
 
     for (const auto& machine : song.machines) {
         juce::ValueTree machineTree(ids::machine);
@@ -97,6 +137,9 @@ juce::ValueTree SongFile::toValueTree(const Song& song) {
                 noteTree.setProperty(ids::pitch, note.pitch, nullptr);
                 noteTree.setProperty(ids::velocity, note.velocity, nullptr);
                 patternTree.appendChild(noteTree, nullptr);
+            }
+            for (const auto& lane : pattern.automation) {
+                patternTree.appendChild(laneToTree(lane, false), nullptr);
             }
             machineTree.appendChild(patternTree, nullptr);
         }
@@ -150,6 +193,13 @@ juce::Result SongFile::fromValueTree(const juce::ValueTree& tree, Song& song) {
         if (machineTree.hasType(ids::master)) {
             loaded.master[machineTree.getProperty(ids::id).toString()] = machineTree.getProperty(ids::value);
         }
+        if (machineTree.hasType(automationType)) {
+            AutomationLane lane;
+            if (const auto read = laneFromTree(machineTree, lane); read.failed()) {
+                return read;
+            }
+            loaded.automation.push_back(std::move(lane));
+        }
         if (!machineTree.hasType(ids::machine)) {
             continue;
         }
@@ -201,6 +251,13 @@ juce::Result SongFile::fromValueTree(const juce::ValueTree& tree, Song& song) {
                 auto& pattern = machine.patterns[static_cast<size_t>(index)];
                 pattern.bars = bars;
                 for (const auto& noteTree : child) {
+                    if (noteTree.hasType(automationType)) {
+                        AutomationLane lane;
+                        if (const auto read = laneFromTree(noteTree, lane); read.failed()) {
+                            return read;
+                        }
+                        pattern.automation.push_back(std::move(lane));
+                    }
                     if (noteTree.hasType(ids::note)) {
                         pattern.notes.push_back({ noteTree.getProperty(ids::start, 0.0),
                                                   noteTree.getProperty(ids::length, Pattern::stepLength),

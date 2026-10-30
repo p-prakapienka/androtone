@@ -116,7 +116,24 @@ bool Session::removeMachine(int index) {
     channels.erase(channels.begin() + index);
     effects.erase(effects.begin() + index);
     song.machines.erase(song.machines.begin() + index);
-    return post({ EngineCommand::Type::removeMachine, index });
+    const bool removed = post({ EngineCommand::Type::removeMachine, index });
+
+    // Song automation follows the machines: lanes for this one go, later ones move up.
+    AutomationLanes lanes;
+    for (auto lane : song.automation) {
+        if (lane.target.scope != AutomationTarget::Scope::master && lane.target.machine == index) {
+            continue;
+        }
+        if (lane.target.scope != AutomationTarget::Scope::master && lane.target.machine > index) {
+            lane.target.machine--;
+        }
+        lanes.push_back(std::move(lane));
+    }
+    if (lanes.size() != song.automation.size() || !(lanes == song.automation)) {
+        song.automation = std::move(lanes);
+        postSongAutomation();
+    }
+    return removed;
 }
 
 bool Session::renameMachine(int index, const juce::String& name) {
@@ -130,6 +147,11 @@ bool Session::renameMachine(int index, const juce::String& name) {
 bool Session::setPattern(int machine, int patternIndex, const Pattern& pattern) {
     if (!isValidMachine(machine) || !isValidPatternIndex(patternIndex) || !Pattern::isValidLength(pattern.bars)) {
         return false;
+    }
+    for (const auto& lane : pattern.automation) {
+        if (!isValidLane(lane, false)) {
+            return false;
+        }
     }
     song.machines[static_cast<size_t>(machine)].patterns[static_cast<size_t>(patternIndex)] = pattern;
     EngineCommand command { EngineCommand::Type::setPattern, machine, patternIndex };
@@ -244,6 +266,7 @@ juce::Result Session::loadSong(const Song& newSong) {
     song.tempo = newSong.tempo;
     song.songMode = newSong.songMode;
     song.swing = juce::jlimit(Song::minSwing, Song::maxSwing, newSong.swing);
+    song.automation = {};
     song.loopEnabled = newSong.loopEnabled;
     song.loopStartBar = newSong.loopStartBar;
     song.loopEndBar = newSong.loopEndBar;
@@ -272,6 +295,15 @@ juce::Result Session::loadSong(const Song& newSong) {
         postMachine(std::move(created[i]), std::move(channel), std::move(createdEffects[i]), state, static_cast<int>(i));
         song.machines.push_back(std::move(state));
     }
+    // Song automation last: its lanes are checked against the machines just loaded.
+    AutomationLanes lanes;
+    for (const auto& lane : newSong.automation) {
+        if (isValidLane(lane, true)) {
+            lanes.push_back(lane);
+        }
+    }
+    song.automation = std::move(lanes);
+    postSongAutomation();
     return juce::Result::ok();
 }
 
@@ -381,4 +413,34 @@ void Session::syncTransportSettings() {
     engine.setSwing(song.swing);
     engine.setSongMode(song.songMode);
     engine.setLoop(song.loopEnabled, song.loopStartBar, song.loopEndBar);
+}
+
+bool Session::isValidLane(const AutomationLane& lane, bool songLane) const {
+    if (lane.target.parameterId.isEmpty() || !lane.isSorted()) {
+        return false;
+    }
+    if (lane.target.scope == AutomationTarget::Scope::master) {
+        return songLane; // pattern automation stays within its machine
+    }
+    if (lane.target.scope == AutomationTarget::Scope::effect && !isValidEffectSlot(lane.target.effectSlot)) {
+        return false;
+    }
+    return !songLane || isValidMachine(lane.target.machine);
+}
+
+bool Session::setSongAutomation(const AutomationLanes& lanes) {
+    for (const auto& lane : lanes) {
+        if (!isValidLane(lane, true)) {
+            return false;
+        }
+    }
+    song.automation = lanes;
+    postSongAutomation();
+    return true;
+}
+
+void Session::postSongAutomation() {
+    EngineCommand command { EngineCommand::Type::setSongAutomation };
+    command.newAutomation = song.automation.empty() ? nullptr : new AutomationLanes(song.automation);
+    engine.post(command);
 }

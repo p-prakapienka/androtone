@@ -133,7 +133,8 @@ if(NATRON_BUILD_TESTS)
             tests/InfrastructureTests.cpp
             tests/MachineTests4b.cpp
             tests/MachineTests4c.cpp
-            tests/EffectTests4d.cpp)
+            tests/EffectTests4d.cpp
+            tests/AutomationTests.cpp)
 
     target_include_directories(NatronTests PRIVATE source tests)
     target_compile_definitions(NatronTests

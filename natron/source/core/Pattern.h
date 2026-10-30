@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Automation.h"
 #include "Transport.h"
 
 #include <juce_core/juce_core.h>
@@ -25,15 +26,18 @@ struct Pattern {
 
     int bars = 1;
     std::vector<Note> notes;
+    AutomationLanes automation; // targets this pattern's machine; beats from the pattern start
 
     double lengthInBeats() const { return bars * Transport::beatsPerBar; }
-    bool isEmpty() const { return notes.empty(); }
+    bool isEmpty() const { return notes.empty() && automation.empty(); }
 
     static bool isValidLength(int numBars) {
         return numBars == 1 || numBars == 2 || numBars == 4 || numBars == 8;
     }
 
-    bool operator==(const Pattern& other) const { return bars == other.bars && notes == other.notes; }
+    bool operator==(const Pattern& other) const {
+        return bars == other.bars && notes == other.notes && automation == other.automation;
+    }
 };
 
 // Every machine has 4 banks (A-D) of 16 patterns: A01 ... D16, indexed 0 ... 63.
