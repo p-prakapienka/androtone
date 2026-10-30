@@ -2,6 +2,10 @@
 
 #include "machines/AcidBass.h"
 #include "machines/DrumMachine.h"
+#include "machines/FmSynth.h"
+#include "machines/Organ.h"
+#include "machines/Pluck.h"
+#include "machines/Supersaw.h"
 #include "machines/SubtractiveSynth.h"
 #include "machines/TestToneMachine.h"
 
@@ -13,6 +17,10 @@ namespace {
             { SubtractiveSynth::typeName, [] { return std::make_unique<SubtractiveSynth>(); } },
             { AcidBass::typeName, [] { return std::make_unique<AcidBass>(); } },
             { DrumMachine::typeName, [] { return std::make_unique<DrumMachine>(); } },
+            { Supersaw::typeName, [] { return std::make_unique<Supersaw>(); } },
+            { Pluck::typeName, [] { return std::make_unique<Pluck>(); } },
+            { Organ::typeName, [] { return std::make_unique<Organ>(); } },
+            { FmSynth::typeName, [] { return std::make_unique<FmSynth>(); } },
             { TestToneMachine::typeName, [] { return std::make_unique<TestToneMachine>(); } },
         };
         return registered;

@@ -37,6 +37,10 @@ set(NATRON_CORE_SOURCES
     source/core/dsp/DrumKit.cpp
     source/core/machines/AcidBass.cpp
     source/core/machines/DrumMachine.cpp
+    source/core/machines/FmSynth.cpp
+    source/core/machines/Organ.cpp
+    source/core/machines/Pluck.cpp
+    source/core/machines/Supersaw.cpp
     source/core/machines/SubtractiveSynth.cpp
     source/core/machines/TestToneMachine.cpp
     source/core/mixer/ChannelStrip.cpp
@@ -118,7 +122,8 @@ if(NATRON_BUILD_TESTS)
             tests/SongModeTests.cpp
             tests/EffectTests.cpp
             tests/ExportTests.cpp
-            tests/InfrastructureTests.cpp)
+            tests/InfrastructureTests.cpp
+            tests/MachineTests4b.cpp)
 
     target_include_directories(NatronTests PRIVATE source tests)
     target_compile_definitions(NatronTests

@@ -55,10 +55,19 @@
         <FILE id="NtMaAh" name="AcidBass.h" compile="0" resource="0" file="source/core/machines/AcidBass.h" />
         <FILE id="NtMaDc" name="DrumMachine.cpp" compile="1" resource="0" file="source/core/machines/DrumMachine.cpp" />
         <FILE id="NtMaDh" name="DrumMachine.h" compile="0" resource="0" file="source/core/machines/DrumMachine.h" />
+        <FILE id="muuDUd" name="FmSynth.cpp" compile="1" resource="0" file="source/core/machines/FmSynth.cpp" />
+        <FILE id="nprhXv" name="FmSynth.h" compile="0" resource="0" file="source/core/machines/FmSynth.h" />
+        <FILE id="vmxiXY" name="Organ.cpp" compile="1" resource="0" file="source/core/machines/Organ.cpp" />
+        <FILE id="udtBHK" name="Organ.h" compile="0" resource="0" file="source/core/machines/Organ.h" />
+        <FILE id="lSvEoq" name="Pluck.cpp" compile="1" resource="0" file="source/core/machines/Pluck.cpp" />
+        <FILE id="TStjzx" name="Pluck.h" compile="0" resource="0" file="source/core/machines/Pluck.h" />
         <FILE id="NtMaSc" name="SubtractiveSynth.cpp" compile="1" resource="0" file="source/core/machines/SubtractiveSynth.cpp" />
         <FILE id="NtMaSh" name="SubtractiveSynth.h" compile="0" resource="0" file="source/core/machines/SubtractiveSynth.h" />
+        <FILE id="blQxlO" name="Supersaw.cpp" compile="1" resource="0" file="source/core/machines/Supersaw.cpp" />
+        <FILE id="lroiqN" name="Supersaw.h" compile="0" resource="0" file="source/core/machines/Supersaw.h" />
         <FILE id="LyMaTc" name="TestToneMachine.cpp" compile="1" resource="0" file="source/core/machines/TestToneMachine.cpp" />
         <FILE id="LyMaTh" name="TestToneMachine.h" compile="0" resource="0" file="source/core/machines/TestToneMachine.h" />
+        <FILE id="nGdxwA" name="VoiceMachine.h" compile="0" resource="0" file="source/core/machines/VoiceMachine.h" />
       </GROUP>
       <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F05}" name="mixer">
         <FILE id="NtMxCc" name="ChannelStrip.cpp" compile="1" resource="0" file="source/core/mixer/ChannelStrip.cpp" />

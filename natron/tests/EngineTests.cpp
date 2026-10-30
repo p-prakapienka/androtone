@@ -144,6 +144,13 @@ TEST_CASE("The audio callback never touches the heap, even while edits arrive", 
     Rig rig;
     REQUIRE(rig.session.loadSong(makeDemoSong()).wasOk());
     rig.session.addMachine(RecordingMachine::typeName);
+    for (const auto* type : { "Supersaw", "Pluck", "Organ", "FM" }) { // indices 4-7
+        const int m = rig.session.addMachine(type);
+        Pattern chords;
+        chords.notes = { { 0.0, 0.5, 48, 0.9f }, { 0.0, 0.5, 55, 0.9f }, { 0.5, 1.0, 60, 0.9f }, { 1.5, 0.25, 72, 1.0f } };
+        rig.session.setPattern(m, 0, chords);
+    }
+    rig.session.setParameter(6, "rotarySpeed", 2.0f);
     rig.session.setMixerParameter(1, "delaySend", 0.6f);
     rig.session.setMixerParameter(2, "reverbSend", 0.8f);
     rig.session.setLoop(true, 0, 2);
