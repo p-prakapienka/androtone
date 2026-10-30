@@ -1,9 +1,10 @@
 #include "MoreEffects.h"
 
+#include "../dsp/FastSine.h"
+
 #include <cmath>
 
 namespace {
-    constexpr double twoPi = juce::MathConstants<double>::twoPi;
 
     float coefficientFor(double seconds, double sampleRate) {
         return static_cast<float>(std::exp(-1.0 / (juce::jmax(1.0e-5, seconds) * sampleRate)));
@@ -14,7 +15,7 @@ namespace {
         switch (shape) {
             case 1: return static_cast<float>(phase < 0.5 ? 2.0 * phase : 2.0 - 2.0 * phase);
             case 2: return phase < 0.5 ? 1.0f : 0.0f;
-            default: return static_cast<float>(0.5 + 0.5 * std::sin(twoPi * phase));
+            default: return static_cast<float>(0.5 + 0.5 * FastSine::ofCycles(phase));
         }
     }
 
@@ -154,7 +155,7 @@ void Vinyl::process(juce::AudioBuffer<float>& buffer, int numSamples) {
         // Wow: a slow (0.55 Hz) wobble of a short delay.
         line[static_cast<size_t>(2 * write)] = left[i];
         line[static_cast<size_t>(2 * write + 1)] = right[i];
-        const double delay = 1.0 + wowDepth * (0.5 + 0.5 * std::sin(twoPi * wowPhase));
+        const double delay = 1.0 + wowDepth * (0.5 + 0.5 * FastSine::ofCycles(wowPhase));
         wowPhase += 0.55 / sampleRate;
         wowPhase -= std::floor(wowPhase);
         double position = write - delay;
@@ -394,7 +395,7 @@ void Vibrato::process(juce::AudioBuffer<float>& buffer, int numSamples) {
         double p = phase;
         for (int i = 0; i < numSamples; i++) {
             line[static_cast<size_t>(w)] = data[i];
-            const double delay = 1.0 + sweep * (0.5 + 0.5 * std::sin(twoPi * p));
+            const double delay = 1.0 + sweep * (0.5 + 0.5 * FastSine::ofCycles(p));
             data[i] = readDelay(line, w, delay);
             w = (w + 1) % size;
             p += increment;

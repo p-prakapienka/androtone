@@ -1,5 +1,7 @@
 #pragma once
 
+#include "FastSine.h"
+
 #include <juce_core/juce_core.h>
 #include <cmath>
 
@@ -35,7 +37,7 @@ public:
                 value = triangleState;
                 break;
             case Shape::sine:
-                value = std::sin(juce::MathConstants<double>::twoPi * phase);
+                value = FastSine::ofCycles(phase);
                 break;
         }
 

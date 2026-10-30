@@ -1,5 +1,6 @@
 #include "SubtractiveSynth.h"
 
+#include "../dsp/FastSine.h"
 #include "../dsp/Oscillator.h"
 
 #include <juce_dsp/juce_dsp.h>
@@ -176,7 +177,7 @@ void SubtractiveSynth::process(juce::AudioBuffer<float>& output, const juce::Mid
     const int numSamples = juce::jmin(output.getNumSamples(), static_cast<int>(lfoValues.size()));
     const double increment = parameters.get(lfoRate) / synth.getSampleRate();
     for (int i = 0; i < numSamples; i++) {
-        lfoValues[static_cast<size_t>(i)] = static_cast<float>(std::sin(juce::MathConstants<double>::twoPi * lfoPhase));
+        lfoValues[static_cast<size_t>(i)] = FastSine::ofCycles(lfoPhase);
         lfoPhase += increment;
         if (lfoPhase >= 1.0) {
             lfoPhase -= 1.0;

@@ -50,6 +50,7 @@
         <FILE id="NtDsBq" name="Biquad.h" compile="0" resource="0" file="source/core/dsp/Biquad.h" />
         <FILE id="NtDsKc" name="DrumKit.cpp" compile="1" resource="0" file="source/core/dsp/DrumKit.cpp" />
         <FILE id="NtDsKh" name="DrumKit.h" compile="0" resource="0" file="source/core/dsp/DrumKit.h" />
+        <FILE id="cgxInS" name="FastSine.h" compile="0" resource="0" file="source/core/dsp/FastSine.h" />
         <FILE id="NtDsOs" name="Oscillator.h" compile="0" resource="0" file="source/core/dsp/Oscillator.h" />
       </GROUP>
       <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F06}" name="effects">

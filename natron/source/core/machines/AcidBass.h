@@ -31,6 +31,8 @@ private:
     int numHeld = 0;
 
     double pitch = 45.0;        // current, in semitones (glides towards target)
+    double incrementPitch = -1.0e9; // the pitch `increment` was computed for
+    double increment = 0.0;         // oscillator phase increment for incrementPitch
     double targetPitch = 45.0;
     bool sliding = false;
     bool gate = false;

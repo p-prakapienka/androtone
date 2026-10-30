@@ -1,11 +1,12 @@
 #include "Organ.h"
 
+#include "../dsp/FastSine.h"
+
 #include <array>
 #include <cmath>
 
 namespace {
     using P = Organ::ParameterIndex;
-    constexpr double twoPi = juce::MathConstants<double>::twoPi;
 
     class Voice : public MachineVoice {
     public:
@@ -46,7 +47,11 @@ namespace {
                 total += levels[static_cast<size_t>(d)];
             }
             const float normalise = 1.0f / juce::jmax(1.0f, total);
-            const double percussionRatio = get(P::percussionHarmonic) >= 0.5f ? 3.0 : 2.0;
+            std::array<double, Organ::numDrawbars> increments {};
+            for (int d = 0; d < Organ::numDrawbars; d++) {
+                increments[static_cast<size_t>(d)] = frequency * Organ::drawbarRatios[d] * vibratoRatio / sampleRate;
+            }
+            const double percussionIncrement = frequency * (get(P::percussionHarmonic) >= 0.5f ? 3.0 : 2.0) / sampleRate;
             const auto percussionDecay = static_cast<float>(std::exp(-1.0 / ((get(P::percussionDecay) >= 0.5f ? 0.5 : 0.2) * sampleRate)));
             const float percussionLevel = get(P::percussionLevel);
             const auto attack = static_cast<float>(1.0 - std::exp(-1.0 / (0.004 * sampleRate)));
@@ -60,15 +65,15 @@ namespace {
                         continue;
                     }
                     auto& phase = phases[static_cast<size_t>(d)];
-                    sample += levels[static_cast<size_t>(d)] * static_cast<float>(std::sin(twoPi * phase));
-                    phase += frequency * Organ::drawbarRatios[d] * vibratoRatio / sampleRate;
+                    sample += levels[static_cast<size_t>(d)] * FastSine::ofCycles(phase);
+                    phase += increments[static_cast<size_t>(d)];
                     phase -= std::floor(phase);
                 }
                 sample *= normalise;
 
                 if (percussionEnvelope > 1.0e-4f) {
-                    sample += percussionLevel * percussionEnvelope * static_cast<float>(std::sin(twoPi * percussionPhase));
-                    percussionPhase += frequency * percussionRatio / sampleRate;
+                    sample += percussionLevel * percussionEnvelope * FastSine::ofCycles(percussionPhase);
+                    percussionPhase += percussionIncrement;
                     percussionPhase -= std::floor(percussionPhase);
                     percussionEnvelope *= percussionDecay;
                 }
@@ -134,7 +139,7 @@ void Organ::process(juce::AudioBuffer<float>& output, const juce::MidiBuffer& mi
     const int numSamples = output.getNumSamples();
 
     // Vibrato: one value per block (up to +-0.3 semitone), shared by all voices.
-    vibratoSemitones = parameters.get(vibratoDepth) * 0.3 * std::sin(twoPi * vibratoPhase);
+    vibratoSemitones = parameters.get(vibratoDepth) * 0.3 * FastSine::ofCycles(vibratoPhase);
     vibratoPhase = std::fmod(vibratoPhase + parameters.get(vibratoRate) * numSamples / sampleRate, 1.0);
 
     VoiceMachine::process(output, midi);
@@ -154,7 +159,7 @@ void Organ::process(juce::AudioBuffer<float>& output, const juce::MidiBuffer& mi
         rotorRate = targetRate + (rotorRate - targetRate) * easing;
         rotorPhase += rotorRate / sampleRate;
         rotorPhase -= std::floor(rotorPhase);
-        const auto sweep = static_cast<float>(std::sin(twoPi * rotorPhase));
+        const auto sweep = static_cast<float>(FastSine::ofCycles(rotorPhase));
         const float mono = left[i];
         left[i] = mono * (1.0f - 0.5f * depth * (1.0f + sweep) * 0.6f);
         if (right != nullptr) {

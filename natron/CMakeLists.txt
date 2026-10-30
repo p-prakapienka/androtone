@@ -137,7 +137,8 @@ if(NATRON_BUILD_TESTS)
             tests/MachineTests4c.cpp
             tests/EffectTests4d.cpp
             tests/AutomationTests.cpp
-            tests/LiveMidiTests.cpp)
+            tests/LiveMidiTests.cpp
+            tests/Benchmarks.cpp)
 
     target_include_directories(NatronTests PRIVATE source tests)
     target_compile_definitions(NatronTests

@@ -1,5 +1,7 @@
 #include "FmSynth.h"
 
+#include "../dsp/FastSine.h"
+
 #include <array>
 #include <cmath>
 
@@ -62,7 +64,7 @@ namespace {
 
             for (int i = startSample; i < startSample + numSamples; i++) {
                 std::array<double, FmSynth::numOperators> outputs {};
-                // Higher operators only ever modulate lower ones, so compute 4 down to 1.
+                // Higher operators only ever modulate lower ones, so compute 3 down to 1.
                 for (int op = FmSynth::numOperators - 1; op >= 0; op--) {
                     double modulation = 0.0;
                     const int mask = FmSynth::modulators[algorithm][op];
@@ -74,7 +76,7 @@ namespace {
                     if (op == FmSynth::numOperators - 1) {
                         modulation += feedbackAmount * 0.5 * (feedbackState[0] + feedbackState[1]);
                     }
-                    const double value = std::sin(twoPi * phases[static_cast<size_t>(op)] + modulation)
+                    const double value = FastSine::ofCycles(phases[static_cast<size_t>(op)] + modulation / twoPi)
                                          * levels[static_cast<size_t>(op)] * envelopes[static_cast<size_t>(op)].getNextSample();
                     outputs[static_cast<size_t>(op)] = value;
                     phases[static_cast<size_t>(op)] += increments[static_cast<size_t>(op)];

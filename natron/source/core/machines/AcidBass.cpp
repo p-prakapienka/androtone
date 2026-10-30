@@ -24,6 +24,7 @@ AcidBass::AcidBass() {
 
 void AcidBass::prepare(double newSampleRate, int) {
     sampleRate = newSampleRate;
+    incrementPitch = -1.0e9;
     reset();
 }
 
@@ -134,8 +135,12 @@ void AcidBass::render(juce::AudioBuffer<float>& output, int start, int end) {
         const float gateTarget = gate ? 1.0f : 0.0f;
         amp = gateTarget + (amp - gateTarget) * (gate ? attackCoefficient : releaseCoefficient);
 
-        const double frequency = 440.0 * std::pow(2.0, (pitch + parameters.get(tune) - 69.0) / 12.0);
-        const float x = oscillator.next(waveform, frequency / sampleRate);
+        const double tunedPitch = pitch + parameters.get(tune);
+        if (!juce::exactlyEqual(tunedPitch, incrementPitch)) { // pow only when the pitch moves (slides, tuning)
+            incrementPitch = tunedPitch;
+            increment = 440.0 * std::pow(2.0, (tunedPitch - 69.0) / 12.0) / sampleRate;
+        }
+        const float x = oscillator.next(waveform, increment);
 
         // 4-pole ladder with tanh saturation at the input.
         const float input = std::tanh(x - k * ladder[3]);

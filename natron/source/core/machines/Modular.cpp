@@ -1,5 +1,6 @@
 #include "Modular.h"
 
+#include "../dsp/FastSine.h"
 #include "../dsp/Oscillator.h"
 
 #include <juce_dsp/juce_dsp.h>
@@ -16,7 +17,7 @@ namespace {
             case 1: return static_cast<float>(phase < 0.5 ? 4.0 * phase - 1.0 : 3.0 - 4.0 * phase);
             case 2: return static_cast<float>(2.0 * phase - 1.0);
             case 3: return phase < 0.5 ? 1.0f : -1.0f;
-            default: return static_cast<float>(std::sin(juce::MathConstants<double>::twoPi * phase));
+            default: return FastSine::ofCycles(phase);
         }
     }
 
