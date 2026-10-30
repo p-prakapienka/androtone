@@ -20,12 +20,12 @@ public:
     // A bar is a fixed 16 steps. Clip switching is quantized to bar boundaries, so clips are
     // expected to be at least this many steps — a shorter clip never reaches a bar boundary
     // and so would never hand off to a queued clip.
-    static constexpr int stepsPerBar = 16;
+    static constexpr int STEPS_PER_BAR = 16;
 
     // The fixed grid resolution: every step lasts this many beats (a 16th note), independent of the
-    // notes on it. A bar is stepsPerBar of these (16 × 0.25 = 4 beats). A note's own duration comes
+    // notes on it. A bar is STEPS_PER_BAR of these (16 × 0.25 = 4 beats). A note's own duration comes
     // from Note.length.
-    static constexpr double stepLength = 0.25;
+    static constexpr double STEP_LENGTH = 0.25;
 
     Clip() {
         notesPlaying.reserve(1);
@@ -34,7 +34,7 @@ public:
     // Renders up to `numSamples` samples into `midi`, with all event positions written at
     // `sample + sampleOffset` so the caller can chain a second clip into the same buffer.
     // When `stopOnBarLastStep` is true and a bar's last step has just finished (every
-    // `stepsPerBar` steps), it emits the trailing noteOff, resets state, and returns the
+    // `STEPS_PER_BAR` steps), it emits the trailing noteOff, resets state, and returns the
     // sample index where it stopped — letting the caller swap to a different clip at that
     // exact bar boundary. Otherwise it processes the full block and returns `numSamples`.
     int processBlock(
@@ -71,7 +71,7 @@ public:
                 const int prevStep = currentStep;
                 currentStep = (currentStep + 1) % getNumSteps();
 
-                if (stopOnBarLastStep && prevStep >= 0 && (prevStep + 1) % stepsPerBar == 0) {
+                if (stopOnBarLastStep && prevStep >= 0 && (prevStep + 1) % STEPS_PER_BAR == 0) {
                     currentStep = -1;
                     sampleCounter = 0.0;
                     samplesPerStep = 0.0; // so the next entry fires step 0 on its first sample
@@ -146,7 +146,7 @@ private:
     std::vector<PlayingNote> notesPlaying;
 
     void updateSamplesPerStep(double samplesPerBeat) {
-        auto newSamplesPerStep = stepLength * samplesPerBeat;
+        auto newSamplesPerStep = STEP_LENGTH * samplesPerBeat;
 
         if (samplesPerStep != newSamplesPerStep) {
             samplesPerStep = newSamplesPerStep;

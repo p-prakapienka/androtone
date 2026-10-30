@@ -1,14 +1,13 @@
 #pragma once
 
 #include "Clip.h"
+#include "../Constants.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <array>
 
 class Track {
 public:
-    static constexpr int maxClips = 32;
-
     void processBlock(juce::MidiBuffer& midi, int numSamples, double samplesPerBeat) {
         const int processedSamples = clips[currentClipIndex].processBlock(
             midi, numSamples, channel, samplesPerBeat, /*stopOnBarLastStep=*/nextClipIndex >= 0
@@ -37,7 +36,7 @@ public:
 
     template<typename Container>
     void updateClip(const Container& notes, int clipIndex) {
-        if (clipIndex < 0 || clipIndex >= maxClips) {
+        if (clipIndex < 0 || clipIndex >= MAX_CLIPS) {
             return;
         }
 
@@ -53,7 +52,7 @@ public:
     }
 
     void setCurrentClip(int clipIndex) {
-        if (clipIndex < 0 || clipIndex >= maxClips) {
+        if (clipIndex < 0 || clipIndex >= MAX_CLIPS) {
             return;
         }
 
@@ -75,7 +74,7 @@ public:
 
 private:
     int channel = 1;
-    std::array<Clip, maxClips> clips;
+    std::array<Clip, MAX_CLIPS> clips;
     std::atomic<int> currentClipIndex = 0;
     std::atomic<int> nextClipIndex = -1;
 };

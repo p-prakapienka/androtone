@@ -49,6 +49,7 @@
       <FILE id="cKq2vC" name="PluginEditor.cpp" compile="1" resource="0"
             file="Source/PluginEditor.cpp"/>
       <FILE id="zXuyTD" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
+      <FILE id="CnstH1" name="Constants.h" compile="0" resource="0" file="Source/Constants.h"/>
     </GROUP>
   </MAINGROUP>
   <MODULES>

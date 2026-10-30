@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include "Constants.h"
 #include "Sequencer/StepSequencer.h"
 #include "Mixer/Mixer.h"
 #include <array>
@@ -55,13 +56,13 @@ public:
     int getCurrentScene() const { return sequencer.getCurrentScene(); }
     int getNextScene() const { return sequencer.getNextScene(); }
     int getNextClip(int trackIndex) const { return sequencer.getNextClip(trackIndex); }
-    static constexpr int getNumTracks() { return StepSequencer::numTracks; }
+    static constexpr int getNumTracks() { return NUM_TRACKS; }
     int getNumActiveTracks() const { return sequencer.getNumActiveTracks(); }
     int getNumActiveClips() const { return sequencer.getNumActiveClips(); }
 
 private:
-    std::array<juce::Synthesiser, StepSequencer::numTracks> synths;
-    std::array<juce::AudioBuffer<float>, StepSequencer::numTracks> trackBuffers;
+    std::array<juce::Synthesiser, NUM_TRACKS> synths;
+    std::array<juce::AudioBuffer<float>, NUM_TRACKS> trackBuffers;
     StepSequencer sequencer;
     Mixer mixer;
     double currentSampleRate = 44100.0;

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../Constants.h"
 #include "../Sequencer/StepSequencer.h"
 
 #include <juce_audio_basics/juce_audio_basics.h>
@@ -12,8 +13,6 @@
 
 class Mixer {
 public:
-    static constexpr int numTracks = StepSequencer::numTracks;
-
     Mixer() {
         for (auto& s : sends1) {
             s.store(0.0f);
@@ -52,13 +51,13 @@ public:
 
     void mix(
         juce::AudioBuffer<float>& output,
-        const std::array<juce::AudioBuffer<float>, numTracks>& tracks
+        const std::array<juce::AudioBuffer<float>, NUM_TRACKS>& tracks
     ) {
-        std::array<float, numTracks> sends1Amounts = {};
-        std::array<float, numTracks> sends2Amounts = {};
-        std::array<float, numTracks> volumes = {};
+        std::array<float, NUM_TRACKS> sends1Amounts = {};
+        std::array<float, NUM_TRACKS> sends2Amounts = {};
+        std::array<float, NUM_TRACKS> volumes = {};
 
-        for (int t = 0; t < numTracks; t++) {
+        for (int t = 0; t < NUM_TRACKS; t++) {
             sends1Amounts[t] = sends1[t].load();
             sends2Amounts[t] = sends2[t].load();
             volumes[t] = trackVolumes[t].load();
@@ -80,7 +79,7 @@ public:
 
             // Sum the dry mix (scaled by volume), the delay send (send1), and the
             // reverb send (send2), each scaled by their per-track send knobs.
-            for (int t = 0; t < numTracks; t++) {
+            for (int t = 0; t < NUM_TRACKS; t++) {
                 const float left = tracks[t].getSample(0, i);
                 const float right = tracks[t].getSample(rightChannel, i);
                 dryLeft += left * volumes[t];
@@ -156,9 +155,9 @@ public:
     }
 
 private:
-    std::array<std::atomic<float>, numTracks> sends1; // delay sends
-    std::array<std::atomic<float>, numTracks> sends2; // reverb sends
-    std::array<std::atomic<float>, numTracks> trackVolumes;
+    std::array<std::atomic<float>, NUM_TRACKS> sends1; // delay sends
+    std::array<std::atomic<float>, NUM_TRACKS> sends2; // reverb sends
+    std::array<std::atomic<float>, NUM_TRACKS> trackVolumes;
     std::atomic<float> masterVolume;
 
     std::unique_ptr<Processor> delay;

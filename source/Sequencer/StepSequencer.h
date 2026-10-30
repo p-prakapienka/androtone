@@ -3,6 +3,7 @@
 #include "Clip.h"
 #include "Track.h"
 #include "SceneManager.h"
+#include "../Constants.h"
 #include "../Project/Projects.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -12,14 +13,12 @@
 
 class StepSequencer {
 public:
-    static constexpr int numTracks = 8;
-
     StepSequencer() {
         playing = false;
         currentSampleRate = 44100.0;
         lastPlayingState = false;
 
-        for (int trackIndex = 0; trackIndex < numTracks; trackIndex++) {
+        for (int trackIndex = 0; trackIndex < NUM_TRACKS; trackIndex++) {
             tracks[trackIndex].setChannel(trackIndex + 1);
         }
 
@@ -33,12 +32,12 @@ public:
     void loadProject(const Project& project) {
         setTempo(project.tempo);
 
-        numActiveTracks = juce::jmin(static_cast<int>(project.tracks.size()), numTracks);
+        numActiveTracks = juce::jmin(static_cast<int>(project.tracks.size()), NUM_TRACKS);
         numActiveClips = 0;
 
-        for (int trackIndex = 0; trackIndex < numTracks && trackIndex < static_cast<int>(project.tracks.size()); trackIndex++) {
+        for (int trackIndex = 0; trackIndex < NUM_TRACKS && trackIndex < static_cast<int>(project.tracks.size()); trackIndex++) {
             const auto& projectTrack = project.tracks[trackIndex];
-            numActiveClips = juce::jmax(numActiveClips, juce::jmin(static_cast<int>(projectTrack.clips.size()), Track::maxClips));
+            numActiveClips = juce::jmax(numActiveClips, juce::jmin(static_cast<int>(projectTrack.clips.size()), MAX_CLIPS));
 
             for (int clipIndex = 0; clipIndex < static_cast<int>(projectTrack.clips.size()); clipIndex++) {
                 const auto& projectClip = projectTrack.clips[clipIndex];
@@ -48,7 +47,7 @@ public:
                     // An empty project clip maps to one bar of zero-velocity rests so it still
                     // carries timing and stays bar-quantized on scene switches. A zero-note clip
                     // never advances, so it can't align its switch to a bar boundary.
-                    notes.assign(Clip::stepsPerBar, Note { 60, Clip::stepLength, 0 });
+                    notes.assign(Clip::STEPS_PER_BAR, Note { 60, Clip::STEP_LENGTH, 0 });
                 } else {
                     notes.reserve(projectClip.notes.size());
 
@@ -154,8 +153,8 @@ public:
     }
 
 private:
-    std::array<Track, numTracks> tracks;
-    SceneManager<numTracks> sceneManager { tracks };
+    std::array<Track, NUM_TRACKS> tracks;
+    SceneManager<NUM_TRACKS> sceneManager { tracks };
     std::atomic<double> bpm;
     std::atomic<bool> playing;
     double currentSampleRate;

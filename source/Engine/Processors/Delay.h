@@ -20,7 +20,7 @@ public:
 
     void prepare(double newSampleRate) override {
         sampleRate = newSampleRate;
-        const int maxSamples = static_cast<int>(maxDelaySeconds * sampleRate) + 1;
+        const int maxSamples = static_cast<int>(MAX_DELAY_SECONDS * sampleRate) + 1;
         bufferLeft.assign(static_cast<size_t>(maxSamples), 0.0f);
         bufferRight.assign(static_cast<size_t>(maxSamples), 0.0f);
         writePos = 0;
@@ -75,7 +75,7 @@ public:
     float getFeedback() const { return feedback.load(); }
 
 private:
-    static constexpr float maxDelaySeconds = 2.0f;
+    static constexpr float MAX_DELAY_SECONDS = 2.0f;
 
     double sampleRate = 44100.0;
     std::vector<float> bufferLeft;

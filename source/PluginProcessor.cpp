@@ -66,7 +66,7 @@ void AndrotoneAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
 
     sequencer.processBlock(midi, numSamples);
 
-    for (int t = 0; t < StepSequencer::numTracks; t++) {
+    for (int t = 0; t < NUM_TRACKS; t++) {
         trackBuffers[t].clear(0, numSamples);
         synths[t].renderNextBlock(trackBuffers[t], midi, 0, numSamples);
     }

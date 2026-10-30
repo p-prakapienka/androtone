@@ -3,14 +3,14 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 struct OnePoleLowpass {
-    static constexpr double cutoffHz = 500.0;
+    static constexpr double CUTOFF_HZ = 500.0;
 
     double state = 0.0;
     double alpha = 0.0;
 
     void prepare(double sampleRate) {
         const double dt = 1.0 / sampleRate;
-        const double rc = 1.0 / (juce::MathConstants<double>::twoPi * cutoffHz);
+        const double rc = 1.0 / (juce::MathConstants<double>::twoPi * CUTOFF_HZ);
         alpha = dt / (rc + dt);
         state = 0.0;
     }

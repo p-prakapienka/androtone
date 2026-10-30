@@ -22,7 +22,7 @@ public:
 
                 if (processorRef.isClipEmpty(j, i)) {
                     // Empty slots read as an outlined "+" with no fill, distinct from real clips.
-                    const juce::Colour muted = juce::Colour(AndrotoneLookAndFeel::Palette::textMuted);
+                    const juce::Colour muted = juce::Colour(AndrotoneLookAndFeel::Palette::TEXT_MUTED);
                     button.setButtonText("+");
                     button.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
                     button.setColour(juce::TextButton::buttonOnColourId, juce::Colours::transparentBlack);

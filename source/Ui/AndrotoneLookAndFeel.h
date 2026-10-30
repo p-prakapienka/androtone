@@ -6,21 +6,21 @@ class AndrotoneLookAndFeel : public juce::LookAndFeel_V4 {
 public:
     // Shared palette (ARGB), so components can reference the same colours the look and feel uses.
     struct Palette {
-        static constexpr juce::uint32 background = 0xFF07100F;  // canvas (#07100F)
-        static constexpr juce::uint32 surface    = 0xFF0B1517;  // app surface (#0B1517)
-        static constexpr juce::uint32 outline    = 0xFF1C3136;  // hairline border (#1C3136)
-        static constexpr juce::uint32 accent     = 0xFF0097A7;  // teal 500 (#0097A7)
-        static constexpr juce::uint32 text       = 0xFFE6F0F1;  // primary text (#E6F0F1)
-        static constexpr juce::uint32 textMuted  = 0xFF6E8A8F;  // secondary text (#6E8A8F)
+        static constexpr juce::uint32 BACKGROUND = 0xFF07100F; // canvas (#07100F)
+        static constexpr juce::uint32 SURFACE = 0xFF0B1517; // app surface (#0B1517)
+        static constexpr juce::uint32 OUTLINE = 0xFF1C3136; // hairline border (#1C3136)
+        static constexpr juce::uint32 ACCENT = 0xFF0097A7; // teal 500 (#0097A7)
+        static constexpr juce::uint32 TEXT = 0xFFE6F0F1; // primary text (#E6F0F1)
+        static constexpr juce::uint32 TEXT_MUTED = 0xFF6E8A8F; // secondary text (#6E8A8F)
     };
 
     AndrotoneLookAndFeel() {
-        const juce::Colour background { Palette::background };
-        const juce::Colour surface    { Palette::surface };
-        const juce::Colour outline    { Palette::outline };
-        const juce::Colour accent     { Palette::accent };
-        const juce::Colour text       { Palette::text };
-        const juce::Colour textMuted  { Palette::textMuted };
+        const juce::Colour background { Palette::BACKGROUND };
+        const juce::Colour surface { Palette::SURFACE };
+        const juce::Colour outline { Palette::OUTLINE };
+        const juce::Colour accent { Palette::ACCENT };
+        const juce::Colour text { Palette::TEXT };
+        const juce::Colour textMuted { Palette::TEXT_MUTED };
 
         setColour(juce::ResizableWindow::backgroundColourId, background);
 

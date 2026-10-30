@@ -21,8 +21,8 @@ public:
         loopButton.setClickingTogglesState(true);
         loopButton.setToggleState(!processorRef.isSongMode(), juce::dontSendNotification);
         // Active loop is shown by tinting the text accent, not by filling the background.
-        loopButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(AndrotoneLookAndFeel::Palette::surface));
-        loopButton.setColour(juce::TextButton::textColourOnId, juce::Colour(AndrotoneLookAndFeel::Palette::accent));
+        loopButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(AndrotoneLookAndFeel::Palette::SURFACE));
+        loopButton.setColour(juce::TextButton::textColourOnId, juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
         loopButton.onClick = [this]() {
             processorRef.setSongMode(!loopButton.getToggleState());
         };
