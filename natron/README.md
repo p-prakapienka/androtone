@@ -33,3 +33,7 @@ ctest --test-dir natron/build --output-on-failure
 Configure the desktop build once (it fetches JUCE into `natron/external/JUCE`, which the Android
 project references), then open `natron/Builds/Android` in Android Studio or run
 `./gradlew assembleDebug` there. The Android project is generated from `Natron.jucer` by Projucer.
+
+CI builds an optimised APK on every push (job `android` in `.github/workflows/natron.yml`): open
+the run on GitHub, download `natron-apk` from its Artifacts, unzip, and install the `.apk` on the
+device (allow installs from unknown sources). It is signed with a CI debug key, not for release.
