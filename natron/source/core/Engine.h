@@ -94,6 +94,13 @@ public:
         loopEnabled.store(enabled);
     }
 
+    // Live input (MIDI devices, the on-screen keyboard): note and controller messages played on the
+    // target machine at the start of the next block. Safe from any thread, including several at
+    // once. Returns false if the queue is full (the message is dropped).
+    bool pushLiveMidi(const juce::MidiMessage& message);
+    void setLiveTarget(int machine) { liveTarget.store(machine); }
+    int getLiveTarget() const { return liveTarget.load(); }
+
     // The master section's parameters; the bus itself lives for the engine's lifetime.
     ParameterSet& getMasterParameters() { return master.getParameters(); }
 
@@ -133,6 +140,16 @@ private:
     std::vector<EngineCommand> commands;
     juce::AbstractFifo garbageFifo { 16384 };
     std::vector<Garbage> garbage;
+
+    struct LiveEvent {
+        juce::uint8 bytes[3] {};
+        int size = 0;
+    };
+    juce::AbstractFifo liveFifo { 1024 };
+    std::array<LiveEvent, 1024> liveEvents;
+    juce::SpinLock liveWriters;      // serialises producers; the audio thread never takes it
+    std::atomic<int> liveTarget { 0 };
+    juce::MidiBuffer liveMidi;       // drained queue, for the current block
 
     Transport transport;
     bool wasPlaying = false;
@@ -186,6 +203,7 @@ private:
     void playPatternMode(Slot& slot, int index, int64_t from, int64_t to, int64_t blockStart);
     void playSongMode(Slot& slot, int index, int64_t from, int64_t to, int64_t blockStart);
     void applyAutomation(double beat, bool songModeNow);
+    void drainLiveMidi();
     ParameterSet* targetParameters(const AutomationTarget& target, int machine);
     static void write(ParameterSet* parameters, const AutomationLane& lane, double beat);
 };

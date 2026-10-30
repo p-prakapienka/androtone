@@ -1,5 +1,6 @@
 #pragma once
 
+#include "AutomationEditor.h"
 #include "core/Engine.h"
 #include "core/Session.h"
 
@@ -11,6 +12,7 @@
 //  - long-press or right-click a block: delete it
 //  - drag across the ruler: set the loop region (and turn looping on); tap the ruler: toggle looping
 //  - pinch / magnify / ctrl+wheel: zoom
+// Above: the song's swing; below: the song automation lane editor.
 class SongView : public juce::Component, private juce::Timer {
 public:
     SongView(Session& sessionToUse, const Engine& engineToShow);
@@ -25,6 +27,9 @@ private:
     const Engine& engine;
     juce::Viewport viewport;
     std::unique_ptr<Timeline> timeline;
+    juce::Label swingLabel;
+    juce::Slider swing;
+    AutomationEditor automation;
 
     void timerCallback() override;
 };

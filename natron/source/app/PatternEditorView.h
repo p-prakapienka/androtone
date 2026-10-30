@@ -1,8 +1,10 @@
 #pragma once
 
+#include "AutomationEditor.h"
 #include "core/Engine.h"
 #include "core/Session.h"
 
+#include <juce_audio_utils/juce_audio_utils.h>
 #include <juce_gui_basics/juce_gui_basics.h>
 
 // Touch piano roll for one machine's pattern (the rack's selected machine, its selected pattern).
@@ -11,9 +13,10 @@
 //  - long-press a note: cycle velocity, default → accent → soft
 //  - pinch (or trackpad magnify / ctrl+wheel): zoom horizontally
 // Drums show one row per kit sound (a step grid); other machines show a keyboard range.
+// Below: the pattern's automation lane editor and an on-screen keyboard that plays the machine.
 class PatternEditorView : public juce::Component, private juce::Timer {
 public:
-    PatternEditorView(Session& sessionToUse, const Engine& engineToShow);
+    PatternEditorView(Session& sessionToUse, const Engine& engineToShow, juce::MidiKeyboardState& keyboardState);
 
     // Edits `machine`'s selected pattern from now on.
     void setMachine(int machine);
@@ -33,6 +36,8 @@ private:
     juce::ComboBox lengthBox;
     juce::Viewport viewport;
     std::unique_ptr<Grid> grid;
+    AutomationEditor automation;
+    juce::MidiKeyboardComponent keyboard;
 
     void timerCallback() override;
 };

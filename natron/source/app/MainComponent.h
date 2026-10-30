@@ -1,5 +1,6 @@
 #pragma once
 
+#include "MachineExtrasPanel.h"
 #include "MixerView.h"
 #include "ParameterPanel.h"
 #include "PatternEditorView.h"
@@ -15,7 +16,10 @@
 //  Pattern — piano roll / step grid for the selected machine's selected pattern
 //  Song    — the song timeline
 //  Mixer   — channel strips and the master section
-class MainComponent : public juce::AudioAppComponent, private juce::Timer {
+class MainComponent : public juce::AudioAppComponent,
+                      private juce::Timer,
+                      private juce::MidiKeyboardState::Listener,
+                      private juce::MidiInputCallback {
 public:
     MainComponent();
     ~MainComponent() override;
@@ -48,6 +52,7 @@ private:
         juce::Viewport viewport;
         juce::Component content;
         std::unique_ptr<ParameterPanel> machinePanel;
+        std::unique_ptr<MachineExtrasPanel> extras;
         std::array<EffectSlotControls, Engine::effectsPerMachine> effectSlots;
     };
 
@@ -55,6 +60,9 @@ private:
 
     Engine engine;
     Session session { engine };
+    juce::MidiKeyboardState keyboardState;
+    juce::StringArray openMidiInputs;
+    int midiScanCountdown = 0;
 
     juce::Label title;
     juce::TextButton playButton { "Play" };
@@ -73,6 +81,10 @@ private:
     std::unique_ptr<ExportJob> exportJob;
 
     void timerCallback() override;
+    void handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) override;
+    void handleNoteOff(juce::MidiKeyboardState*, int channel, int note, float velocity) override;
+    void handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessage& message) override;
+    void scanMidiInputs();
     void refreshFromSong();
     void selectMachine(int machine);
     void saveSong();

@@ -31,6 +31,7 @@ ParameterPanel::ParameterPanel(const ParameterSet& parametersToShow, Setter onCh
                                                             juce::Slider::TextBoxBelow);
             control.slider->setRange(spec.minValue, spec.maxValue, spec.interval);
             control.slider->setDoubleClickReturnValue(true, spec.defaultValue);
+            control.slider->setScrollWheelEnabled(false); // wheel scrolls the page, never turns a knob
             control.slider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, cellWidth - 8, 18);
             control.slider->setNumDecimalPlacesToDisplay(spec.interval > 0.0f ? 0 : 2);
             // Wide ranges (Hz, seconds) are easier to set logarithmically.

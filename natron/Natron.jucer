@@ -2,6 +2,10 @@
 <JUCERPROJECT id="NatronApp" name="Natron" projectType="guiapp" useAppConfig="0" addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" version="0.0.1" companyName="Restricted Space" bundleIdentifier="com.restrictedspace.natron" headerPath="../../source" cppLanguageStandard="17">
   <MAINGROUP id="NatronMgr" name="Natron">
     <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F03}" name="app">
+      <FILE id="WDgZhl" name="AutomationEditor.cpp" compile="1" resource="0" file="source/app/AutomationEditor.cpp" />
+      <FILE id="NyBZrF" name="AutomationEditor.h" compile="0" resource="0" file="source/app/AutomationEditor.h" />
+      <FILE id="BpXtfe" name="MachineExtrasPanel.cpp" compile="1" resource="0" file="source/app/MachineExtrasPanel.cpp" />
+      <FILE id="HrKDcR" name="MachineExtrasPanel.h" compile="0" resource="0" file="source/app/MachineExtrasPanel.h" />
       <FILE id="LyApMn" name="Main.cpp" compile="1" resource="0" file="source/app/Main.cpp" />
       <FILE id="LyApCc" name="MainComponent.cpp" compile="1" resource="0" file="source/app/MainComponent.cpp" />
       <FILE id="LyApCh" name="MainComponent.h" compile="0" resource="0" file="source/app/MainComponent.h" />

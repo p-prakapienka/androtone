@@ -75,6 +75,8 @@ juce_add_gui_app(Natron
 target_sources(Natron
     PRIVATE
         ${NATRON_CORE_SOURCES}
+        source/app/AutomationEditor.cpp
+        source/app/MachineExtrasPanel.cpp
         source/app/Main.cpp
         source/app/MainComponent.cpp
         source/app/MixerView.cpp
@@ -134,7 +136,8 @@ if(NATRON_BUILD_TESTS)
             tests/MachineTests4b.cpp
             tests/MachineTests4c.cpp
             tests/EffectTests4d.cpp
-            tests/AutomationTests.cpp)
+            tests/AutomationTests.cpp
+            tests/LiveMidiTests.cpp)
 
     target_include_directories(NatronTests PRIVATE source tests)
     target_compile_definitions(NatronTests

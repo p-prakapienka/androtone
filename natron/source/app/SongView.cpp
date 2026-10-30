@@ -245,7 +245,15 @@ private:
 };
 
 SongView::SongView(Session& sessionToUse, const Engine& engineToShow) :
-    session(sessionToUse), engine(engineToShow) {
+    session(sessionToUse), engine(engineToShow), automation(sessionToUse, AutomationEditor::Mode::song) {
+    swingLabel.setText("Swing", juce::dontSendNotification);
+    addAndMakeVisible(swingLabel);
+    swing.setRange(Song::minSwing * 100.0, Song::maxSwing * 100.0, 1.0);
+    swing.setTextValueSuffix(" %");
+    swing.setTextBoxStyle(juce::Slider::TextBoxRight, false, 70, 28);
+    swing.onValueChange = [this] { session.setSwing(static_cast<float>(swing.getValue() / 100.0)); };
+    addAndMakeVisible(swing);
+    addAndMakeVisible(automation);
     timeline = std::make_unique<Timeline>(*this);
     viewport.setViewedComponent(timeline.get(), false);
     addAndMakeVisible(viewport);
@@ -253,12 +261,20 @@ SongView::SongView(Session& sessionToUse, const Engine& engineToShow) :
 }
 
 void SongView::refresh() {
+    swing.setValue(session.getSwing() * 100.0, juce::dontSendNotification);
+    automation.refresh();
     resized();
     timeline->repaint();
 }
 
 void SongView::resized() {
-    viewport.setBounds(getLocalBounds());
+    auto area = getLocalBounds();
+    auto header = area.removeFromTop(34);
+    swingLabel.setBounds(header.removeFromLeft(60));
+    swing.setBounds(header.removeFromLeft(300));
+    automation.setBounds(area.removeFromBottom(juce::jmin(150, area.getHeight() / 3)));
+    area.removeFromBottom(4);
+    viewport.setBounds(area);
     timeline->setSize(juce::jmax(viewport.getMaximumVisibleWidth(), timeline->idealWidth()),
                       juce::jmax(viewport.getMaximumVisibleHeight(), timeline->idealHeight()));
 }

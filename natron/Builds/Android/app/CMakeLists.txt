@@ -44,6 +44,10 @@ add_library( ${BINARY_NAME}
 
     SHARED
 
+    "../../../source/app/AutomationEditor.cpp"
+    "../../../source/app/AutomationEditor.h"
+    "../../../source/app/MachineExtrasPanel.cpp"
+    "../../../source/app/MachineExtrasPanel.h"
     "../../../source/app/Main.cpp"
     "../../../source/app/MainComponent.cpp"
     "../../../source/app/MainComponent.h"
@@ -2541,6 +2545,8 @@ add_library( ${BINARY_NAME}
 )
 
 set_source_files_properties(
+    "../../../source/app/AutomationEditor.h"
+    "../../../source/app/MachineExtrasPanel.h"
     "../../../source/app/MainComponent.h"
     "../../../source/app/MixerView.h"
     "../../../source/app/ParameterPanel.h"

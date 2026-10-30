@@ -1,6 +1,7 @@
 #include "Engine.h"
 
 #include <cmath>
+#include <cstring>
 
 namespace {
     const Pattern emptyPattern {};
@@ -85,6 +86,7 @@ void Engine::prepare(double newSampleRate, int maxBlockSize) {
         }
     }
 
+    liveMidi.ensureSize(2048);
     mixBus.setSize(2, maxBlock.load());
     delayBus.setSize(2, maxBlock.load());
     reverbBus.setSize(2, maxBlock.load());
@@ -234,10 +236,35 @@ int Engine::songEndBar() const {
     return end;
 }
 
+bool Engine::pushLiveMidi(const juce::MidiMessage& message) {
+    if (!(message.isNoteOnOrOff() || message.isController() || message.isPitchWheel()) || message.getRawDataSize() > 3) {
+        return false;
+    }
+    const juce::SpinLock::ScopedLockType lock(liveWriters);
+    if (liveFifo.getFreeSpace() < 1) {
+        return false;
+    }
+    liveFifo.write(1).forEach([&](int i) {
+        auto& event = liveEvents[static_cast<size_t>(i)];
+        event.size = message.getRawDataSize();
+        std::memcpy(event.bytes, message.getRawData(), static_cast<size_t>(event.size));
+    });
+    return true;
+}
+
+void Engine::drainLiveMidi() {
+    liveMidi.clear();
+    liveFifo.read(liveFifo.getNumReady()).forEach([this](int i) {
+        const auto& event = liveEvents[static_cast<size_t>(i)];
+        liveMidi.addEvent(event.bytes, event.size, 0);
+    });
+}
+
 void Engine::process(juce::AudioBuffer<float>& output) {
     juce::ScopedNoDenormals noDenormals;
     output.clear();
     applyCommands();
+    drainLiveMidi();
 
     // Hosts (and Android in particular) may hand over more than they announced; work in chunks
     // no larger than what the machines were prepared for.
@@ -297,6 +324,15 @@ void Engine::processChunk(juce::AudioBuffer<float>& output, int startSample, int
         const double startBeat = transport.beatAt(from);
         generateMidi(from, from + numSamples, songModeNow);
         applyAutomation(startBeat, songModeNow);
+    }
+
+    // Live input plays on the target machine, at the start of the first chunk of the block.
+    if (!liveMidi.isEmpty()) {
+        const int target = liveTarget.load();
+        if (target >= 0 && target < numMachines) {
+            slots[static_cast<size_t>(target)].midi.addEvents(liveMidi, 0, -1, 0);
+        }
+        liveMidi.clear();
     }
 
     bool anySolo = false;

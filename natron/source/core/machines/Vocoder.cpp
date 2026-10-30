@@ -204,9 +204,9 @@ void Vocoder::process(juce::AudioBuffer<float>& output, const juce::MidiBuffer& 
 
         float sample = 0.0f;
         for (int band = 0; band < numBands; band++) {
-            const float level = std::abs(analysis[static_cast<size_t>(band)].process(0, m));
+            const float bandLevel = std::abs(analysis[static_cast<size_t>(band)].process(0, m));
             auto& envelope = envelopes[static_cast<size_t>(band)];
-            envelope = level + (envelope - level) * (level > envelope ? attackCoefficient : releaseCoefficient);
+            envelope = bandLevel + (envelope - bandLevel) * (bandLevel > envelope ? attackCoefficient : releaseCoefficient);
             sample += synthesis[static_cast<size_t>(band)].process(0, carrierData[i]) * envelope;
         }
         // Sibilance: the voice's own high end passes straight through (only while notes play).

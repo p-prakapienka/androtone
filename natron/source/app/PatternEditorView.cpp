@@ -244,8 +244,14 @@ private:
     }
 };
 
-PatternEditorView::PatternEditorView(Session& sessionToUse, const Engine& engineToShow) :
-    session(sessionToUse), engine(engineToShow) {
+PatternEditorView::PatternEditorView(Session& sessionToUse, const Engine& engineToShow, juce::MidiKeyboardState& keyboardState) :
+    session(sessionToUse), engine(engineToShow), automation(sessionToUse, AutomationEditor::Mode::pattern),
+    keyboard(keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard) {
+    addAndMakeVisible(automation);
+    keyboard.setAvailableRange(24, 108);
+    keyboard.setLowestVisibleKey(48);
+    keyboard.setKeyWidth(28.0f);
+    addAndMakeVisible(keyboard);
     title.setFont(juce::FontOptions(16.0f, juce::Font::bold));
     addAndMakeVisible(title);
 
@@ -274,6 +280,7 @@ PatternEditorView::PatternEditorView(Session& sessionToUse, const Engine& engine
 
 void PatternEditorView::setMachine(int newMachine) {
     machine = newMachine;
+    automation.setMachine(newMachine);
     refresh();
     // Scroll the keyboard to the pattern's notes (or around middle C when it's empty).
     if (!grid->isDrums() && machine < session.getNumMachines()) {
@@ -294,6 +301,7 @@ void PatternEditorView::refresh() {
     grid->rowHeight = grid->isDrums() ? 44 : 22; // drum rows are few: make them easy to hit
     title.setText(state.name + "  " + PatternBank::nameOf(state.selectedPattern), juce::dontSendNotification);
     lengthBox.setSelectedId(state.patterns[static_cast<size_t>(state.selectedPattern)].bars, juce::dontSendNotification);
+    automation.refresh();
     resized();
     grid->repaint();
 }
@@ -307,6 +315,10 @@ void PatternEditorView::resized() {
     auto header = area.removeFromTop(40).reduced(4);
     lengthBox.setBounds(header.removeFromRight(110));
     title.setBounds(header);
+    keyboard.setBounds(area.removeFromBottom(64));
+    area.removeFromBottom(4);
+    automation.setBounds(area.removeFromBottom(juce::jmin(150, area.getHeight() / 3)));
+    area.removeFromBottom(4);
     viewport.setBounds(area);
     grid->fitWidth = static_cast<float>(viewport.getMaximumVisibleWidth());
     grid->setSize(juce::jmax(viewport.getMaximumVisibleWidth(), grid->idealWidth()), grid->idealHeight());

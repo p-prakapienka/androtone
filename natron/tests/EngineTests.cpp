@@ -219,6 +219,9 @@ TEST_CASE("The audio callback never touches the heap, even while edits arrive", 
             rig.session.setBlocks(0, { { 0, 1 + i % 3, i % 4 }, { 4, 2, 1 } });
         }
 
+        rig.engine.setLiveTarget(i % 5);
+        rig.engine.pushLiveMidi(i % 2 == 0 ? juce::MidiMessage::noteOn(1, 48 + i % 24, 0.7f) : juce::MidiMessage::noteOff(1, 48 + (i - 1) % 24));
+
         AllocationCounter::start();
         rig.engine.process(block);
         touches += AllocationCounter::stop();

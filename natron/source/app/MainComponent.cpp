@@ -92,7 +92,8 @@ MainComponent::MainComponent() {
     addAndMakeVisible(positionLabel);
 
     rackPage = new RackPage(*this);
-    patternEditor = new PatternEditorView(session, engine);
+    patternEditor = new PatternEditorView(session, engine, keyboardState);
+    keyboardState.addListener(this);
     songView = new SongView(session, engine);
     mixerView = new MixerView(session);
     const juce::Colour tabColour(0xff282a2e);
@@ -110,7 +111,34 @@ MainComponent::MainComponent() {
 }
 
 MainComponent::~MainComponent() {
+    keyboardState.removeListener(this);
+    for (const auto& identifier : openMidiInputs) {
+        deviceManager.removeMidiInputDeviceCallback(identifier, this);
+    }
     shutdownAudio();
+}
+
+void MainComponent::handleNoteOn(juce::MidiKeyboardState*, int channel, int note, float velocity) {
+    engine.pushLiveMidi(juce::MidiMessage::noteOn(channel, note, velocity));
+}
+
+void MainComponent::handleNoteOff(juce::MidiKeyboardState*, int channel, int note, float) {
+    engine.pushLiveMidi(juce::MidiMessage::noteOff(channel, note));
+}
+
+void MainComponent::handleIncomingMidiMessage(juce::MidiInput*, const juce::MidiMessage& message) {
+    engine.pushLiveMidi(message); // MIDI device thread: the engine's queue is safe for this
+}
+
+void MainComponent::scanMidiInputs() {
+    // Open every MIDI input (USB, Bluetooth, virtual); new devices are picked up as they appear.
+    for (const auto& device : juce::MidiInput::getAvailableDevices()) {
+        if (!openMidiInputs.contains(device.identifier)) {
+            deviceManager.setMidiInputDeviceEnabled(device.identifier, true);
+            deviceManager.addMidiInputDeviceCallback(device.identifier, this);
+            openMidiInputs.add(device.identifier);
+        }
+    }
 }
 
 void MainComponent::prepareToPlay(int samplesPerBlockExpected, double sampleRate) {
@@ -146,6 +174,7 @@ void MainComponent::resized() {
 }
 
 void MainComponent::selectMachine(int machine) {
+    engine.setLiveTarget(machine); // the keyboard and MIDI devices play the selected machine
     rackPage->rack.setSelectedMachine(machine);
     rackPage->showMachine(machine);
     patternEditor->setMachine(machine);
@@ -164,6 +193,10 @@ void MainComponent::refreshFromSong() {
 
 void MainComponent::timerCallback() {
     session.collectGarbage();
+    if (--midiScanCountdown <= 0) {
+        scanMidiInputs();
+        midiScanCountdown = 60; // every two seconds
+    }
 
     // Song mode stops by itself at the end of the song.
     if (playButton.getToggleState() != session.isPlaying()) {
@@ -206,6 +239,7 @@ MainComponent::RackPage::RackPage(MainComponent& ownerToUse) :
 
 void MainComponent::RackPage::showMachine(int machine) {
     machinePanel.reset();
+    extras.reset();
     for (auto& controls : effectSlots) {
         controls.panel.reset();
     }
@@ -218,6 +252,10 @@ void MainComponent::RackPage::showMachine(int machine) {
             [this, machine](const juce::String& id, float value) { owner.session.setParameter(machine, id, value); },
             state.name + " (" + state.type + ")");
         content.addAndMakeVisible(*machinePanel);
+        if (MachineExtrasPanel::hasExtras(state.type)) {
+            extras = std::make_unique<MachineExtrasPanel>(owner.session, machine, [](const juce::String& message) { showError(message); });
+            content.addAndMakeVisible(*extras);
+        }
 
         for (int slot = 0; slot < Engine::effectsPerMachine; slot++) {
             auto& controls = effectSlots[static_cast<size_t>(slot)];
@@ -247,6 +285,10 @@ void MainComponent::RackPage::resized() {
     if (machinePanel != nullptr) {
         machinePanel->setBounds(0, bottom + 12, width, machinePanel->getHeightForWidth(width));
         bottom = machinePanel->getBottom();
+    }
+    if (extras != nullptr) {
+        extras->setBounds(0, bottom + 8, juce::jmin(width, 720), extras->getIdealHeight());
+        bottom = extras->getBottom();
     }
     for (auto& controls : effectSlots) {
         if (!controls.type.isVisible()) {
