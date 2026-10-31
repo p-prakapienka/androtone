@@ -82,6 +82,7 @@ private:
     juce::TextButton loadButton { "Load" };
     juce::TextButton exportButton { "Export" };
     juce::TextButton fileButton { "File" }; // replaces Save/Load/Export on narrow screens
+    juce::TextButton recordButton { "Rec" }; // record live notes into the playing pattern
     juce::TextButton undoButton { "Undo" };
     juce::TextButton redoButton { "Redo" };
     juce::Slider tempoSlider;

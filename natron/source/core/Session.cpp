@@ -598,6 +598,55 @@ bool Session::setLoop(bool enabled, int startBar, int endBar) {
     });
 }
 
+void Session::setPlaying(bool shouldPlay) {
+    if (!shouldPlay && isRecording()) {
+        finishHeldNotes();
+    }
+    engine.setPlaying(shouldPlay);
+}
+
+void Session::setRecording(bool shouldRecord) {
+    if (shouldRecord == isRecording()) {
+        return;
+    }
+    if (shouldRecord) {
+        engine.setRecording(true);
+        beginGesture(); // the take is one undo step
+    } else {
+        finishHeldNotes();
+        engine.setRecording(false);
+        endGesture();
+    }
+}
+
+void Session::pollRecording() {
+    Engine::RecordedEvent event;
+    LiveRecorder::Recorded recorded;
+    while (engine.popRecordedEvent(event)) {
+        if (recorder.handle(event, recorded)) {
+            addRecorded(recorded);
+        }
+    }
+}
+
+void Session::finishHeldNotes() {
+    pollRecording();
+    for (const auto& recorded : recorder.finishAll(engine.getPlayheadBeat())) {
+        addRecorded(recorded);
+    }
+}
+
+void Session::addRecorded(const LiveRecorder::Recorded& recorded) {
+    if (!isValidMachine(recorded.machine) || !isValidPatternIndex(recorded.pattern)) {
+        return; // the machine went while its note was held
+    }
+    auto pattern = getPattern(recorded.machine, recorded.pattern);
+    const auto& note = recorded.note;
+    if (PatternEditing::add(pattern, note.start, note.pitch, note.length, note.velocity) >= 0) {
+        setPattern(recorded.machine, recorded.pattern, pattern);
+    }
+}
+
 void Session::collectGarbage() {
     engine.collectGarbage();
     for (auto* machine : machines) {

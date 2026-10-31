@@ -260,6 +260,34 @@ void Engine::drainLiveMidi() {
     });
 }
 
+void Engine::recordLiveMidi(int target, int64_t position) {
+    const auto& slot = slots[static_cast<size_t>(target)];
+    const double beat = transport.beatAt(position);
+    const double length = patternAt(slot, slot.current).lengthInBeats();
+    double patternBeat = std::fmod(beat - slot.originBeat, length);
+    if (patternBeat < 0.0) {
+        patternBeat += length;
+    }
+    for (const auto metadata : liveMidi) {
+        const auto message = metadata.getMessage();
+        if (!message.isNoteOnOrOff() || recordFifo.getFreeSpace() < 1) {
+            continue;
+        }
+        RecordedEvent event { target, slot.current, patternBeat, beat, length, message.getNoteNumber(),
+                              message.isNoteOn() ? message.getFloatVelocity() : 0.0f };
+        recordFifo.write(1).forEach([&](int i) { recordedEvents[static_cast<size_t>(i)] = event; });
+    }
+}
+
+bool Engine::popRecordedEvent(RecordedEvent& event) {
+    bool popped = false;
+    recordFifo.read(1).forEach([&](int i) {
+        event = recordedEvents[static_cast<size_t>(i)];
+        popped = true;
+    });
+    return popped;
+}
+
 void Engine::process(juce::AudioBuffer<float>& output) {
     juce::ScopedNoDenormals noDenormals;
     output.clear();
@@ -331,6 +359,9 @@ void Engine::processChunk(juce::AudioBuffer<float>& output, int startSample, int
         const int target = liveTarget.load();
         if (target >= 0 && target < numMachines) {
             slots[static_cast<size_t>(target)].midi.addEvents(liveMidi, 0, -1, 0);
+            if (shouldPlay && !songModeNow && recording.load()) {
+                recordLiveMidi(target, from);
+            }
         }
         liveMidi.clear();
     }

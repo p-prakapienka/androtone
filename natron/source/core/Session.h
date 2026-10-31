@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Engine.h"
+#include "LiveRecorder.h"
 #include "Song.h"
 
 #include <deque>
@@ -72,7 +73,7 @@ public:
     void setMachineVolume(int machine, float volume) { setMixerParameter(machine, "volume", volume); }
     void setMasterVolume(float volume) { setMasterParameter("volume", volume); }
     void setTempo(double bpm);
-    void setPlaying(bool shouldPlay) { engine.setPlaying(shouldPlay); }
+    void setPlaying(bool shouldPlay);
     bool isPlaying() const { return engine.isPlaying(); }
 
     // Replaces the whole song and clears undo history. Stops playback. On failure nothing changes.
@@ -82,6 +83,15 @@ public:
 
     // Frees what the audio thread has finished with; call from a timer.
     void collectGarbage();
+
+    // Recording: while on, notes played live (keyboard, MIDI) on the live target machine are written
+    // into its playing pattern, in pattern mode while playing. Starts and lengths snap to 1/16 when
+    // quantising. A take (on ... off) is one undo step. Call pollRecording() from a timer.
+    void setRecording(bool shouldRecord);
+    bool isRecording() const { return engine.isRecording(); }
+    void setRecordQuantise(bool quantise) { recorder.grid = quantise ? Pattern::stepLength : 0.0; }
+    bool isRecordQuantising() const { return recorder.grid > 0.0; }
+    void pollRecording();
 
     // Undo/redo. Every edit above is undoable except selecting patterns, play/stop and switching
     // pattern/song mode. Edits between beginGesture and endGesture (a drag in an editor) are one
@@ -113,6 +123,7 @@ private:
     int gestureDepth = 0;
     bool gestureRecorded = false;
     bool restoring = false;                // applying undo/redo: edits are not recorded
+    LiveRecorder recorder;
 
     // Runs `change` (an edit returning bool / int index / juce::Result) and records an undo step if
     // it succeeded, unless it merges with the previous one (see above).
@@ -121,6 +132,8 @@ private:
     void pushUndo(Song before);
     juce::Result replaceSong(const Song& newSong);
     void restore(const Song& target);
+    void addRecorded(const LiveRecorder::Recorded& recorded);
+    void finishHeldNotes();
     // Live objects, owned by the engine; parallel to song.machines.
     std::vector<Machine*> machines;
     std::vector<ChannelStrip*> channels;

@@ -156,6 +156,7 @@ TEST_CASE("The audio callback never touches the heap, even while edits arrive", 
     rig.session.setMixerParameter(1, "delaySend", 0.6f);
     rig.session.setMixerParameter(2, "reverbSend", 0.8f);
     rig.session.setLoop(true, 0, 2);
+    rig.session.setRecording(true); // live notes are reported back for writing into patterns
     rig.session.setPlaying(true);
 
     SampleData blip; // a short sample to swap into the drums while playing
@@ -219,6 +220,13 @@ TEST_CASE("The audio callback never touches the heap, even while edits arrive", 
             rig.session.setBlocks(0, { { 0, 1 + i % 3, i % 4 }, { 4, 2, 1 } });
         }
 
+        if (i % 70 == 35) { // undo / redo replay edits as commands too
+            rig.session.undo();
+            if (i % 140 == 35) {
+                rig.session.redo();
+            }
+        }
+
         rig.engine.setLiveTarget(i % 5);
         rig.engine.pushLiveMidi(i % 2 == 0 ? juce::MidiMessage::noteOn(1, 48 + i % 24, 0.7f) : juce::MidiMessage::noteOff(1, 48 + (i - 1) % 24));
 
@@ -227,6 +235,7 @@ TEST_CASE("The audio callback never touches the heap, even while edits arrive", 
         touches += AllocationCounter::stop();
 
         rig.session.collectGarbage();
+        rig.session.pollRecording();
     }
 
     CHECK(touches == 0);

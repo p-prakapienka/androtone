@@ -101,6 +101,22 @@ public:
     void setLiveTarget(int machine) { liveTarget.store(machine); }
     int getLiveTarget() const { return liveTarget.load(); }
 
+    // Recording: while on, playing, and in pattern mode, live notes played on the target machine are
+    // reported (with where they fell in its playing pattern) for Session to write into the pattern.
+    struct RecordedEvent {
+        int machine = 0;
+        int pattern = 0;
+        double patternBeat = 0.0; // position in the pattern, [0, length)
+        double beat = 0.0;        // transport beat, for lengths across loops
+        double patternLength = 4.0; // beats
+        int pitch = 60;
+        float velocity = 0.0f;    // 0 = note off
+    };
+    void setRecording(bool shouldRecord) { recording.store(shouldRecord); }
+    bool isRecording() const { return recording.load(); }
+    // The next recorded event, if any. For the posting thread (see post()).
+    bool popRecordedEvent(RecordedEvent& event);
+
     // The master section's parameters; the bus itself lives for the engine's lifetime.
     ParameterSet& getMasterParameters() { return master.getParameters(); }
 
@@ -150,6 +166,9 @@ private:
     juce::SpinLock liveWriters;      // serialises producers; the audio thread never takes it
     std::atomic<int> liveTarget { 0 };
     juce::MidiBuffer liveMidi;       // drained queue, for the current block
+    std::atomic<bool> recording { false };
+    juce::AbstractFifo recordFifo { 1024 };
+    std::array<RecordedEvent, 1024> recordedEvents;
 
     Transport transport;
     bool wasPlaying = false;
@@ -204,6 +223,7 @@ private:
     void playSongMode(Slot& slot, int index, int64_t from, int64_t to, int64_t blockStart);
     void applyAutomation(double beat, bool songModeNow);
     void drainLiveMidi();
+    void recordLiveMidi(int target, int64_t position);
     ParameterSet* targetParameters(const AutomationTarget& target, int machine);
     static void write(ParameterSet* parameters, const AutomationLane& lane, double beat);
 };

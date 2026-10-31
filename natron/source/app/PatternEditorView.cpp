@@ -359,6 +359,9 @@ void PatternEditorView::showToolsMenu() {
     }
     menu.addItem("Double length", session.getPattern(machine, index).bars < 8, false,
                  [this] { editPattern([](Pattern& p) { return PatternEditing::doubleLength(p); }); });
+    menu.addSeparator();
+    menu.addItem("Quantise recording to 1/16", true, session.isRecordQuantising(),
+                 [this] { session.setRecordQuantise(!session.isRecordQuantising()); });
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&toolsButton));
 }
 

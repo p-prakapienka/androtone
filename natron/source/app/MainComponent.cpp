@@ -94,6 +94,10 @@ MainComponent::MainComponent() {
     addAndMakeVisible(exportButton);
     fileButton.onClick = [this] { showFileMenu(); };
     addChildComponent(fileButton);
+    recordButton.setClickingTogglesState(true);
+    recordButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffcc3333));
+    recordButton.onClick = [this] { session.setRecording(recordButton.getToggleState()); };
+    addAndMakeVisible(recordButton);
     undoButton.onClick = [this] { undo(); };
     addAndMakeVisible(undoButton);
     redoButton.onClick = [this] { redo(); };
@@ -266,6 +270,7 @@ void MainComponent::resized() {
         title.setBounds(bar.removeFromLeft(110));
     }
     playButton.setBounds(bar.removeFromLeft(84).reduced(3, 0));
+    recordButton.setBounds(bar.removeFromLeft(60).reduced(3, 0));
     modeButton.setBounds(bar.removeFromLeft(84).reduced(3, 0));
     positionLabel.setBounds(bar.removeFromLeft(60));
     undoButton.setBounds(bar.removeFromLeft(narrow ? 60 : 70).reduced(3, 0));
@@ -298,6 +303,7 @@ void MainComponent::refreshFromSong() {
     playButton.setToggleState(session.isPlaying(), juce::dontSendNotification);
     playButton.setButtonText(session.isPlaying() ? "Stop" : "Play");
     modeButton.setButtonText(session.isSongMode() ? "Song" : "Pattern");
+    recordButton.setToggleState(session.isRecording(), juce::dontSendNotification);
     selectMachine(juce::jlimit(0, juce::jmax(0, session.getNumMachines() - 1), rackPage->rack.getSelectedMachine()));
     songView->refresh();
     mixerView->rebuild();
@@ -306,7 +312,8 @@ void MainComponent::refreshFromSong() {
 
 void MainComponent::timerCallback() {
     session.collectGarbage();
-    if (session.isInGesture() && juce::Desktop::getInstance().getNumDraggingMouseSources() == 0) {
+    session.pollRecording();
+    if (session.isInGesture() && !session.isRecording() && juce::Desktop::getInstance().getNumDraggingMouseSources() == 0) {
         session.cancelGestures(); // a press whose release went to a component that was deleted
     }
     updateUndoButtons();

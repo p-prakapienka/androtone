@@ -142,6 +142,7 @@ if(NATRON_BUILD_TESTS)
             tests/LiveMidiTests.cpp
             tests/AutosaveTests.cpp
             tests/UndoTests.cpp
+            tests/RecordingTests.cpp
             tests/Benchmarks.cpp)
 
     target_include_directories(NatronTests PRIVATE source tests)

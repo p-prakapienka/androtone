@@ -34,6 +34,7 @@
       <FILE id="LyCoDs" name="DemoSong.h" compile="0" resource="0" file="source/core/DemoSong.h" />
       <FILE id="LyCoEc" name="Engine.cpp" compile="1" resource="0" file="source/core/Engine.cpp" />
       <FILE id="LyCoEh" name="Engine.h" compile="0" resource="0" file="source/core/Engine.h" />
+      <FILE id="BYVmnf" name="LiveRecorder.h" compile="0" resource="0" file="source/core/LiveRecorder.h" />
       <FILE id="LyCoMa" name="Machine.h" compile="0" resource="0" file="source/core/Machine.h" />
       <FILE id="NtCoRc" name="MachineRegistry.cpp" compile="1" resource="0" file="source/core/MachineRegistry.cpp" />
       <FILE id="NtCoRh" name="MachineRegistry.h" compile="0" resource="0" file="source/core/MachineRegistry.h" />
