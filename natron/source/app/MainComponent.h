@@ -9,11 +9,9 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
-// One page at a time above a transport bar along the bottom:
-//  the rack — every screen in one vertical scroll (see RackScroll): each machine's sound editor and
-//             pattern editor, the FX screens, the mixer screens and the master;
-//  the song timeline (the Song key toggles it);
-//  settings (from the menu).
+// One page above a transport bar along the bottom: the rack — every screen in one vertical scroll
+// (see RackScroll): each machine's sound editor and pattern editor, the FX screens, the mixer
+// screens, the master and the song timeline — or settings (from the menu).
 // Bottom bar: Song, Menu (undo/redo, tempo, files, export, settings), the display (song name and
 // position; tap it for tempo), Save, Pattern/Song mode, Click, Play, Stop, Rec.
 // The song is autosaved when the app is backgrounded or closed, and restored on launch.
@@ -51,7 +49,7 @@ private:
     juce::StringArray openMidiInputs;
     int midiScanCountdown = 0;
 
-    juce::TextButton songButton { "Song" };   // timeline <-> rack
+    juce::TextButton songButton { "Song" };   // jumps to the timeline (the rack's last screen) and back
     juce::TextButton menuButton { "Menu" };
     std::unique_ptr<Display> display;          // song name and position; tap for tempo
     juce::TextButton saveButton { "Save" };
@@ -65,7 +63,6 @@ private:
     juce::File songFile;                       // where Save writes, once saved or loaded
 
     std::unique_ptr<RackScroll> rack;
-    std::unique_ptr<SongView> songView;
     std::unique_ptr<SettingsView> settingsView;
     juce::Component* page = nullptr;           // the one showing
     int selectedMachine = 0;

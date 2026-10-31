@@ -51,9 +51,8 @@ public:
             addAndMakeVisible(extrasButton);
         }
 
-        keyboard.setAvailableRange(12, 108);
-        keyboard.setLowestVisibleKey(48);
-        keyboard.setScrollButtonsVisible(false);
+        keyboard.setScrollButtonsVisible(false); // our octave keys move it instead (see shiftOctave)
+        keyboard.setAvailableRange(lowestKey, lowestKey + keysShown);
         addAndMakeVisible(keyboard);
         octaveUp.onClick = [this] { shiftOctave(12); };
         octaveDown.onClick = [this] { shiftOctave(-12); };
@@ -80,7 +79,7 @@ public:
         octaveDown.setBounds(octave.reduced(2));
         keyboard.setBounds(keys.reduced(2, 0));
         // About an octave and a half across, keys sized for fingers.
-        keyboard.setKeyWidth(juce::jmax(24.0f, static_cast<float>(keyboard.getWidth()) / 11.0f));
+        keyboard.setKeyWidth(static_cast<float>(keyboard.getWidth()) / 11.0f); // 11 white keys: C to F an octave up
     }
 
 private:
@@ -92,8 +91,14 @@ private:
     juce::MidiKeyboardComponent keyboard;
     juce::TextButton octaveUp { "Oct +" }, octaveDown { "Oct -" };
 
+    // Without scroll buttons the keyboard starts at the bottom of its range, so the range is what
+    // the octave keys move: 11 white keys from a C.
+    static constexpr int keysShown = 17;
+    int lowestKey = 48; // around middle C
+
     void shiftOctave(int semitones) {
-        keyboard.setLowestVisibleKey(juce::jlimit(12, 96, keyboard.getLowestVisibleKey() + semitones));
+        lowestKey = juce::jlimit(12, 96, lowestKey + semitones);
+        keyboard.setAvailableRange(lowestKey, lowestKey + keysShown);
     }
 };
 
@@ -197,6 +202,7 @@ RackScroll::~RackScroll() {
 
 void RackScroll::rebuild() {
     const auto position = viewport.getViewPosition();
+    timeline = nullptr;
     screens.clear();
     screenMachine.clear();
 
@@ -220,6 +226,10 @@ void RackScroll::rebuild() {
         screenMachine.push_back(-1);
     }
     screens.push_back(std::make_unique<TitledScreen>("Master", std::make_unique<MixerView>(session, 0, true)));
+    screenMachine.push_back(-1);
+    auto song = std::make_unique<SongView>(session, engine);
+    timeline = song.get();
+    screens.push_back(std::move(song));
     screenMachine.push_back(-1);
 
     for (auto& screen : screens) {
@@ -310,6 +320,22 @@ void RackScroll::showMachine(int machine) {
             return;
         }
     }
+}
+
+void RackScroll::toggleTimeline() {
+    if (timeline == nullptr) {
+        return;
+    }
+    if (isTimelineInView()) {
+        viewport.setViewPosition(0, positionBeforeTimeline);
+    } else {
+        positionBeforeTimeline = viewport.getViewPositionY();
+        viewport.setViewPosition(0, timeline->getY());
+    }
+}
+
+bool RackScroll::isTimelineInView() const {
+    return timeline != nullptr && std::abs(viewport.getViewPositionY() - timeline->getY()) < viewport.getHeight() / 2;
 }
 
 void RackScroll::repaintPlaying() {} // the pattern editors repaint themselves while playing

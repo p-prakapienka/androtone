@@ -6,6 +6,7 @@
 #include "ParameterPanel.h"
 #include "PatternEditorView.h"
 #include "RackView.h"
+#include "SongView.h"
 #include "core/Session.h"
 
 #include <juce_audio_utils/juce_audio_utils.h>
@@ -13,7 +14,7 @@
 
 // The rack: every screen stacked in one vertical scroll, in this order:
 //   machine 1 sound editor, machine 1 pattern editor, ... machine N sound editor, machine N
-//   pattern editor, (add machine), FX 1-8, FX 9-16, Mixer 1-8, Mixer 9-16, Master.
+//   pattern editor, (add machine), FX 1-7, FX 8-14, Mixer 1-7, Mixer 8-14, Master, the song timeline.
 // Every screen is exactly one view tall; after a swipe the page settles on the nearest screen. A
 // grip down the left edge scrolls the whole page at once (drag it, or tap it to jump). The machine
 // whose screens are in view is the one the keyboard and MIDI devices play (onMachineInView).
@@ -27,6 +28,9 @@ public:
     void rebuild();
     // Scrolls to machine `machine`'s sound editor.
     void showMachine(int machine);
+    // The Song key: jumps to the timeline, or back to where the page was before.
+    void toggleTimeline();
+    bool isTimelineInView() const;
     void repaintPlaying(); // the pads and grids that follow the playhead
 
     std::function<void(int machine)> onMachineInView;
@@ -65,6 +69,8 @@ private:
     std::vector<int> screenMachine; // the machine each screen belongs to, or -1
     juce::TextButton addButton { "+  ADD MACHINE" };
     int machineInView = -1;
+    SongView* timeline = nullptr; // the last screen
+    int positionBeforeTimeline = 0;
 
     void layoutScreens();
     void updateMachineInView();

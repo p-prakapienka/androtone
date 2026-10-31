@@ -44,8 +44,8 @@ the general style, but never added to the repository, traced, or reproduced: dra
 - `source/app/` — the JUCE app shell and UI. The layout follows the original app's screens (see
   `docs/spec.md` §8): a transport bar along the bottom and one page above it — the rack, a single
   vertical scroll of one-view-tall screens (`RackScroll`: per machine a sound editor and a pattern
-  editor, then FX 1-7 / 8-14, Mixer 1-7 / 8-14, Master), the song timeline (`SongView`, the Song
-  key) or `SettingsView` (menu). Every screen must fit one landscape phone screen (~870x390 dp);
+  editor, then FX 1-7 / 8-14, Mixer 1-7 / 8-14, Master and the song timeline, `SongView`, which the
+  Song key jumps to) — or `SettingsView` (menu). Every screen must fit one landscape phone screen (~870x390 dp);
   check new UI at that size. Graphics are our own (`NatronLookAndFeel`, drawn in code).
   `MainComponent` (bottom bar, menu, pages, export, MIDI inputs, autosave, back button),
   `RackScroll` (screens, left scroll grip, settling on screens), `PatternEditorView` (pattern keys

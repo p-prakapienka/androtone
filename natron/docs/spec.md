@@ -108,9 +108,10 @@ playing pattern (pattern mode), quantised to 1/16 by default (verify Caustic's r
 
 - Landscape. The rack is one vertical scroll of one-view-tall screens, in this order: machine 1
   sound editor, machine 1 pattern editor, ... machine N sound editor and pattern editor, FX 1-7,
-  FX 8-14, Mixer 1-7, Mixer 8-14, Master; a grip down the left edge scrolls it. A transport bar
-  runs along the bottom: rack/timeline key, menu, display (song name, position), save, pattern/song
-  mode, metronome, play, stop, record. The song timeline is its own page.
+  FX 8-14, Mixer 1-7, Mixer 8-14, Master, song timeline; a grip down the left edge scrolls it. A
+  transport bar runs along the bottom: timeline key (jumps to the timeline and back), menu, display
+  (song name, position), save, pattern/song mode, metronome, play, stop, record. The reference
+  screenshots are of the original's dark theme.
 - Sound editor: the machine's whole panel in titled sections, with mute/solo, a keyboard and octave
   keys along the bottom. Pattern editor: a toolbar (bank A-D as 2x2 keys, patterns 1-16 as 2x8, size,
   edit tools) over the piano roll / step grid. FX screen: per machine a name key over two effect

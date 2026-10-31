@@ -150,8 +150,10 @@ MainComponent::MainComponent() {
     display = std::make_unique<Display>(*this);
     addAndMakeVisible(*display);
 
-    songButton.setClickingTogglesState(true);
-    songButton.onClick = [this] { showPage(songButton.getToggleState() ? static_cast<juce::Component*>(songView.get()) : rack.get()); };
+    songButton.onClick = [this] {
+        showPage(rack.get());
+        rack->toggleTimeline();
+    };
     menuButton.onClick = [this] { showMenu(); };
     saveButton.onClick = [this] { saveSong(); };
     modeButton.onClick = [this] {
@@ -179,12 +181,10 @@ MainComponent::MainComponent() {
     rack->onMachineInView = [this](int machine) { selectMachine(machine); };
     rack->onRackChanged = [this] { refreshFromSong(); };
     keyboardState.addListener(this);
-    songView = std::make_unique<SongView>(session, engine);
     settingsView = std::make_unique<SettingsView>(deviceManager);
     settingsView->onNewSong = [this] { loadNewSong(Song {}); };
     settingsView->onDemoSong = [this] { loadNewSong(makeDemoSong()); };
     addChildComponent(*rack);
-    addChildComponent(*songView);
     addChildComponent(*settingsView);
     showPage(rack.get());
     refreshFromSong();
@@ -231,11 +231,9 @@ bool MainComponent::handleBackButton() {
 
 void MainComponent::showPage(juce::Component* newPage) {
     page = newPage;
-    for (auto* candidate : { static_cast<juce::Component*>(rack.get()), static_cast<juce::Component*>(songView.get()),
-                             static_cast<juce::Component*>(settingsView.get()) }) {
+    for (auto* candidate : { static_cast<juce::Component*>(rack.get()), static_cast<juce::Component*>(settingsView.get()) }) {
         candidate->setVisible(candidate == page);
     }
-    songButton.setToggleState(page == songView.get(), juce::dontSendNotification);
     resized();
 }
 
@@ -372,7 +370,6 @@ void MainComponent::refreshFromSong() {
     recordButton.setToggleState(session.isRecording(), juce::dontSendNotification);
     selectMachine(juce::jlimit(0, juce::jmax(0, session.getNumMachines() - 1), selectedMachine));
     rack->rebuild();
-    songView->refresh();
     resized();
 }
 
@@ -393,6 +390,11 @@ void MainComponent::timerCallback() {
     }
     display->repaint();
     rack->repaintPlaying();
+    // The Song key is lit while the timeline is the screen in view.
+    const bool atTimeline = page == rack.get() && rack->isTimelineInView();
+    if (songButton.getToggleState() != atTimeline) {
+        songButton.setToggleState(atTimeline, juce::dontSendNotification);
+    }
 }
 
 void MainComponent::saveSong() {
