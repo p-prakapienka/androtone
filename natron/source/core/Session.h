@@ -3,6 +3,8 @@
 #include "Engine.h"
 #include "Song.h"
 
+#include <deque>
+#include <functional>
 #include <vector>
 
 // The message-thread side of the app: owns the Song document and keeps the engine in sync by
@@ -73,7 +75,7 @@ public:
     void setPlaying(bool shouldPlay) { engine.setPlaying(shouldPlay); }
     bool isPlaying() const { return engine.isPlaying(); }
 
-    // Replaces the whole song. Stops playback. On failure nothing changes.
+    // Replaces the whole song and clears undo history. Stops playback. On failure nothing changes.
     juce::Result loadSong(const Song& newSong);
     juce::Result loadFromStream(juce::InputStream& stream);
     juce::Result saveToStream(juce::OutputStream& stream) const;
@@ -81,9 +83,44 @@ public:
     // Frees what the audio thread has finished with; call from a timer.
     void collectGarbage();
 
+    // Undo/redo. Every edit above is undoable except selecting patterns, play/stop and switching
+    // pattern/song mode. Edits between beginGesture and endGesture (a drag in an editor) are one
+    // step; outside a gesture, repeated edits of the same value (a knob being turned) merge while
+    // they come less than coalesceSeconds apart. Undo applies only what differs, so playback goes
+    // on; only undoing a machine's removal reloads the rack.
+    static constexpr int maxUndoSteps = 100;
+    static constexpr double coalesceSeconds = 1.0;
+    bool canUndo() const { return !undoStack.empty(); }
+    bool canRedo() const { return !redoStack.empty(); }
+    bool undo();
+    bool redo();
+    void beginGesture();
+    void endGesture();
+    bool isInGesture() const { return gestureDepth > 0; }
+    // Ends any open gesture: a safety net for a press whose release never arrived.
+    void cancelGestures() { gestureDepth = 1; endGesture(); }
+    void clearHistory();
+    // Seconds; replaceable so tests control when edits merge.
+    std::function<double()> clock = [] { return juce::Time::getMillisecondCounterHiRes() / 1000.0; };
+
 private:
     Engine& engine;
     Song song;
+
+    std::deque<Song> undoStack, redoStack; // songs before each step / after each undone step
+    juce::String lastEditKey;              // what the latest step changed, for merging
+    double lastEditTime = -1.0e9;
+    int gestureDepth = 0;
+    bool gestureRecorded = false;
+    bool restoring = false;                // applying undo/redo: edits are not recorded
+
+    // Runs `change` (an edit returning bool / int index / juce::Result) and records an undo step if
+    // it succeeded, unless it merges with the previous one (see above).
+    template <typename Change>
+    auto edit(const juce::String& key, Change&& change);
+    void pushUndo(Song before);
+    juce::Result replaceSong(const Song& newSong);
+    void restore(const Song& target);
     // Live objects, owned by the engine; parallel to song.machines.
     std::vector<Machine*> machines;
     std::vector<ChannelStrip*> channels;

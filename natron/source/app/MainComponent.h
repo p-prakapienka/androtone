@@ -34,6 +34,7 @@ public:
 
     void paint(juce::Graphics& g) override;
     void resized() override;
+    bool keyPressed(const juce::KeyPress& key) override;
 
     // Writes the autosave; called when the app is suspended or quits.
     void saveAutosave();
@@ -81,6 +82,8 @@ private:
     juce::TextButton loadButton { "Load" };
     juce::TextButton exportButton { "Export" };
     juce::TextButton fileButton { "File" }; // replaces Save/Load/Export on narrow screens
+    juce::TextButton undoButton { "Undo" };
+    juce::TextButton redoButton { "Redo" };
     juce::Slider tempoSlider;
     juce::Label positionLabel;
     juce::TabbedComponent tabs { juce::TabbedButtonBar::TabsAtTop };
@@ -106,6 +109,9 @@ private:
     void exportAudio(juce::Component& anchor);
     void showFileMenu();
     void loadNewSong(const Song& song);
+    void undo();
+    void redo();
+    void updateUndoButtons();
     void startExport(bool wholeSong);
     static void showError(const juce::String& message);
 

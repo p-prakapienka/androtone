@@ -94,6 +94,7 @@ public:
     }
 
     void mouseDown(const juce::MouseEvent& event) override {
+        owner.session.beginGesture(); // the whole press, drag and release is one undo step
         mode = Mode::none;
         if (juce::Desktop::getInstance().getNumDraggingMouseSources() > 1) {
             startPinch();
@@ -159,6 +160,7 @@ public:
     }
 
     void mouseUp(const juce::MouseEvent& event) override {
+        const juce::ScopeGuard endGesture { [this] { owner.session.endGesture(); } };
         if (pinching) {
             pinching = juce::Desktop::getInstance().getNumDraggingMouseSources() > 1;
             return;

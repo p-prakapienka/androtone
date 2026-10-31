@@ -46,6 +46,7 @@ public:
     }
 
     void mouseDown(const juce::MouseEvent& event) override {
+        owner.session.beginGesture(); // the whole press, drag and release is one undo step
         const auto* choice = owner.currentChoice();
         if (choice == nullptr) {
             return;
@@ -86,6 +87,7 @@ public:
     }
 
     void mouseUp(const juce::MouseEvent& event) override {
+        const juce::ScopeGuard endGesture { [this] { owner.session.endGesture(); } };
         if (dragIndex >= 0 && !moved && event.getLengthOfMousePress() >= 500) {
             working.points.erase(working.points.begin() + dragIndex); // long press deletes
             owner.commit(working);

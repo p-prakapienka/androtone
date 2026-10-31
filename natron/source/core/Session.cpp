@@ -4,6 +4,190 @@
 #include "effects/Effect.h"
 #include "SongFile.h"
 
+#include <algorithm>
+
+namespace {
+    bool succeeded(bool result) { return result; }
+    bool succeeded(int machineIndex) { return machineIndex >= 0; }
+    bool succeeded(const juce::Result& result) { return result.wasOk(); }
+
+    bool differs(const ParameterValues& values, const juce::String& id, float value) {
+        const auto it = values.find(id);
+        return it == values.end() || !juce::exactlyEqual(it->second, value);
+    }
+}
+
+template <typename Change>
+auto Session::edit(const juce::String& key, Change&& change) {
+    if (restoring) {
+        return change();
+    }
+    const double now = clock();
+    const bool merge = gestureDepth > 0 ? gestureRecorded
+                                        : key.isNotEmpty() && key == lastEditKey && now - lastEditTime < coalesceSeconds;
+    if (merge) {
+        auto result = change();
+        if (succeeded(result)) {
+            lastEditTime = now;
+        }
+        return result;
+    }
+    Song before = song;
+    auto result = change();
+    if (succeeded(result)) {
+        pushUndo(std::move(before));
+        lastEditKey = gestureDepth > 0 ? juce::String() : key;
+        lastEditTime = now;
+        gestureRecorded = gestureDepth > 0;
+    }
+    return result;
+}
+
+void Session::pushUndo(Song before) {
+    undoStack.push_back(std::move(before));
+    while (static_cast<int>(undoStack.size()) > maxUndoSteps) {
+        undoStack.pop_front();
+    }
+    redoStack.clear();
+}
+
+void Session::clearHistory() {
+    undoStack.clear();
+    redoStack.clear();
+    lastEditKey = {};
+    gestureRecorded = false;
+}
+
+void Session::beginGesture() {
+    if (gestureDepth++ == 0) {
+        gestureRecorded = false;
+    }
+}
+
+void Session::endGesture() {
+    if (gestureDepth > 0 && --gestureDepth == 0) {
+        gestureRecorded = false;
+        lastEditKey = {};
+    }
+}
+
+bool Session::undo() {
+    if (undoStack.empty()) {
+        return false;
+    }
+    redoStack.push_back(song);
+    const Song target = std::move(undoStack.back());
+    undoStack.pop_back();
+    restore(target);
+    lastEditKey = {};
+    gestureRecorded = false;
+    return true;
+}
+
+bool Session::redo() {
+    if (redoStack.empty()) {
+        return false;
+    }
+    undoStack.push_back(song);
+    const Song target = std::move(redoStack.back());
+    redoStack.pop_back();
+    restore(target);
+    lastEditKey = {};
+    gestureRecorded = false;
+    return true;
+}
+
+void Session::restore(const Song& target) {
+    const juce::ScopedValueSetter<bool> applying(restoring, true);
+
+    // Machines are only ever added at the end of the rack, so when one rack is the other plus
+    // machines at the end, adding or removing those is enough. Anything else (a machine removed
+    // from the middle) reloads the whole song.
+    const size_t common = std::min(song.machines.size(), target.machines.size());
+    bool samePrefix = true;
+    for (size_t m = 0; samePrefix && m < common; m++) {
+        samePrefix = song.machines[m].type == target.machines[m].type;
+    }
+    if (samePrefix) {
+        while (getNumMachines() > static_cast<int>(target.machines.size())) {
+            removeMachine(getNumMachines() - 1);
+        }
+        while (getNumMachines() < static_cast<int>(target.machines.size())) {
+            const auto& added = target.machines[static_cast<size_t>(getNumMachines())];
+            if (addMachine(added.type, added.name) < 0) {
+                samePrefix = false;
+                break;
+            }
+            selectPattern(getNumMachines() - 1, added.selectedPattern);
+        }
+    }
+    if (!samePrefix) {
+        const bool wasPlaying = isPlaying();
+        auto reloaded = target;
+        reloaded.songMode = song.songMode; // neither the mode nor the selection is undone
+        for (size_t m = 0; m < reloaded.machines.size() && m < song.machines.size(); m++) {
+            reloaded.machines[m].selectedPattern = song.machines[m].selectedPattern;
+        }
+        const auto result = replaceSong(reloaded);
+        jassert(result.wasOk()); // it was a valid song before
+        juce::ignoreUnused(result);
+        setPlaying(wasPlaying);
+        return;
+    }
+
+    setTempo(target.tempo);
+    setSwing(target.swing);
+    setLoop(target.loopEnabled, target.loopStartBar, target.loopEndBar);
+    for (const auto& [id, value] : target.master) {
+        if (differs(song.master, id, value)) {
+            setMasterParameter(id, value);
+        }
+    }
+    for (size_t m = 0; m < target.machines.size(); m++) {
+        const auto& from = target.machines[m];
+        const int index = static_cast<int>(m);
+        auto& current = song.machines[m];
+        if (current.name != from.name) {
+            renameMachine(index, from.name);
+        }
+        if (!current.data.isEquivalentTo(from.data) && from.data.isValid()) {
+            setMachineData(index, from.data);
+        }
+        for (const auto& [id, value] : from.parameters) {
+            if (differs(current.parameters, id, value)) {
+                setParameter(index, id, value);
+            }
+        }
+        for (const auto& [id, value] : from.mixer) {
+            if (differs(current.mixer, id, value)) {
+                setMixerParameter(index, id, value);
+            }
+        }
+        for (int slot = 0; slot < Engine::effectsPerMachine; slot++) {
+            const auto& effect = from.effects[static_cast<size_t>(slot)];
+            if (current.effects[static_cast<size_t>(slot)].type != effect.type) {
+                setEffect(index, slot, effect.type);
+            }
+            for (const auto& [id, value] : effect.parameters) {
+                if (differs(current.effects[static_cast<size_t>(slot)].parameters, id, value)) {
+                    setEffectParameter(index, slot, id, value);
+                }
+            }
+        }
+        if (!(current.blocks == from.blocks)) {
+            setBlocks(index, from.blocks);
+        }
+        for (int p = 0; p < PatternBank::numPatterns; p++) {
+            if (!(current.patterns[static_cast<size_t>(p)] == from.patterns[static_cast<size_t>(p)])) {
+                setPattern(index, p, from.patterns[static_cast<size_t>(p)]);
+            }
+        }
+    }
+    if (!(song.automation == target.automation)) {
+        setSongAutomation(target.automation);
+    }
+}
+
 Session::Session(Engine& engineToControl) :
     engine(engineToControl) {
     engine.setTempo(song.tempo);
@@ -35,27 +219,29 @@ bool Session::setValue(ParameterSet& parameters, ParameterValues& stored, const 
 }
 
 int Session::addMachine(const juce::String& type, const juce::String& name) {
-    if (getNumMachines() >= Engine::maxMachines) {
-        return -1;
-    }
-    auto machine = MachineRegistry::create(type);
-    if (machine == nullptr) {
-        return -1;
-    }
+    return edit({}, [&] {
+        if (getNumMachines() >= Engine::maxMachines) {
+            return -1;
+        }
+        auto machine = MachineRegistry::create(type);
+        if (machine == nullptr) {
+            return -1;
+        }
 
-    auto channel = std::make_unique<ChannelStrip>();
+        auto channel = std::make_unique<ChannelStrip>();
 
-    MachineState state;
-    state.type = type;
-    state.name = name.isNotEmpty() ? name : type + " " + juce::String(getNumMachines() + 1);
-    state.parameters = apply(machine->getParameters(), {});
-    state.mixer = apply(channel->getParameters(), {});
-    state.data = machine->getData().createCopy();
+        MachineState state;
+        state.type = type;
+        state.name = name.isNotEmpty() ? name : type + " " + juce::String(getNumMachines() + 1);
+        state.parameters = apply(machine->getParameters(), {});
+        state.mixer = apply(channel->getParameters(), {});
+        state.data = machine->getData().createCopy();
 
-    const int index = getNumMachines();
-    postMachine(std::move(machine), std::move(channel), {}, state, index);
-    song.machines.push_back(std::move(state));
-    return index;
+        const int index = getNumMachines();
+        postMachine(std::move(machine), std::move(channel), {}, state, index);
+        song.machines.push_back(std::move(state));
+        return index;
+    });
 }
 
 void Session::postMachine(std::unique_ptr<Machine> machine, std::unique_ptr<ChannelStrip> channel,
@@ -108,55 +294,61 @@ void Session::postEffect(int machine, int slot, std::unique_ptr<Effect> effect) 
 }
 
 bool Session::removeMachine(int index) {
-    if (!isValidMachine(index)) {
-        return false;
-    }
-    // Forget the machine before the engine trashes it, so nothing here can touch it afterwards.
-    machines.erase(machines.begin() + index);
-    channels.erase(channels.begin() + index);
-    effects.erase(effects.begin() + index);
-    song.machines.erase(song.machines.begin() + index);
-    const bool removed = post({ EngineCommand::Type::removeMachine, index });
+    return edit({}, [&] {
+        if (!isValidMachine(index)) {
+            return false;
+        }
+        // Forget the machine before the engine trashes it, so nothing here can touch it afterwards.
+        machines.erase(machines.begin() + index);
+        channels.erase(channels.begin() + index);
+        effects.erase(effects.begin() + index);
+        song.machines.erase(song.machines.begin() + index);
+        const bool removed = post({ EngineCommand::Type::removeMachine, index });
 
-    // Song automation follows the machines: lanes for this one go, later ones move up.
-    AutomationLanes lanes;
-    for (auto lane : song.automation) {
-        if (lane.target.scope != AutomationTarget::Scope::master && lane.target.machine == index) {
-            continue;
+        // Song automation follows the machines: lanes for this one go, later ones move up.
+        AutomationLanes lanes;
+        for (auto lane : song.automation) {
+            if (lane.target.scope != AutomationTarget::Scope::master && lane.target.machine == index) {
+                continue;
+            }
+            if (lane.target.scope != AutomationTarget::Scope::master && lane.target.machine > index) {
+                lane.target.machine--;
+            }
+            lanes.push_back(std::move(lane));
         }
-        if (lane.target.scope != AutomationTarget::Scope::master && lane.target.machine > index) {
-            lane.target.machine--;
+        if (lanes.size() != song.automation.size() || !(lanes == song.automation)) {
+            song.automation = std::move(lanes);
+            postSongAutomation();
         }
-        lanes.push_back(std::move(lane));
-    }
-    if (lanes.size() != song.automation.size() || !(lanes == song.automation)) {
-        song.automation = std::move(lanes);
-        postSongAutomation();
-    }
-    return removed;
+        return removed;
+    });
 }
 
 bool Session::renameMachine(int index, const juce::String& name) {
-    if (!isValidMachine(index) || name.isEmpty()) {
-        return false;
-    }
-    song.machines[static_cast<size_t>(index)].name = name;
-    return true;
+    return edit("name/" + juce::String(index), [&] {
+        if (!isValidMachine(index) || name.isEmpty()) {
+            return false;
+        }
+        song.machines[static_cast<size_t>(index)].name = name;
+        return true;
+    });
 }
 
 bool Session::setPattern(int machine, int patternIndex, const Pattern& pattern) {
-    if (!isValidMachine(machine) || !isValidPatternIndex(patternIndex) || !Pattern::isValidLength(pattern.bars)) {
-        return false;
-    }
-    for (const auto& lane : pattern.automation) {
-        if (!isValidLane(lane, false)) {
+    return edit({}, [&] {
+        if (!isValidMachine(machine) || !isValidPatternIndex(patternIndex) || !Pattern::isValidLength(pattern.bars)) {
             return false;
         }
-    }
-    song.machines[static_cast<size_t>(machine)].patterns[static_cast<size_t>(patternIndex)] = pattern;
-    EngineCommand command { EngineCommand::Type::setPattern, machine, patternIndex };
-    command.newPattern = new Pattern(pattern);
-    return engine.post(command);
+        for (const auto& lane : pattern.automation) {
+            if (!isValidLane(lane, false)) {
+                return false;
+            }
+        }
+        song.machines[static_cast<size_t>(machine)].patterns[static_cast<size_t>(patternIndex)] = pattern;
+        EngineCommand command { EngineCommand::Type::setPattern, machine, patternIndex };
+        command.newPattern = new Pattern(pattern);
+        return engine.post(command);
+    });
 }
 
 const Pattern& Session::getPattern(int machine, int patternIndex) const {
@@ -172,15 +364,17 @@ bool Session::selectPattern(int machine, int patternIndex) {
 }
 
 bool Session::setParameter(int machine, const juce::String& parameterId, float value) {
-    if (!isValidMachine(machine)) {
-        return false;
-    }
-    auto* live = machines[static_cast<size_t>(machine)];
-    if (!setValue(live->getParameters(), song.machines[static_cast<size_t>(machine)].parameters, parameterId, value)) {
-        return false;
-    }
-    live->parameterChanged(live->getParameters().indexOf(parameterId));
-    return true;
+    return edit("parameter/" + juce::String(machine) + "/" + parameterId, [&] {
+        if (!isValidMachine(machine)) {
+            return false;
+        }
+        auto* live = machines[static_cast<size_t>(machine)];
+        if (!setValue(live->getParameters(), song.machines[static_cast<size_t>(machine)].parameters, parameterId, value)) {
+            return false;
+        }
+        live->parameterChanged(live->getParameters().indexOf(parameterId));
+        return true;
+    });
 }
 
 float Session::getParameter(int machine, const juce::String& parameterId) const {
@@ -194,9 +388,11 @@ const ParameterSet* Session::getParameters(int machine) const {
 }
 
 bool Session::setMixerParameter(int machine, const juce::String& parameterId, float value) {
-    return isValidMachine(machine)
-           && setValue(channels[static_cast<size_t>(machine)]->getParameters(),
-                       song.machines[static_cast<size_t>(machine)].mixer, parameterId, value);
+    return edit("mixer/" + juce::String(machine) + "/" + parameterId, [&] {
+        return isValidMachine(machine)
+               && setValue(channels[static_cast<size_t>(machine)]->getParameters(),
+                           song.machines[static_cast<size_t>(machine)].mixer, parameterId, value);
+    });
 }
 
 float Session::getMixerParameter(int machine, const juce::String& parameterId) const {
@@ -210,7 +406,9 @@ const ParameterSet* Session::getMixerParameters(int machine) const {
 }
 
 bool Session::setMasterParameter(const juce::String& parameterId, float value) {
-    return setValue(engine.getMasterParameters(), song.master, parameterId, value);
+    return edit("master/" + parameterId, [&] {
+        return setValue(engine.getMasterParameters(), song.master, parameterId, value);
+    });
 }
 
 float Session::getMasterParameter(const juce::String& parameterId) const {
@@ -219,11 +417,22 @@ float Session::getMasterParameter(const juce::String& parameterId) const {
 }
 
 void Session::setTempo(double bpm) {
-    engine.setTempo(bpm);
-    song.tempo = engine.getTempo(); // clamped
+    edit("tempo", [&] {
+        engine.setTempo(bpm);
+        song.tempo = engine.getTempo(); // clamped
+        return true;
+    });
 }
 
 juce::Result Session::loadSong(const Song& newSong) {
+    const auto result = replaceSong(newSong);
+    if (result.wasOk()) {
+        clearHistory();
+    }
+    return result;
+}
+
+juce::Result Session::replaceSong(const Song& newSong) {
     if (static_cast<int>(newSong.machines.size()) > Engine::maxMachines) {
         return juce::Result::fail("Song has more than " + juce::String(Engine::maxMachines) + " machines");
     }
@@ -322,29 +531,33 @@ bool Session::post(const EngineCommand& command) {
 }
 
 bool Session::setEffect(int machine, int slot, const juce::String& type) {
-    if (!isValidMachine(machine) || !isValidEffectSlot(slot)) {
-        return false;
-    }
-    std::unique_ptr<Effect> effect;
-    if (type.isNotEmpty() && (effect = EffectRegistry::create(type)) == nullptr) {
-        return false;
-    }
-    auto& state = song.machines[static_cast<size_t>(machine)].effects[static_cast<size_t>(slot)];
-    state.type = type;
-    state.parameters = effect != nullptr ? apply(effect->getParameters(), {}) : ParameterValues {};
-    postEffect(machine, slot, std::move(effect));
-    return true;
+    return edit({}, [&] {
+        if (!isValidMachine(machine) || !isValidEffectSlot(slot)) {
+            return false;
+        }
+        std::unique_ptr<Effect> effect;
+        if (type.isNotEmpty() && (effect = EffectRegistry::create(type)) == nullptr) {
+            return false;
+        }
+        auto& state = song.machines[static_cast<size_t>(machine)].effects[static_cast<size_t>(slot)];
+        state.type = type;
+        state.parameters = effect != nullptr ? apply(effect->getParameters(), {}) : ParameterValues {};
+        postEffect(machine, slot, std::move(effect));
+        return true;
+    });
 }
 
 bool Session::setEffectParameter(int machine, int slot, const juce::String& parameterId, float value) {
-    if (!isValidMachine(machine) || !isValidEffectSlot(slot)) {
-        return false;
-    }
-    auto* effect = effects[static_cast<size_t>(machine)][static_cast<size_t>(slot)];
-    return effect != nullptr
-           && setValue(effect->getParameters(),
-                       song.machines[static_cast<size_t>(machine)].effects[static_cast<size_t>(slot)].parameters,
-                       parameterId, value);
+    return edit("effect/" + juce::String(machine) + "/" + juce::String(slot) + "/" + parameterId, [&] {
+        if (!isValidMachine(machine) || !isValidEffectSlot(slot)) {
+            return false;
+        }
+        auto* effect = effects[static_cast<size_t>(machine)][static_cast<size_t>(slot)];
+        return effect != nullptr
+               && setValue(effect->getParameters(),
+                           song.machines[static_cast<size_t>(machine)].effects[static_cast<size_t>(slot)].parameters,
+                           parameterId, value);
+    });
 }
 
 const ParameterSet* Session::getEffectParameters(int machine, int slot) const {
@@ -356,13 +569,15 @@ const ParameterSet* Session::getEffectParameters(int machine, int slot) const {
 }
 
 bool Session::setBlocks(int machine, const BlockList& blocks) {
-    if (!isValidMachine(machine) || !Arrangement::isValid(blocks)) {
-        return false;
-    }
-    song.machines[static_cast<size_t>(machine)].blocks = blocks;
-    EngineCommand command { EngineCommand::Type::setBlocks, machine };
-    command.newBlocks = new BlockList(blocks);
-    return engine.post(command);
+    return edit({}, [&] {
+        if (!isValidMachine(machine) || !Arrangement::isValid(blocks)) {
+            return false;
+        }
+        song.machines[static_cast<size_t>(machine)].blocks = blocks;
+        EngineCommand command { EngineCommand::Type::setBlocks, machine };
+        command.newBlocks = new BlockList(blocks);
+        return engine.post(command);
+    });
 }
 
 void Session::setSongMode(bool enabled) {
@@ -371,14 +586,16 @@ void Session::setSongMode(bool enabled) {
 }
 
 bool Session::setLoop(bool enabled, int startBar, int endBar) {
-    if (startBar < 0 || endBar <= startBar || endBar > Arrangement::maxBars) {
-        return false;
-    }
-    song.loopEnabled = enabled;
-    song.loopStartBar = startBar;
-    song.loopEndBar = endBar;
-    syncTransportSettings();
-    return true;
+    return edit("loop", [&] {
+        if (startBar < 0 || endBar <= startBar || endBar > Arrangement::maxBars) {
+            return false;
+        }
+        song.loopEnabled = enabled;
+        song.loopStartBar = startBar;
+        song.loopEndBar = endBar;
+        syncTransportSettings();
+        return true;
+    });
 }
 
 void Session::collectGarbage() {
@@ -389,15 +606,17 @@ void Session::collectGarbage() {
 }
 
 juce::Result Session::setMachineData(int machine, const juce::ValueTree& data) {
-    if (!isValidMachine(machine)) {
-        return juce::Result::fail("No such machine");
-    }
-    auto* live = machines[static_cast<size_t>(machine)];
-    const auto result = live->setData(data);
-    if (result.wasOk()) {
-        song.machines[static_cast<size_t>(machine)].data = live->getData().createCopy();
-    }
-    return result;
+    return edit({}, [&] {
+        if (!isValidMachine(machine)) {
+            return juce::Result::fail("No such machine");
+        }
+        auto* live = machines[static_cast<size_t>(machine)];
+        const auto result = live->setData(data);
+        if (result.wasOk()) {
+            song.machines[static_cast<size_t>(machine)].data = live->getData().createCopy();
+        }
+        return result;
+    });
 }
 
 juce::ValueTree Session::getMachineData(int machine) const {
@@ -405,8 +624,11 @@ juce::ValueTree Session::getMachineData(int machine) const {
 }
 
 void Session::setSwing(float amount) {
-    song.swing = juce::jlimit(Song::minSwing, Song::maxSwing, amount);
-    syncTransportSettings();
+    edit("swing", [&] {
+        song.swing = juce::jlimit(Song::minSwing, Song::maxSwing, amount);
+        syncTransportSettings();
+        return true;
+    });
 }
 
 void Session::syncTransportSettings() {
@@ -429,14 +651,16 @@ bool Session::isValidLane(const AutomationLane& lane, bool songLane) const {
 }
 
 bool Session::setSongAutomation(const AutomationLanes& lanes) {
-    for (const auto& lane : lanes) {
-        if (!isValidLane(lane, true)) {
-            return false;
+    return edit({}, [&] {
+        for (const auto& lane : lanes) {
+            if (!isValidLane(lane, true)) {
+                return false;
+            }
         }
-    }
-    song.automation = lanes;
-    postSongAutomation();
-    return true;
+        song.automation = lanes;
+        postSongAutomation();
+        return true;
+    });
 }
 
 void Session::postSongAutomation() {

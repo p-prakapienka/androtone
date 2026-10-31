@@ -94,6 +94,11 @@ MainComponent::MainComponent() {
     addAndMakeVisible(exportButton);
     fileButton.onClick = [this] { showFileMenu(); };
     addChildComponent(fileButton);
+    undoButton.onClick = [this] { undo(); };
+    addAndMakeVisible(undoButton);
+    redoButton.onClick = [this] { redo(); };
+    addAndMakeVisible(redoButton);
+    setWantsKeyboardFocus(true);
 
     tempoSlider.setRange(40.0, 240.0, 1.0);
     tempoSlider.setTextValueSuffix(" BPM");
@@ -158,6 +163,37 @@ void MainComponent::saveAutosave() {
 bool MainComponent::handleBackButton() {
     if (tabs.getCurrentTabIndex() != 0) {
         tabs.setCurrentTabIndex(0);
+        return true;
+    }
+    return false;
+}
+
+void MainComponent::undo() {
+    if (session.undo()) {
+        refreshFromSong();
+    }
+}
+
+void MainComponent::redo() {
+    if (session.redo()) {
+        refreshFromSong();
+    }
+}
+
+void MainComponent::updateUndoButtons() {
+    undoButton.setEnabled(session.canUndo());
+    redoButton.setEnabled(session.canRedo());
+}
+
+bool MainComponent::keyPressed(const juce::KeyPress& key) {
+    // Ctrl/Cmd+Z undo; Ctrl/Cmd+Shift+Z or Ctrl/Cmd+Y redo.
+    const auto mods = key.getModifiers();
+    if (mods.isCommandDown() && key.getKeyCode() == 'Z') {
+        mods.isShiftDown() ? redo() : undo();
+        return true;
+    }
+    if (mods.isCommandDown() && key.getKeyCode() == 'Y') {
+        redo();
         return true;
     }
     return false;
@@ -232,6 +268,8 @@ void MainComponent::resized() {
     playButton.setBounds(bar.removeFromLeft(84).reduced(3, 0));
     modeButton.setBounds(bar.removeFromLeft(84).reduced(3, 0));
     positionLabel.setBounds(bar.removeFromLeft(60));
+    undoButton.setBounds(bar.removeFromLeft(narrow ? 60 : 70).reduced(3, 0));
+    redoButton.setBounds(bar.removeFromLeft(narrow ? 60 : 70).reduced(3, 0));
     for (auto* button : { &saveButton, &loadButton, &exportButton }) {
         button->setVisible(!narrow);
     }
@@ -268,6 +306,10 @@ void MainComponent::refreshFromSong() {
 
 void MainComponent::timerCallback() {
     session.collectGarbage();
+    if (session.isInGesture() && juce::Desktop::getInstance().getNumDraggingMouseSources() == 0) {
+        session.cancelGestures(); // a press whose release went to a component that was deleted
+    }
+    updateUndoButtons();
     if (--midiScanCountdown <= 0) {
         scanMidiInputs();
         midiScanCountdown = 60; // every two seconds
