@@ -1,5 +1,6 @@
 #include "MainComponent.h"
 
+#include "NatronLookAndFeel.h"
 #include "Theme.h"
 #include "core/Autosave.h"
 #include "core/DemoSong.h"
@@ -7,7 +8,7 @@
 #include "core/effects/Effect.h"
 
 namespace {
-    const juce::Colour background { 0xff1d1f21 };
+    const juce::Colour background = NatronLookAndFeel::background;
 
     std::unique_ptr<juce::OutputStream> openForWriting(const juce::URL& url) {
         if (url.isLocalFile()) {
@@ -76,7 +77,8 @@ MainComponent::MainComponent() {
     clickButton.setToggleState(metronomeOn, juce::dontSendNotification);
 
     title.setText("Natron", juce::dontSendNotification);
-    title.setFont(juce::FontOptions(24.0f, juce::Font::bold));
+    title.setFont(NatronLookAndFeel::labelFont(24.0f));
+    title.setColour(juce::Label::textColourId, juce::Colour(0xffe8eaed));
     addAndMakeVisible(title);
 
     playButton.setClickingTogglesState(true);
@@ -129,6 +131,8 @@ MainComponent::MainComponent() {
 
     positionLabel.setJustificationType(juce::Justification::centred);
     positionLabel.setFont(juce::FontOptions(20.0f));
+    positionLabel.setColour(juce::Label::textColourId, NatronLookAndFeel::lcdText);
+    positionLabel.setColour(juce::Label::backgroundColourId, NatronLookAndFeel::lcd);
     addAndMakeVisible(positionLabel);
 
     rackPage = new RackPage(*this);
@@ -139,7 +143,7 @@ MainComponent::MainComponent() {
     settingsView = new SettingsView(deviceManager);
     settingsView->onNewSong = [this] { loadNewSong(Song {}); };
     settingsView->onDemoSong = [this] { loadNewSong(makeDemoSong()); };
-    const juce::Colour tabColour(0xff282a2e);
+    const juce::Colour tabColour = NatronLookAndFeel::background;
     tabs.addTab("Rack", tabColour, rackPage, true);
     tabs.addTab("Pattern", tabColour, patternEditor, true);
     tabs.addTab("Song", tabColour, songView, true);
@@ -362,7 +366,8 @@ MainComponent::RackPage::RackPage(MainComponent& ownerToUse) :
     for (int slot = 0; slot < Engine::effectsPerMachine; slot++) {
         auto& controls = effectSlots[static_cast<size_t>(slot)];
         controls.label.setText("Effect " + juce::String(slot + 1), juce::dontSendNotification);
-        controls.label.setFont(juce::FontOptions(15.0f, juce::Font::bold));
+        controls.label.setFont(NatronLookAndFeel::labelFont(14.0f));
+        controls.label.setColour(juce::Label::textColourId, juce::Colour(0xffd5d8dc));
         controls.type.addItem("None", 1);
         controls.type.addItemList(EffectRegistry::getTypeNames(), 2);
         controls.type.onChange = [this, slot] {
@@ -395,6 +400,7 @@ void MainComponent::RackPage::showMachine(int machine) {
             [this, machine](const juce::String& id, float value) { owner.session.setParameter(machine, id, value); },
             state.name + " (" + state.type + ")");
         machinePanel->setAccentColour(Theme::machineColour(state.type));
+        machinePanel->setLayout(state.type, Theme::panelColour(state.type));
         content.addAndMakeVisible(*machinePanel);
         if (MachineExtrasPanel::hasExtras(state.type)) {
             extras = std::make_unique<MachineExtrasPanel>(owner.session, machine, [](const juce::String& message) { showError(message); });
@@ -410,6 +416,7 @@ void MainComponent::RackPage::showMachine(int machine) {
                     *parameters, [this, machine, slot](const juce::String& id, float value) {
                         owner.session.setEffectParameter(machine, slot, id, value);
                     });
+                controls.panel->setLayout(type, Theme::effectColour(type)); // a pedal in the effect's colour
                 content.addAndMakeVisible(*controls.panel);
             }
         }

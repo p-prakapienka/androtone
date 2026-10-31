@@ -28,6 +28,19 @@ namespace Theme {
         return juce::Colour(0xff707880); // grey: unknown or test machines
     }
 
+    // The face of a machine's panel: a light, muted tint of its colour.
+    inline juce::Colour panelColour(const juce::String& type) {
+        const auto colour = machineColour(type);
+        return colour.withSaturation(colour.getSaturation() * 0.45f).withBrightness(0.80f);
+    }
+
+    // Effect "pedals": each type its own colour.
+    inline juce::Colour effectColour(const juce::String& type) {
+        static const juce::uint32 palette[] { 0xffe0a458, 0xff8fb3d9, 0xffc98fb8, 0xff9cc48f, 0xffd98f8f, 0xffb3a6e0,
+                                              0xffd9cf7a, 0xff8fd0c8, 0xffc4a98a };
+        return juce::Colour(palette[static_cast<size_t>(type.hashCode() & 0x7fffffff) % std::size(palette)]);
+    }
+
     // Phones get bigger knobs and buttons; a fingertip is ~8 mm.
     inline bool isTouchDevice() {
 #if JUCE_ANDROID || JUCE_IOS

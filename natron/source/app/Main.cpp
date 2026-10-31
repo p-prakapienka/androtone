@@ -1,4 +1,5 @@
 #include "MainComponent.h"
+#include "NatronLookAndFeel.h"
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
@@ -17,6 +18,7 @@ public:
     bool moreThanOneInstanceAllowed() override { return false; }
 
     void initialise(const juce::String&) override {
+        juce::LookAndFeel::setDefaultLookAndFeel(&lookAndFeel);
         mainWindow = std::make_unique<MainWindow>(getApplicationName());
     }
 
@@ -25,6 +27,7 @@ public:
             main->saveAutosave();
         }
         mainWindow = nullptr;
+        juce::LookAndFeel::setDefaultLookAndFeel(nullptr);
     }
 
     // Android kills backgrounded apps without warning: save whenever we leave the foreground.
@@ -51,7 +54,7 @@ private:
     class MainWindow : public juce::DocumentWindow {
     public:
         explicit MainWindow(const juce::String& name) :
-            DocumentWindow(name, juce::Colour(0xff1d1f21), DocumentWindow::allButtons) {
+            DocumentWindow(name, NatronLookAndFeel::background, DocumentWindow::allButtons) {
             setUsingNativeTitleBar(true);
             setContentOwned(new MainComponent(), true);
 #if JUCE_ANDROID || JUCE_IOS
@@ -74,6 +77,7 @@ private:
         JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainWindow)
     };
 
+    NatronLookAndFeel lookAndFeel; // outlives the window
     std::unique_ptr<MainWindow> mainWindow;
 };
 

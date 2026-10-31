@@ -109,3 +109,10 @@ playing pattern (pattern mode), quantised to 1/16 by default (verify Caustic's r
 - Landscape, single-screen-per-view navigation: Rack → Machine → Editor → Song → Mixer → Effects.
 - Large knobs dragged vertically; long-press for fine control / reset (verify).
 - Dark, hardware-styled panels, one colour per machine.
+- Visual language (observed): each machine is a hardware panel with its own colour or material,
+  split into framed sections whose titles sit on dark tabs; chrome knobs with dark rims; dark LCD
+  displays for values and menus; bold capital labels; effects are small coloured "pedals"; the
+  mixer is a row of vertical metal channel strips with knobs coloured by job; everything sits on a
+  charcoal background. Natron follows this language with its own drawing, layouts and colours
+  (`NatronLookAndFeel`, `PanelLayouts`, `Theme`) — Caustic's bitmaps and fonts are never copied
+  into the project (clean room).

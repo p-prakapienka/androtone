@@ -11,6 +11,9 @@
       <FILE id="LyApCh" name="MainComponent.h" compile="0" resource="0" file="source/app/MainComponent.h" />
       <FILE id="NtApMc" name="MixerView.cpp" compile="1" resource="0" file="source/app/MixerView.cpp" />
       <FILE id="NtApMh" name="MixerView.h" compile="0" resource="0" file="source/app/MixerView.h" />
+      <FILE id="Olzqpx" name="NatronLookAndFeel.cpp" compile="1" resource="0" file="source/app/NatronLookAndFeel.cpp" />
+      <FILE id="fZyVvR" name="NatronLookAndFeel.h" compile="0" resource="0" file="source/app/NatronLookAndFeel.h" />
+      <FILE id="eLXRRm" name="PanelLayouts.h" compile="0" resource="0" file="source/app/PanelLayouts.h" />
       <FILE id="NtApPc" name="ParameterPanel.cpp" compile="1" resource="0" file="source/app/ParameterPanel.cpp" />
       <FILE id="NtApPh" name="ParameterPanel.h" compile="0" resource="0" file="source/app/ParameterPanel.h" />
       <FILE id="mbOQqA" name="PatternClipboard.h" compile="0" resource="0" file="source/app/PatternClipboard.h" />

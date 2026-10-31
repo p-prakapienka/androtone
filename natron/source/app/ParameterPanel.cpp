@@ -1,11 +1,22 @@
 #include "ParameterPanel.h"
 
+#include "NatronLookAndFeel.h"
+
 ParameterPanel::ParameterPanel(const ParameterSet& parametersToShow, Setter onChange, juce::String titleText) :
     parameters(parametersToShow), setter(std::move(onChange)), title(std::move(titleText)) {
     for (int i = 0; i < parameters.size(); i++) {
         const auto& spec = parameters.getSpec(i);
         Control control;
         control.id = spec.id;
+
+        const auto makeLabel = [&] {
+            control.label = std::make_unique<juce::Label>(spec.id, spec.name.toUpperCase());
+            control.label->setJustificationType(juce::Justification::centred);
+            control.label->setFont(NatronLookAndFeel::labelFont(10.5f));
+            control.label->setMinimumHorizontalScale(0.7f);
+            control.label->setColour(juce::Label::textColourId, NatronLookAndFeel::ink);
+            addAndMakeVisible(*control.label);
+        };
 
         if (!spec.choices.isEmpty()) {
             control.menu = std::make_unique<juce::ComboBox>(spec.name);
@@ -16,10 +27,7 @@ ParameterPanel::ParameterPanel(const ParameterSet& parametersToShow, Setter onCh
                 setter(id, min + static_cast<float>(menu->getSelectedId() - 1));
             };
             addAndMakeVisible(*control.menu);
-            control.label = std::make_unique<juce::Label>(spec.id, spec.name);
-            control.label->setJustificationType(juce::Justification::centred);
-            control.label->setFont(juce::FontOptions(12.0f));
-            addAndMakeVisible(*control.label);
+            makeLabel();
         } else if (spec.isToggle()) {
             control.toggle = std::make_unique<juce::ToggleButton>(spec.name);
             control.toggle->onClick = [this, id = spec.id, button = control.toggle.get()] {
@@ -31,7 +39,7 @@ ParameterPanel::ParameterPanel(const ParameterSet& parametersToShow, Setter onCh
             control.slider->setRange(spec.minValue, spec.maxValue, spec.interval);
             control.slider->setDoubleClickReturnValue(true, spec.defaultValue);
             control.slider->setScrollWheelEnabled(false); // wheel scrolls the page, never turns a knob
-            control.slider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, cellWidth() - 8, 18);
+            control.slider->setTextBoxStyle(juce::Slider::TextBoxBelow, false, cellWidth() - 14, 16);
             control.slider->setNumDecimalPlacesToDisplay(spec.interval > 0.0f ? 0 : 2);
             // Wide ranges (Hz, seconds) are easier to set logarithmically.
             if (spec.minValue > 0.0f && spec.maxValue / spec.minValue >= 100.0f) {
@@ -41,15 +49,19 @@ ParameterPanel::ParameterPanel(const ParameterSet& parametersToShow, Setter onCh
                 setter(id, static_cast<float>(slider->getValue()));
             };
             addAndMakeVisible(*control.slider);
-
-            control.label = std::make_unique<juce::Label>(spec.id, spec.name);
-            control.label->setJustificationType(juce::Justification::centred);
-            control.label->setFont(juce::FontOptions(12.0f));
-            addAndMakeVisible(*control.label);
+            makeLabel();
         }
         controls.push_back(std::move(control));
     }
+    sections = PanelLayouts::sectionsFor({}, parameters);
     refresh();
+}
+
+void ParameterPanel::setLayout(const juce::String& type, juce::Colour colour) {
+    sections = PanelLayouts::sectionsFor(type, parameters);
+    panelColour = colour;
+    resized();
+    repaint();
 }
 
 void ParameterPanel::refresh() {
@@ -66,44 +78,85 @@ void ParameterPanel::refresh() {
     }
 }
 
+std::vector<ParameterPanel::Placed> ParameterPanel::place(int width, int& height) const {
+    // Sections flow left to right and wrap. A section as wide as the panel wraps its controls.
+    std::vector<Placed> placed;
+    const int top = title.isNotEmpty() ? titleHeight : padding;
+    const int usable = juce::jmax(cellWidth() + 2 * padding, width - 2 * padding);
+    int x = padding;
+    int y = top;
+    int rowHeight = 0;
+    for (const auto& section : sections) {
+        const int count = static_cast<int>(section.parameters.size());
+        const int maxColumns = juce::jmax(1, (usable - 2 * padding) / cellWidth());
+        const int columns = juce::jlimit(1, maxColumns, count);
+        const int rows = (count + columns - 1) / columns;
+        const int sectionWidth = columns * cellWidth() + 2 * padding;
+        const int sectionHeight = (section.title.isNotEmpty() ? NatronLookAndFeel::sectionTabHeight : padding)
+                                  + rows * cellHeight() + padding;
+        if (x > padding && x + sectionWidth > padding + usable) {
+            x = padding;
+            y += rowHeight + padding;
+            rowHeight = 0;
+        }
+        placed.push_back({ { x, y, sectionWidth, sectionHeight }, columns });
+        x += sectionWidth + padding;
+        rowHeight = juce::jmax(rowHeight, sectionHeight);
+    }
+    height = y + rowHeight + padding;
+    return placed;
+}
+
 int ParameterPanel::getHeightForWidth(int width) const {
-    const int columns = columnsFor(width);
-    const int rows = (static_cast<int>(controls.size()) + columns - 1) / columns;
-    return (title.isNotEmpty() ? titleHeight : 0) + rows * cellHeight();
+    int height = 0;
+    place(width, height);
+    return height;
 }
 
 void ParameterPanel::paint(juce::Graphics& g) {
+    NatronLookAndFeel::drawPanel(g, getLocalBounds().toFloat(), panelColour);
+
     if (title.isNotEmpty()) {
-        auto bar = getLocalBounds().removeFromTop(titleHeight);
+        auto bar = getLocalBounds().removeFromTop(titleHeight).reduced(padding, 4);
         if (!accentColour.isTransparent()) {
             g.setColour(accentColour);
-            g.fillRoundedRectangle(bar.removeFromLeft(6).reduced(0, 4).toFloat(), 3.0f);
-            bar.removeFromLeft(4);
+            g.fillRoundedRectangle(bar.removeFromLeft(8).toFloat(), 2.0f);
+            bar.removeFromLeft(6);
         }
-        g.setColour(juce::Colour(0xffc5c8c6));
-        g.setFont(juce::FontOptions(16.0f, juce::Font::bold));
-        g.drawText(title, bar.reduced(4, 0), juce::Justification::centredLeft);
+        g.setColour(NatronLookAndFeel::ink);
+        g.setFont(NatronLookAndFeel::labelFont(16.0f));
+        g.drawText(title.toUpperCase(), bar, juce::Justification::centredLeft);
+    }
+
+    int height = 0;
+    const auto placed = place(getWidth(), height);
+    for (size_t s = 0; s < sections.size(); s++) {
+        NatronLookAndFeel::drawSection(g, placed[s].area.toFloat(), panelColour, sections[s].title);
     }
 }
 
 void ParameterPanel::resized() {
-    const int columns = columnsFor(getWidth());
-    const int top = title.isNotEmpty() ? titleHeight : 0;
-    for (size_t i = 0; i < controls.size(); i++) {
-        const int column = static_cast<int>(i) % columns;
-        const int row = static_cast<int>(i) / columns;
-        const juce::Rectangle<int> cell(column * cellWidth(), top + row * cellHeight(), cellWidth(), cellHeight());
-        auto& control = controls[i];
-        if (control.menu != nullptr) {
-            auto area = cell.reduced(4);
-            control.label->setBounds(area.removeFromTop(16));
-            control.menu->setBounds(area.withSizeKeepingCentre(cellWidth() - 8, 30));
-        } else if (control.slider != nullptr) {
-            auto area = cell.reduced(4);
-            control.label->setBounds(area.removeFromTop(16));
-            control.slider->setBounds(area);
-        } else {
-            control.toggle->setBounds(cell.reduced(4).withSizeKeepingCentre(cellWidth() - 8, 32));
+    int height = 0;
+    const auto placed = place(getWidth(), height);
+    for (size_t s = 0; s < sections.size(); s++) {
+        const auto& area = placed[s].area;
+        const int top = area.getY() + (sections[s].title.isNotEmpty() ? NatronLookAndFeel::sectionTabHeight : padding);
+        for (size_t k = 0; k < sections[s].parameters.size(); k++) {
+            const int column = static_cast<int>(k) % placed[s].columns;
+            const int row = static_cast<int>(k) / placed[s].columns;
+            const juce::Rectangle<int> cell(area.getX() + padding + column * cellWidth(), top + row * cellHeight(),
+                                            cellWidth(), cellHeight());
+            auto& control = controls[static_cast<size_t>(sections[s].parameters[k])];
+            auto inner = cell.reduced(3, 2);
+            if (control.menu != nullptr) {
+                control.label->setBounds(inner.removeFromTop(16));
+                control.menu->setBounds(inner.withSizeKeepingCentre(inner.getWidth(), 28).translated(0, -10));
+            } else if (control.slider != nullptr) {
+                control.label->setBounds(inner.removeFromTop(15));
+                control.slider->setBounds(inner);
+            } else {
+                control.toggle->setBounds(inner.withSizeKeepingCentre(inner.getWidth(), 34));
+            }
         }
     }
 }

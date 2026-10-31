@@ -7,7 +7,8 @@ exception is its CI workflow, `.github/workflows/natron.yml`).
 
 Read `docs/spec.md` (what we are recreating) and `docs/roadmap.md` (where we are) before
 non-trivial changes. Clean-room rule: work from observed behaviour and the public manual only;
-never decompile Caustic or copy its assets.
+never decompile Caustic or copy its assets. Reference screenshots or graphics may be looked at for
+the general style, but never added to the repository, traced, or reproduced: draw our own.
 
 ## Layout
 
@@ -44,7 +45,9 @@ never decompile Caustic or copy its assets.
   inputs, keyboard, autosave, back button), `RackView`, `PatternEditorView`, `SongView`, `MixerView`,
   `SettingsView` (audio device, CPU), `ParameterPanel` (generic controls; choices become menus),
   `TouchKnob` (long-press fine adjust), `MachineExtrasPanel` (samples, formulas), `AutomationEditor`
-  (lanes), `Theme` (machine colours, touch sizes), `PatternClipboard` (copy/paste menu items).
+  (lanes), `Theme` (machine, panel and effect colours, touch sizes), `PatternClipboard` (copy/paste
+  menu items), `NatronLookAndFeel` (the hardware look: knobs, LCDs, buttons, panels, section tabs —
+  all drawn in code), `PanelLayouts` (which parameters go in which titled section of each panel).
 - `tests/` — Catch2 tests. `TestHelpers.h`: offline renderers and `Rig` (engine + session +
   renderer) and `MachineRig` (one machine); `Analysis.h`: pitch, centroid, band energy, onset;
   `TestMachines.h`: `RecordingMachine` (logs the MIDI it receives) and `DataMachine` (machine data);
@@ -84,6 +87,7 @@ Android Studio or run `./gradlew assembleDebug` there.
 - Engine code is real-time code: no allocation, freeing, locks, or I/O in `Engine::process` and
   below. Anything the audio thread replaces goes to the garbage queue. The "never touches the
   heap" test in `EngineTests.cpp` enforces this — extend its edit stream when adding commands.
+- New machines: give them sections in `PanelLayouts.h` (parameters no rule names land in "More").
 - New machines: subclass `Machine`, declare parameters in the constructor (set `interval` for
   discrete choices; 0/1 + interval 1 shows as a toggle), register the type in `MachineRegistry.cpp`.
   Parameter ids are saved in song files: never rename one. Do control-rate work on the voice's

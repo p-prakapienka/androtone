@@ -81,6 +81,7 @@ target_sources(Natron
         source/app/Main.cpp
         source/app/MainComponent.cpp
         source/app/MixerView.cpp
+        source/app/NatronLookAndFeel.cpp
         source/app/ParameterPanel.cpp
         source/app/PatternEditorView.cpp
         source/app/RackView.cpp
