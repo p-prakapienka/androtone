@@ -492,11 +492,40 @@ void MainComponent::loadSong() {
 
 void MainComponent::exportAudio(juce::Component& anchor) {
     juce::PopupMenu menu;
-    menu.addItem(1, "Export song (timeline)", session.getSong().endBar() > 0);
-    menu.addItem(2, "Export pattern loop (4 bars)");
+    const bool hasSong = session.getSong().endBar() > 0;
+    menu.addItem(1, "Export song (timeline) as WAV", hasSong);
+    menu.addItem(2, "Export pattern loop (4 bars) as WAV");
+    menu.addSeparator();
+    menu.addItem(3, "Export song (timeline) as MIDI", hasSong);
+    menu.addItem(4, "Export pattern loop (4 bars) as MIDI");
     menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&anchor), [this](int result) {
-        if (result > 0) {
+        if (result == 1 || result == 2) {
             startExport(result == 1);
+        } else if (result == 3 || result == 4) {
+            startMidiExport(result == 3);
+        }
+    });
+}
+
+void MainComponent::startMidiExport(bool wholeSong) {
+    chooser = std::make_unique<juce::FileChooser>(
+        "Export MIDI", juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile("natron.mid"), "*.mid");
+    const auto chooserFlags = juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles
+                              | juce::FileBrowserComponent::warnAboutOverwriting;
+
+    chooser->launchAsync(chooserFlags, [this, wholeSong](const juce::FileChooser& fileChooser) {
+        const auto url = fileChooser.getURLResult();
+        if (url.isEmpty()) {
+            return;
+        }
+        SongExport::Options options;
+        options.range = wholeSong ? SongExport::Options::Range::song : SongExport::Options::Range::pattern;
+        options.patternBars = 4;
+        auto stream = openForWriting(url);
+        const auto result = stream != nullptr ? SongExport::writeMidi(session.getSong(), options, *stream)
+                                              : juce::Result::fail("Could not open the file for writing");
+        if (result.failed()) {
+            showError(result.getErrorMessage());
         }
     });
 }

@@ -118,6 +118,7 @@ private:
     void redo();
     void updateUndoButtons();
     void startExport(bool wholeSong);
+    void startMidiExport(bool wholeSong);
     static void showError(const juce::String& message);
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainComponent)

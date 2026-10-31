@@ -2,8 +2,11 @@
 
 #include "Engine.h"
 #include "Session.h"
+#include "machines/DrumMachine.h"
 
 #include <juce_audio_formats/juce_audio_formats.h>
+#include <algorithm>
+#include <iterator>
 
 int64_t SongExport::lengthInSamples(const Song& song, const Options& options) {
     const int bars = options.range == Options::Range::song ? song.endBar() : options.patternBars;
@@ -82,4 +85,77 @@ juce::Result SongExport::writeWav(const juce::AudioBuffer<float>& audio, double 
         return juce::Result::fail("Writing the WAV data failed");
     }
     return juce::Result::ok();
+}
+
+namespace {
+    // Adds `pattern` looping from `startBeat` until `endBeat`.
+    void lay(const Pattern& pattern, double startBeat, double endBeat, std::vector<Note>& notes) {
+        const double length = pattern.lengthInBeats();
+        for (double loopStart = startBeat; loopStart < endBeat - 1.0e-9; loopStart += length) {
+            for (const auto& note : pattern.notes) {
+                const double start = loopStart + note.start;
+                if (note.start >= length - 1.0e-9 || start >= endBeat - 1.0e-9) {
+                    continue; // hidden past the pattern's end, or past the block's
+                }
+                notes.push_back({ start, std::min(note.length, endBeat - start), note.pitch, note.velocity });
+            }
+        }
+    }
+}
+
+std::vector<std::vector<Note>> SongExport::playedNotes(const Song& song, const Options& options) {
+    std::vector<std::vector<Note>> result;
+    for (const auto& machine : song.machines) {
+        std::vector<Note> notes;
+        if (options.range == Options::Range::pattern) {
+            lay(machine.patterns[static_cast<size_t>(machine.selectedPattern)], 0.0,
+                options.patternBars * static_cast<double>(Transport::beatsPerBar), notes);
+        } else {
+            for (const auto& block : machine.blocks) {
+                lay(machine.patterns[static_cast<size_t>(block.pattern)], block.startBar * static_cast<double>(Transport::beatsPerBar),
+                    block.endBar() * static_cast<double>(Transport::beatsPerBar), notes);
+            }
+        }
+        std::stable_sort(notes.begin(), notes.end(), [](const Note& a, const Note& b) { return a.start < b.start; });
+        result.push_back(std::move(notes));
+    }
+    return result;
+}
+
+juce::Result SongExport::writeMidi(const Song& song, const Options& options, juce::OutputStream& stream) {
+    const auto played = playedNotes(song, options);
+    bool anyNotes = false;
+    for (const auto& notes : played) {
+        anyNotes = anyNotes || !notes.empty();
+    }
+    if (!anyNotes) {
+        return juce::Result::fail("Nothing to export: no notes in the " + juce::String(options.range == Options::Range::song ? "song" : "selected patterns"));
+    }
+
+    const auto ticks = [](double beats) { return std::round(beats * midiTicksPerBeat); };
+    juce::MidiFile file;
+    file.setTicksPerQuarterNote(midiTicksPerBeat);
+
+    juce::MidiMessageSequence conductor;
+    conductor.addEvent(juce::MidiMessage::textMetaEvent(3, "Natron"), 0.0);
+    conductor.addEvent(juce::MidiMessage::tempoMetaEvent(juce::roundToInt(60000000.0 / song.tempo)), 0.0);
+    conductor.addEvent(juce::MidiMessage::timeSignatureMetaEvent(4, 4), 0.0);
+    file.addTrack(conductor);
+
+    for (size_t m = 0; m < played.size(); m++) {
+        const auto& machine = song.machines[m];
+        // Channel 10 is the drum channel by convention; the others take 1-9 and 11-16 in rack order.
+        static constexpr int melodicChannels[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16 };
+        const int channel = machine.type == DrumMachine::typeName ? 10 : melodicChannels[m % std::size(melodicChannels)];
+        juce::MidiMessageSequence track;
+        track.addEvent(juce::MidiMessage::textMetaEvent(3, machine.name), 0.0);
+        for (const auto& note : played[m]) {
+            const auto velocity = static_cast<juce::uint8>(juce::jlimit(1, 127, juce::roundToInt(note.velocity * 127.0f)));
+            track.addEvent(juce::MidiMessage::noteOn(channel, note.pitch, velocity), ticks(note.start));
+            track.addEvent(juce::MidiMessage::noteOff(channel, note.pitch), ticks(note.start + note.length));
+        }
+        track.updateMatchedPairs();
+        file.addTrack(track);
+    }
+    return file.writeTo(stream) ? juce::Result::ok() : juce::Result::fail("Could not write the MIDI file");
 }

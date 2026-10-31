@@ -34,4 +34,16 @@ namespace SongExport {
 
     // Length of the musical part (without the tail), in samples.
     int64_t lengthInSamples(const Song& song, const Options& options);
+
+    // MIDI export: the notes each machine plays over the same range as `render` (song timeline or
+    // looping selected patterns), without swing, one track per machine (Drums on channel 10).
+    static constexpr int midiTicksPerBeat = 960;
+
+    // Each machine's notes as played, in beats from the start of the range (sorted by start).
+    // A pattern loops within its block; notes are cut at the block's (or the range's) end.
+    std::vector<std::vector<Note>> playedNotes(const Song& song, const Options& options);
+
+    // A type 1 MIDI file: track 1 holds tempo and 4/4, then one named track per machine. Fails if
+    // there are no notes.
+    juce::Result writeMidi(const Song& song, const Options& options, juce::OutputStream& stream);
 }
