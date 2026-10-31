@@ -71,6 +71,9 @@ MainComponent::MainComponent() {
     options.folderName = "Natron";
     options.osxLibrarySubFolder = "Application Support";
     settings.setStorageParameters(options);
+    const bool metronomeOn = settings.getUserSettings()->getBoolValue("metronome", false);
+    engine.setMetronome(metronomeOn);
+    clickButton.setToggleState(metronomeOn, juce::dontSendNotification);
 
     title.setText("Natron", juce::dontSendNotification);
     title.setFont(juce::FontOptions(24.0f, juce::Font::bold));
@@ -98,6 +101,20 @@ MainComponent::MainComponent() {
     recordButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffcc3333));
     recordButton.onClick = [this] { session.setRecording(recordButton.getToggleState()); };
     addAndMakeVisible(recordButton);
+    clickButton.setClickingTogglesState(true);
+    clickButton.onClick = [this] {
+        engine.setMetronome(clickButton.getToggleState());
+        settings.getUserSettings()->setValue("metronome", clickButton.getToggleState());
+    };
+    addAndMakeVisible(clickButton);
+    tapButton.setTriggeredOnMouseDown(true); // the press is the beat
+    tapButton.onClick = [this] {
+        if (const auto bpm = tapTempo.tap(juce::Time::getMillisecondCounterHiRes() / 1000.0)) {
+            session.setTempo(std::round(*bpm));
+            tempoSlider.setValue(session.getSong().tempo, juce::dontSendNotification);
+        }
+    };
+    addAndMakeVisible(tapButton);
     undoButton.onClick = [this] { undo(); };
     addAndMakeVisible(undoButton);
     redoButton.onClick = [this] { redo(); };
@@ -106,7 +123,7 @@ MainComponent::MainComponent() {
 
     tempoSlider.setRange(40.0, 240.0, 1.0);
     tempoSlider.setTextValueSuffix(" BPM");
-    tempoSlider.setTextBoxStyle(juce::Slider::TextBoxRight, false, 90, 32);
+    tempoSlider.setSliderStyle(juce::Slider::LinearBar); // drag across the box; the value shows inside
     tempoSlider.onValueChange = [this] { session.setTempo(tempoSlider.getValue()); };
     addAndMakeVisible(tempoSlider);
 
@@ -286,7 +303,9 @@ void MainComponent::resized() {
         loadButton.setBounds(bar.removeFromRight(76).reduced(3, 0));
         saveButton.setBounds(bar.removeFromRight(76).reduced(3, 0));
     }
-    tempoSlider.setBounds(bar.reduced(6, 0));
+    tapButton.setBounds(bar.removeFromRight(56).reduced(3, 0));
+    clickButton.setBounds(bar.removeFromRight(60).reduced(3, 0));
+    tempoSlider.setBounds(bar.reduced(6, 2).withSizeKeepingCentre(juce::jmin(bar.getWidth() - 12, 220), bar.getHeight() - 4));
     area.removeFromTop(narrow ? 6 : 10);
     tabs.setBounds(area);
 }

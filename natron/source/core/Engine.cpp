@@ -1,5 +1,7 @@
 #include "Engine.h"
 
+#include "dsp/FastSine.h"
+
 #include <cmath>
 #include <cstring>
 
@@ -348,8 +350,11 @@ void Engine::processChunk(juce::AudioBuffer<float>& output, int startSample, int
 
     const int64_t from = transport.getPosition();
     swingNow = swing.load();
+    // Before generateMidi, which may jump the transport for a song-mode loop. A loop's ends are
+    // whole bars, so beats keep landing on the same samples across the jump.
+    const double chunkStartBeat = transport.beatAt(from);
     if (shouldPlay) {
-        const double startBeat = transport.beatAt(from);
+        const double startBeat = chunkStartBeat;
         generateMidi(from, from + numSamples, songModeNow);
         applyAutomation(startBeat, songModeNow);
     }
@@ -404,9 +409,51 @@ void Engine::processChunk(juce::AudioBuffer<float>& output, int startSample, int
         output.addFrom(0, startSample, mixBus, 1, 0, numSamples, 0.5f);
     }
 
+    addClicks(output, startSample, numSamples, chunkStartBeat, shouldPlay);
+
     if (shouldPlay) {
         transport.advance(numSamples);
         playheadBeat.store(transport.beatAt(transport.getPosition()));
+    }
+}
+
+void Engine::addClicks(juce::AudioBuffer<float>& output, int startSample, int numSamples, double startBeat, bool playingNow) {
+    constexpr double clickSeconds = 0.03;
+    const double samplesPerBeat = transport.samplesPerBeat();
+    // A beat sounds on the first sample at or after it (as Transport::sampleAt rounds), so each
+    // beat falls in exactly one chunk.
+    const auto offsetOf = [&](double beat) {
+        return static_cast<int>(std::ceil((beat - startBeat) * samplesPerBeat - 1.0e-6));
+    };
+    double nextBeat = std::floor(startBeat);
+    if (offsetOf(nextBeat) < 0) {
+        nextBeat += 1.0;
+    }
+    int nextClick = playingNow && metronome.load() ? offsetOf(nextBeat) : numSamples;
+
+    for (int i = 0; i < numSamples; i++) {
+        if (i == nextClick) {
+            const bool downbeat = std::fmod(nextBeat, Transport::beatsPerBar) < 1.0e-6;
+            clickIncrement = (downbeat ? 2000.0 : 1400.0) / sampleRate.load();
+            clickPhase = 0.0;
+            clickRemaining = static_cast<int>(clickSeconds * sampleRate.load());
+            clickLevel = downbeat ? 0.35f : 0.25f;
+            nextBeat += 1.0;
+            nextClick = offsetOf(nextBeat);
+        }
+        if (clickRemaining <= 0) {
+            if (nextClick >= numSamples) {
+                return; // nothing more to add in this chunk
+            }
+            continue;
+        }
+        const auto envelope = static_cast<float>(clickRemaining) / static_cast<float>(clickSeconds * sampleRate.load());
+        const float sample = clickLevel * envelope * envelope * FastSine::ofCycles(clickPhase);
+        clickPhase += clickIncrement;
+        clickRemaining--;
+        for (int ch = 0; ch < output.getNumChannels(); ch++) {
+            output.addSample(ch, startSample + i, sample);
+        }
     }
 }
 

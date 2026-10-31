@@ -9,6 +9,7 @@
 #include "SongView.h"
 #include "core/Engine.h"
 #include "core/Session.h"
+#include "core/TapTempo.h"
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
@@ -83,6 +84,9 @@ private:
     juce::TextButton exportButton { "Export" };
     juce::TextButton fileButton { "File" }; // replaces Save/Load/Export on narrow screens
     juce::TextButton recordButton { "Rec" }; // record live notes into the playing pattern
+    juce::TextButton clickButton { "Click" }; // metronome
+    juce::TextButton tapButton { "Tap" };     // tap tempo
+    TapTempo tapTempo;
     juce::TextButton undoButton { "Undo" };
     juce::TextButton redoButton { "Redo" };
     juce::Slider tempoSlider;

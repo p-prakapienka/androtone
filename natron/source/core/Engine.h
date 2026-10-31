@@ -112,6 +112,11 @@ public:
         int pitch = 60;
         float velocity = 0.0f;    // 0 = note off
     };
+    // Metronome: a click on every beat while playing (higher on the first beat of each bar). An
+    // app setting, not part of the song; it bypasses the master section.
+    void setMetronome(bool enabled) { metronome.store(enabled); }
+    bool isMetronomeOn() const { return metronome.load(); }
+
     void setRecording(bool shouldRecord) { recording.store(shouldRecord); }
     bool isRecording() const { return recording.load(); }
     // The next recorded event, if any. For the posting thread (see post()).
@@ -167,6 +172,11 @@ private:
     std::atomic<int> liveTarget { 0 };
     juce::MidiBuffer liveMidi;       // drained queue, for the current block
     std::atomic<bool> recording { false };
+    std::atomic<bool> metronome { false };
+    int clickRemaining = 0; // samples left of the current click
+    double clickPhase = 0.0;
+    double clickIncrement = 0.0;
+    float clickLevel = 0.0f;
     juce::AbstractFifo recordFifo { 1024 };
     std::array<RecordedEvent, 1024> recordedEvents;
 
@@ -224,6 +234,7 @@ private:
     void applyAutomation(double beat, bool songModeNow);
     void drainLiveMidi();
     void recordLiveMidi(int target, int64_t position);
+    void addClicks(juce::AudioBuffer<float>& output, int startSample, int numSamples, double startBeat, bool playingNow);
     ParameterSet* targetParameters(const AutomationTarget& target, int machine);
     static void write(ParameterSet* parameters, const AutomationLane& lane, double beat);
 };

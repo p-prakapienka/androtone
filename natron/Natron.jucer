@@ -53,6 +53,7 @@
       <FILE id="NtCoFc" name="SongFile.cpp" compile="1" resource="0" file="source/core/SongFile.cpp" />
       <FILE id="NtCoFh" name="SongFile.h" compile="0" resource="0" file="source/core/SongFile.h" />
       <FILE id="vglwLT" name="SwappableResource.h" compile="0" resource="0" file="source/core/SwappableResource.h" />
+      <FILE id="XCvwSh" name="TapTempo.h" compile="0" resource="0" file="source/core/TapTempo.h" />
       <FILE id="LyCoTr" name="Transport.h" compile="0" resource="0" file="source/core/Transport.h" />
       <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F04}" name="dsp">
         <FILE id="NtDsBq" name="Biquad.h" compile="0" resource="0" file="source/core/dsp/Biquad.h" />
