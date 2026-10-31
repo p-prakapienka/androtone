@@ -22,6 +22,17 @@ public:
     Document& getDocument() { return document; }
     juce::AudioDeviceManager& getDeviceManager() { return deviceManager; }
 
+    // For the diagnostics line in App Settings.
+    struct Status
+    {
+        juce::String deviceType, deviceName;
+        double sampleRate = 0.0;
+        int bufferSize = 0;
+        double cpuLoad = 0.0; // 0..1 of the time available per callback
+        int dropouts = -1;    // xruns reported by the device, -1 if unknown
+    };
+    Status getStatus();
+
 private:
     void audioDeviceIOCallbackWithContext (const float* const* inputs, int numInputs, float* const* outputs,
                                            int numOutputs, int numSamples,

@@ -82,14 +82,16 @@ jobs:
             -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 \
             -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
 
+      # The release build (-O3) is what people install: the debug build compiles the audio
+      # code without optimisation and glitches on phones. Both are signed with the debug key.
       - name: Build APK
         working-directory: Builds/Android
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug
+          ./gradlew --no-daemon assembleRelease
 
       - uses: actions/upload-artifact@v4
         with:
-          name: riffbook-debug-apk
+          name: riffbook-apk
           path: Builds/Android/app/build/outputs/apk/**/*.apk
           if-no-files-found: error

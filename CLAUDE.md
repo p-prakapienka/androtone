@@ -26,4 +26,5 @@ cmake --build build --target RiffbookTests Riffbook
 ./build/RiffbookTests_artefacts/Debug/RiffbookTests engine   # one category
 ```
 
-Android APKs are built by `.github/workflows/build.yml` (Projucer `--resave` + Gradle).
+Android APKs are built by `.github/workflows/build.yml` (Projucer `--resave` + Gradle
+`assembleRelease`). Never ship or test audio with the debug APK: it is built with `-O0`.

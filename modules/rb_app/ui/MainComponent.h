@@ -18,7 +18,8 @@ public:
 // Root component: owns the Studio, the current screen and the sheet layer.
 class MainComponent : public juce::Component,
                       public Navigator,
-                      private juce::ChangeListener
+                      private juce::ChangeListener,
+                      private juce::Timer
 {
 public:
     MainComponent();
@@ -43,6 +44,12 @@ public:
 
 private:
     void changeListenerCallback (juce::ChangeBroadcaster*) override;
+    void timerCallback() override;
+
+    // System bars and display cutouts (Android draws apps edge-to-edge); content stays
+    // inside these insets while the background fills the whole window.
+    juce::BorderSize<int> currentSafeInsets() const;
+    juce::BorderSize<int> safeInsets;
     void setView (std::unique_ptr<juce::Component>);
 
     struct Dimmer : public juce::Component

@@ -22,6 +22,37 @@ MainComponent::MainComponent()
     showLibrary();
     changeListenerCallback (nullptr);
     setSize (412, 892);
+
+    // Insets change on rotation and when system bars show or hide.
+    startTimerHz (4);
+}
+
+juce::BorderSize<int> MainComponent::currentSafeInsets() const
+{
+    if (! isShowing())
+        return {};
+
+    if (auto* display = juce::Desktop::getInstance().getDisplays().getDisplayForRect (getScreenBounds()))
+    {
+        // The insets are relative to the display; only the parts our window overlaps matter.
+        const auto screen = getScreenBounds();
+        const auto safe = display->safeAreaInsets.subtractedFrom (display->totalArea);
+        return { juce::jmax (0, safe.getY() - screen.getY()),
+                 juce::jmax (0, safe.getX() - screen.getX()),
+                 juce::jmax (0, screen.getBottom() - safe.getBottom()),
+                 juce::jmax (0, screen.getRight() - safe.getRight()) };
+    }
+    return {};
+}
+
+void MainComponent::timerCallback()
+{
+    const auto insets = currentSafeInsets();
+    if (insets != safeInsets)
+    {
+        safeInsets = insets;
+        resized();
+    }
 }
 
 MainComponent::~MainComponent()
@@ -42,11 +73,12 @@ void MainComponent::paint (juce::Graphics& g)
 
 void MainComponent::resized()
 {
-    auto bounds = getLocalBounds();
+    safeInsets = currentSafeInsets();
+    auto bounds = safeInsets.subtractedFrom (getLocalBounds());
     if (view != nullptr)
         view->setBounds (bounds);
 
-    dimmer.setBounds (bounds);
+    dimmer.setBounds (getLocalBounds());
 
     if (sheet != nullptr)
     {
@@ -57,7 +89,7 @@ void MainComponent::resized()
     }
 
     if (touchIndicator != nullptr)
-        touchIndicator->setBounds (bounds);
+        touchIndicator->setBounds (getLocalBounds());
 }
 
 void MainComponent::setView (std::unique_ptr<juce::Component> newView)

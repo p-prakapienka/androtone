@@ -35,7 +35,8 @@ private:
 };
 
 // App settings (APP-1..APP-8).
-class AppSettingsSheet : public Sheet
+class AppSettingsSheet : public Sheet,
+                         private juce::Timer
 {
 public:
     explicit AppSettingsSheet (Studio&);
@@ -43,7 +44,10 @@ public:
     void paint (juce::Graphics&) override;
 
 private:
+    void timerCallback() override;
+
     Studio& studio;
+    juce::Label audioStatus;
     juce::Viewport viewport;
     juce::Component content;
     juce::ComboBox themeBox, layoutBox;

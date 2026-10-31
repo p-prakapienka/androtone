@@ -46,6 +46,21 @@ void AudioEngine::enableInput (std::function<void (bool)> onDone)
         open (true);
 }
 
+AudioEngine::Status AudioEngine::getStatus()
+{
+    Status s;
+    if (auto* device = deviceManager.getCurrentAudioDevice())
+    {
+        s.deviceType = device->getTypeName();
+        s.deviceName = device->getName();
+        s.sampleRate = device->getCurrentSampleRate();
+        s.bufferSize = device->getCurrentBufferSizeSamples();
+        s.dropouts = device->getXRunCount();
+    }
+    s.cpuLoad = deviceManager.getCpuUsage();
+    return s;
+}
+
 void AudioEngine::audioDeviceAboutToStart (juce::AudioIODevice* device)
 {
     const int blockSize = juce::jmax (512, device->getCurrentBufferSizeSamples());

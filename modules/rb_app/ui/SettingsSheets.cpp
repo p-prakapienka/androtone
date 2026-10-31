@@ -280,12 +280,37 @@ AppSettingsSheet::AppSettingsSheet (Studio& s) : Sheet ("Settings"), studio (s)
             main->showSheet (std::make_unique<MidiSettingsSheet> (studio));
     };
 
+    // Live audio diagnostics: helps tell CPU overload from other kinds of glitches.
+    audioStatus.setColour (juce::Label::textColourId, Theme::get().textDim);
+    audioStatus.setJustificationType (juce::Justification::topLeft);
+    audioStatus.setFont (Theme::font (13.0f));
+    content.addAndMakeVisible (audioStatus);
+    timerCallback();
+    startTimerHz (2);
+
     versionLabel.setText ("Riffbook " + juce::JUCEApplication::getInstance()->getApplicationVersion()
                               + "\nBuilt with JUCE. Sounds generated in code.",
                           juce::dontSendNotification);
     versionLabel.setColour (juce::Label::textColourId, Theme::get().textDim);
     versionLabel.setJustificationType (juce::Justification::topLeft);
     content.addAndMakeVisible (versionLabel);
+}
+
+void AppSettingsSheet::timerCallback()
+{
+    const auto s = studio.getEngine().getStatus();
+    if (s.sampleRate <= 0.0)
+    {
+        audioStatus.setText ("Audio: no output device", juce::dontSendNotification);
+        return;
+    }
+
+    juce::String text;
+    text << "Audio: " << s.deviceType << ", " << juce::String (s.sampleRate / 1000.0, 1) << " kHz, "
+         << s.bufferSize << " samples (" << juce::String (1000.0 * s.bufferSize / s.sampleRate, 1) << " ms)\n"
+         << "CPU " << juce::roundToInt (s.cpuLoad * 100.0) << " %"
+         << (s.dropouts >= 0 ? ", dropouts " + juce::String (s.dropouts) : juce::String());
+    audioStatus.setText (text, juce::dontSendNotification);
 }
 
 void AppSettingsSheet::paint (juce::Graphics& g)
@@ -315,6 +340,7 @@ void AppSettingsSheet::resized()
     for (auto* t : { &captureTimeout, &noteNames, &sampleNames, &showTouches, &monitorInput })
         t->setBounds (row (Theme::touch));
     midiButton.setBounds (row (Theme::touch));
+    audioStatus.setBounds (row (40));
     versionLabel.setBounds (row (60));
     content.setSize (w, y);
 }

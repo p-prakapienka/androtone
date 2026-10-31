@@ -20,10 +20,10 @@ cmake --build build --target Riffbook RiffbookTests
 ./build/RiffbookTests_artefacts/Debug/RiffbookTests
 ```
 
-Android: the GitHub Actions workflow builds a debug APK on every push (download it from the run's
-artifacts). Locally: build Projucer from `JUCE/extras/Projucer`, run
+Android: the GitHub Actions workflow builds an optimised APK (release build, signed with a debug
+key) on every push; download `riffbook-apk` from the run's artifacts. Locally: build Projucer from `JUCE/extras/Projucer`, run
 `Projucer --resave Riffbook.jucer`, then open `Builds/Android` in Android Studio or run
-`./gradlew assembleDebug` there.
+`./gradlew assembleRelease` there.
 
 ## Licence note
 
