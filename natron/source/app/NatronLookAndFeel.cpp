@@ -49,12 +49,33 @@ void NatronLookAndFeel::drawPanel(juce::Graphics& g, juce::Rectangle<float> area
     g.drawHorizontalLine(juce::roundToInt(area.getY() + 1.5f), area.getX() + corner, area.getRight() - corner);
 }
 
+void NatronLookAndFeel::drawKey(juce::Graphics& g, juce::Rectangle<float> key, juce::Colour fill, bool pressed) {
+    const auto top = pressed ? fill.darker(0.15f) : fill.brighter(0.15f);
+    const auto bottom = pressed ? fill.brighter(0.05f) : fill.darker(0.2f);
+    g.setColour(juce::Colours::black.withAlpha(0.35f));
+    g.fillRoundedRectangle(key.translated(0.0f, 1.5f), 4.0f);
+    g.setGradientFill(juce::ColourGradient(top, 0.0f, key.getY(), bottom, 0.0f, key.getBottom(), false));
+    g.fillRoundedRectangle(key, 4.0f);
+    g.setColour(edge);
+    g.drawRoundedRectangle(key.reduced(0.5f), 4.0f, 1.0f);
+}
+
+void NatronLookAndFeel::drawLed(juce::Graphics& g, juce::Rectangle<float> led, bool on) {
+    if (on) {
+        g.setColour(ledOn.withAlpha(0.35f));
+        g.fillEllipse(led.expanded(3.0f));
+    }
+    g.setColour(on ? ledOn : juce::Colour(0xff6b5a3a));
+    g.fillEllipse(led);
+}
+
 void NatronLookAndFeel::drawSection(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour panelColour,
-                                    const juce::String& title) {
-    // A recessed area, a shade lighter than the panel.
-    g.setColour(panelColour.brighter(0.08f));
+                                    const juce::String& title, juce::Colour tabColour) {
+    const bool dark = panelColour.getPerceivedBrightness() < 0.45f;
+    // A recessed area: a shade lighter than a light panel, darker than a dark one.
+    g.setColour(dark ? panelColour.darker(0.25f) : panelColour.brighter(0.08f));
     g.fillRoundedRectangle(area, 4.0f);
-    g.setColour(panelColour.darker(0.35f));
+    g.setColour(dark ? panelColour.brighter(0.15f) : panelColour.darker(0.35f));
     g.drawRoundedRectangle(area.reduced(0.5f), 4.0f, 1.0f);
 
     if (title.isEmpty()) {
@@ -73,9 +94,10 @@ void NatronLookAndFeel::drawSection(juce::Graphics& g, juce::Rectangle<float> ar
     shape.lineTo(tab.getX(), tab.getY() + 4.0f);
     shape.quadraticTo(tab.getX(), tab.getY(), tab.getX() + 4.0f, tab.getY());
     shape.closeSubPath();
-    g.setColour(tabFill);
+    const auto fill = dark ? tabColour : tabFill;
+    g.setColour(fill);
     g.fillPath(shape);
-    g.setColour(juce::Colours::white);
+    g.setColour(fill.getPerceivedBrightness() > 0.55f ? ink : juce::Colours::white);
     g.setFont(font);
     g.drawText(title.toUpperCase(), tab.withTrimmedLeft(8.0f).withTrimmedRight(height), juce::Justification::centredLeft);
 }
@@ -207,8 +229,10 @@ juce::Font NatronLookAndFeel::getTextButtonFont(juce::TextButton&, int buttonHei
 void NatronLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& button, bool, bool isButtonDown) {
     // A small bevelled switch with an LED, the label beside it.
     const auto area = button.getLocalBounds().toFloat();
-    const float size = juce::jmin(22.0f, area.getHeight() - 4.0f);
-    const auto key = juce::Rectangle<float>(area.getX() + 2.0f, area.getCentreY() - size * 0.5f, size, size);
+    const float size = juce::jmin(26.0f, area.getHeight() - 4.0f, area.getWidth() - 4.0f);
+    const bool captioned = button.getButtonText().isNotEmpty();
+    const auto key = captioned ? juce::Rectangle<float>(area.getX() + 2.0f, area.getCentreY() - size * 0.5f, size, size)
+                               : area.withSizeKeepingCentre(size, size);
     g.setGradientFill(juce::ColourGradient(isButtonDown ? buttonBottom : buttonTop, 0.0f, key.getY(),
                                            isButtonDown ? buttonTop : buttonBottom, 0.0f, key.getBottom(), false));
     g.fillRoundedRectangle(key, 3.0f);
@@ -224,6 +248,9 @@ void NatronLookAndFeel::drawToggleButton(juce::Graphics& g, juce::ToggleButton& 
     g.setColour(on ? ledOn : juce::Colour(0xff5b4a2c));
     g.fillEllipse(led);
 
+    if (!captioned) {
+        return;
+    }
     g.setColour(button.findColour(juce::ToggleButton::textColourId));
     g.setFont(labelFont(11.0f));
     g.drawFittedText(button.getButtonText().toUpperCase(),

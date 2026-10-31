@@ -1,5 +1,6 @@
 #pragma once
 
+#include "NatronLookAndFeel.h"
 #include "PanelLayouts.h"
 #include "Theme.h"
 #include "TouchKnob.h"
@@ -34,13 +35,26 @@ public:
     void setFitToHeight(bool shouldFit) { fitToHeight = shouldFit; resized(); repaint(); }
     int getWidthForHeight(int height) const;
 
+    // Small knobs without value boxes (the value shows while turning): for effect pedals in a row.
+    void setCompact(bool shouldBeCompact);
+
+    // Fit-to-box: like fit-to-height, but the controls shrink until every section fits the panel's
+    // width too, so a whole machine shows on one screen.
+    void setFitToBox(bool shouldFit) { fitToBox = shouldFit; fitToHeight = shouldFit; resized(); repaint(); }
+
     // Re-reads every value (after a load, or a change made elsewhere).
     void refresh();
 
 private:
     // Bigger cells on phones: knobs are turned with a finger.
-    static int cellWidth() { return Theme::isTouchDevice() ? 92 : 78; }
-    static int cellHeight() { return Theme::isTouchDevice() ? 108 : 94; }
+    int cellWidth() const { return juce::roundToInt(scale * (compact ? 54 : (Theme::isTouchDevice() ? 92 : 78))); }
+    int cellHeight() const { return juce::roundToInt(scale * (compact ? 58 : (Theme::isTouchDevice() ? 108 : 94))); }
+    bool compact = false;
+    bool fitToBox = false;
+    float scale = 1.0f; // fit-to-box shrinks cells
+    bool isDark() const { return panelColour.getPerceivedBrightness() < 0.45f; }
+    juce::Colour textColour() const { return isDark() ? juce::Colour(0xffe2e4e8) : NatronLookAndFeel::ink; }
+    void applyScale();
     static constexpr int titleHeight = 30;
     static constexpr int padding = 6;
 

@@ -5,12 +5,15 @@
 
 #include <juce_gui_basics/juce_gui_basics.h>
 
-// The mixer console: one vertical channel strip per machine (EQ, sends, pan, width, volume, mute
-// and solo, the machine's name plate at the bottom), then the master section, side by side in a
-// full-height strip that scrolls sideways. Strips lay their knobs out to fit the height.
+// One mixer screen: the channel strips of machines first .. first + count - 1 (EQ, sends, pan,
+// width, volume, mute and solo, the machine's name plate at the bottom), side by side across the
+// width; or, with `master`, the master section. Strips lay their knobs out to fit the height.
 class MixerView : public juce::Component {
 public:
-    explicit MixerView(Session& sessionToUse);
+    static constexpr int stripsPerScreen = 7; // two screens hold the whole 14-machine rack
+
+    MixerView(Session& sessionToUse, int firstMachine, bool masterScreen);
+    ~MixerView() override;
 
     // Rebuilds the strips for the current rack.
     void rebuild();
@@ -22,6 +25,8 @@ private:
     class Strip;
 
     Session& session;
+    const int first;
+    const bool showsMaster;
     juce::Viewport viewport;
     juce::Component content;
     std::vector<std::unique_ptr<Strip>> channelStrips;

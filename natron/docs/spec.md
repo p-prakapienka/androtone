@@ -106,7 +106,17 @@ playing pattern (pattern mode), quantised to 1/16 by default (verify Caustic's r
 
 ## 8. UI conventions
 
-- Landscape, single-screen-per-view navigation: Rack → Machine → Editor → Song → Mixer → Effects.
+- Landscape. The rack is one vertical scroll of one-view-tall screens, in this order: machine 1
+  sound editor, machine 1 pattern editor, ... machine N sound editor and pattern editor, FX 1-7,
+  FX 8-14, Mixer 1-7, Mixer 8-14, Master; a grip down the left edge scrolls it. A transport bar
+  runs along the bottom: rack/timeline key, menu, display (song name, position), save, pattern/song
+  mode, metronome, play, stop, record. The song timeline is its own page.
+- Sound editor: the machine's whole panel in titled sections, with mute/solo, a keyboard and octave
+  keys along the bottom. Pattern editor: a toolbar (bank A-D as 2x2 keys, patterns 1-16 as 2x8, size,
+  edit tools) over the piano roll / step grid. FX screen: per machine a name key over two effect
+  slots (pedal with its knobs and a remove key, or an empty bay with "+"). Mixer screen: seven
+  numbered strips (EQ, sends, pan, width, mute/solo, volume, name plate). Master: delay and reverb
+  over EQ, limiter and master volume.
 - Large knobs dragged vertically; long-press for fine control / reset (verify).
 - Dark, hardware-styled panels, one colour per machine.
 - Visual language (observed): each machine is a hardware panel with its own colour or material,

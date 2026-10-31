@@ -41,15 +41,20 @@ the general style, but never added to the repository, traced, or reproduced: dra
   - `Song` — the document; `SongFile` — save/load; `Session` — message-thread API that edits the
     Song and posts the matching commands, and keeps the undo history. **UI code talks to
     `Session`, never to `Engine`'s rack directly.**
-- `source/app/` — the JUCE app shell and UI. Every tab must fit one landscape phone screen
-  (~870x390 dp): strips scroll sideways and fit the height rather than stacking off-screen; check
-  new UI at that size. `MainComponent` (transport bar, Rack / Machine / Pattern / Song / Mixer /
-  Settings tabs, export job, MIDI inputs, keyboard, autosave, back button), `RackView`, `PatternEditorView`, `SongView`, `MixerView`,
-  `SettingsView` (audio device, CPU), `ParameterPanel` (generic controls; choices become menus),
-  `TouchKnob` (long-press fine adjust), `MachineExtrasPanel` (samples, formulas), `AutomationEditor`
-  (lanes), `Theme` (machine, panel and effect colours, touch sizes), `PatternClipboard` (copy/paste
-  menu items), `NatronLookAndFeel` (the hardware look: knobs, LCDs, buttons, panels, section tabs —
-  all drawn in code), `PanelLayouts` (which parameters go in which titled section of each panel).
+- `source/app/` — the JUCE app shell and UI. The layout follows the original app's screens (see
+  `docs/spec.md` §8): a transport bar along the bottom and one page above it — the rack, a single
+  vertical scroll of one-view-tall screens (`RackScroll`: per machine a sound editor and a pattern
+  editor, then FX 1-7 / 8-14, Mixer 1-7 / 8-14, Master), the song timeline (`SongView`, the Song
+  key) or `SettingsView` (menu). Every screen must fit one landscape phone screen (~870x390 dp);
+  check new UI at that size. Graphics are our own (`NatronLookAndFeel`, drawn in code).
+  `MainComponent` (bottom bar, menu, pages, export, MIDI inputs, autosave, back button),
+  `RackScroll` (screens, left scroll grip, settling on screens), `PatternEditorView` (pattern keys
+  toolbar and roll), `FxRackView` (effect pedals per machine), `MixerView` (7 strips or the master),
+  `ParameterPanel` (sectioned controls; fit-to-box shrinks a whole machine onto one screen),
+  `PanelLayouts` (which parameters go in which section), `TouchKnob` (long-press fine adjust),
+  `MachineExtrasPanel` (samples, formulas), `AutomationEditor` (lanes), `Theme` (colours, touch
+  sizes), `PatternClipboard` (copy/paste menu items). `RackView` is the older all-machines pad grid,
+  kept for its single-machine mode.
 - `tests/` — Catch2 tests. `TestHelpers.h`: offline renderers and `Rig` (engine + session +
   renderer) and `MachineRig` (one machine); `Analysis.h`: pitch, centroid, band energy, onset;
   `TestMachines.h`: `RecordingMachine` (logs the MIDI it receives) and `DataMachine` (machine data);

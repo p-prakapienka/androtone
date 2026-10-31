@@ -28,10 +28,9 @@ namespace Theme {
         return juce::Colour(0xff707880); // grey: unknown or test machines
     }
 
-    // The face of a machine's panel: a light, muted tint of its colour.
+    // The face of a machine's panel: dark, with a hint of its colour.
     inline juce::Colour panelColour(const juce::String& type) {
-        const auto colour = machineColour(type);
-        return colour.withSaturation(colour.getSaturation() * 0.45f).withBrightness(0.80f);
+        return juce::Colour(0xff2c2e32).interpolatedWith(machineColour(type), 0.08f);
     }
 
     // Effect "pedals": each type its own colour.

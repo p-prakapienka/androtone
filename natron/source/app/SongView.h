@@ -15,6 +15,7 @@
 // Above: the song's swing; below: the song automation lane editor.
 class SongView : public juce::Component, private juce::Timer {
 public:
+    ~SongView() override;
     SongView(Session& sessionToUse, const Engine& engineToShow);
 
     void refresh();

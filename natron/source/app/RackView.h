@@ -22,6 +22,9 @@ public:
 
     int getIdealHeight() const;
 
+    // Shows only `machine`'s row (and no "add" row): a machine's own bank and pattern keys.
+    void showOnly(int machine) { only = machine; repaint(); }
+
     int getSelectedMachine() const { return selected; }
     void setSelectedMachine(int machine) { selected = machine; repaint(); }
 
@@ -33,6 +36,7 @@ private:
     const Engine& engine;
     std::array<int, Engine::maxMachines> visibleBank {};
     int selected = 0;
+    int only = -1;
     int pressedName = -1;
     int pressedPadMachine = -1, pressedPad = -1; // a long press on a pad opens its pattern menu
 
@@ -41,6 +45,8 @@ private:
     static constexpr int bankWidth = 36;
     static constexpr int gap = 4;
 
+    bool isShown(int machine) const { return only < 0 || machine == only; }
+    bool showsAddRow() const { return only < 0 && session.getNumMachines() < Engine::maxMachines; }
     juce::Rectangle<int> rowBounds(int machine) const;
     juce::Rectangle<int> nameBounds(int machine) const;
     juce::Rectangle<int> addBounds() const;

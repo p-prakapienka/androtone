@@ -23,8 +23,13 @@ public:
     // A hardware panel: rounded, gradient fill, darker edge.
     static void drawPanel(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour colour, float corner = 6.0f);
     // A section inside a panel, with its title on a dark tab at the top left.
-    static void drawSection(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour panelColour, const juce::String& title);
+    // On a dark panel the tab takes `tabColour` (the machine's colour) and dark text.
+    static void drawSection(juce::Graphics& g, juce::Rectangle<float> area, juce::Colour panelColour, const juce::String& title,
+                            juce::Colour tabColour = tabFill);
     static constexpr int sectionTabHeight = 20;
+    // A bevelled key in `fill`, drawn pressed in when `pressed`; and the round LED keys carry.
+    static void drawKey(juce::Graphics& g, juce::Rectangle<float> key, juce::Colour fill, bool pressed);
+    static void drawLed(juce::Graphics& g, juce::Rectangle<float> led, bool on);
     static juce::Font labelFont(float height);
 
     void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height, float sliderPosProportional,

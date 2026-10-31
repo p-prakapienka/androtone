@@ -29,11 +29,12 @@ ParameterPanel::ParameterPanel(const ParameterSet& parametersToShow, Setter onCh
             addAndMakeVisible(*control.menu);
             makeLabel();
         } else if (spec.isToggle()) {
-            control.toggle = std::make_unique<juce::ToggleButton>(spec.name);
+            control.toggle = std::make_unique<juce::ToggleButton>(); // its caption is a label above, like a knob's
             control.toggle->onClick = [this, id = spec.id, button = control.toggle.get()] {
                 setter(id, button->getToggleState() ? 1.0f : 0.0f);
             };
             addAndMakeVisible(*control.toggle);
+            makeLabel();
         } else {
             control.slider = std::make_unique<TouchKnob>();
             control.slider->setRange(spec.minValue, spec.maxValue, spec.interval);
@@ -60,6 +61,14 @@ ParameterPanel::ParameterPanel(const ParameterSet& parametersToShow, Setter onCh
 void ParameterPanel::setLayout(const juce::String& type, juce::Colour colour) {
     sections = PanelLayouts::sectionsFor(type, parameters);
     panelColour = colour;
+    for (auto& control : controls) {
+        if (control.label != nullptr) {
+            control.label->setColour(juce::Label::textColourId, textColour());
+        }
+        if (control.toggle != nullptr) {
+            control.toggle->setColour(juce::ToggleButton::textColourId, textColour());
+        }
+    }
     // Inside a section, labels drop a leading repeat of its title ("KICK TUNE" under KICK: "TUNE").
     for (const auto& section : sections) {
         const auto prefix = section.title.toUpperCase() + " ";
@@ -70,9 +79,6 @@ void ParameterPanel::setLayout(const juce::String& type, juce::Colour colour) {
                 const auto shortName = name.substring(prefix.length());
                 if (control.label != nullptr) {
                     control.label->setText(shortName, juce::dontSendNotification);
-                }
-                if (control.toggle != nullptr) {
-                    control.toggle->setButtonText(shortName);
                 }
             }
         }
@@ -122,6 +128,22 @@ std::vector<ParameterPanel::Placed> ParameterPanel::place(int width, int& height
     }
     height = y + rowHeight + padding;
     return placed;
+}
+
+void ParameterPanel::setCompact(bool shouldBeCompact) {
+    compact = shouldBeCompact;
+    for (auto& control : controls) {
+        if (control.slider != nullptr) {
+            control.slider->setTextBoxStyle(compact ? juce::Slider::NoTextBox : juce::Slider::TextBoxBelow, false,
+                                            cellWidth() - 14, 16);
+            control.slider->setPopupDisplayEnabled(compact, true, nullptr);
+        }
+        if (control.label != nullptr) {
+            control.label->setFont(NatronLookAndFeel::labelFont(compact ? 9.0f : 10.5f));
+        }
+    }
+    resized();
+    repaint();
 }
 
 int ParameterPanel::headerHeight(const PanelLayouts::Section& section) const {
@@ -185,18 +207,46 @@ void ParameterPanel::paint(juce::Graphics& g) {
             g.fillRoundedRectangle(bar.removeFromLeft(8).toFloat(), 2.0f);
             bar.removeFromLeft(6);
         }
-        g.setColour(NatronLookAndFeel::ink);
+        g.setColour(textColour());
         g.setFont(NatronLookAndFeel::labelFont(16.0f));
         g.drawText(title.toUpperCase(), bar, juce::Justification::centredLeft);
     }
 
     const auto placed = currentPlacement();
     for (size_t s = 0; s < sections.size(); s++) {
-        NatronLookAndFeel::drawSection(g, placed[s].area.toFloat(), panelColour, sections[s].title);
+        NatronLookAndFeel::drawSection(g, placed[s].area.toFloat(), panelColour, sections[s].title,
+                                       accentColour.isTransparent() ? NatronLookAndFeel::tabFill : accentColour);
+    }
+}
+
+void ParameterPanel::applyScale() {
+    // The largest cells (up to full size) at which every section fits the width.
+    scale = 1.0f;
+    if (!fitToBox) {
+        return;
+    }
+    for (; scale > 0.42f; scale -= 0.04f) {
+        int width = 0;
+        placeInColumns(getHeight(), width);
+        if (width <= getWidth()) {
+            break;
+        }
+    }
+    const bool small = scale < 0.8f;
+    for (auto& control : controls) {
+        if (control.slider != nullptr) { // small knobs show their value while turning instead of in a box
+            control.slider->setTextBoxStyle(small || compact ? juce::Slider::NoTextBox : juce::Slider::TextBoxBelow, false,
+                                            cellWidth() - 14, 16);
+            control.slider->setPopupDisplayEnabled(small || compact, true, nullptr);
+        }
+        if (control.label != nullptr) {
+            control.label->setFont(NatronLookAndFeel::labelFont(juce::jlimit(8.0f, 10.5f, 10.5f * scale + 1.5f)));
+        }
     }
 }
 
 void ParameterPanel::resized() {
+    applyScale();
     const auto placed = currentPlacement();
     for (size_t s = 0; s < sections.size(); s++) {
         const auto& area = placed[s].area;
@@ -209,13 +259,16 @@ void ParameterPanel::resized() {
             auto& control = controls[static_cast<size_t>(sections[s].parameters[k])];
             auto inner = cell.reduced(3, 2);
             if (control.menu != nullptr) {
-                control.label->setBounds(inner.removeFromTop(16));
-                control.menu->setBounds(inner.withSizeKeepingCentre(inner.getWidth(), 28).translated(0, -10));
+                control.label->setBounds(inner.removeFromTop(compact ? 12 : 16));
+                control.menu->setBounds(compact ? inner.withSizeKeepingCentre(inner.getWidth(), 24)
+                                                : inner.withSizeKeepingCentre(inner.getWidth(), 28).translated(0, -10));
             } else if (control.slider != nullptr) {
-                control.label->setBounds(inner.removeFromTop(15));
+                control.label->setBounds(inner.removeFromTop(compact || scale < 0.8f ? 12 : 15));
                 control.slider->setBounds(inner);
             } else {
-                control.toggle->setBounds(inner.withSizeKeepingCentre(inner.getWidth(), 34));
+                control.label->setBounds(inner.removeFromTop(compact || scale < 0.8f ? 12 : 15));
+                const int size = juce::jmin(30, inner.getHeight(), inner.getWidth());
+                control.toggle->setBounds(inner.withSizeKeepingCentre(size, size));
             }
         }
     }

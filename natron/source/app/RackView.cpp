@@ -30,7 +30,7 @@ RackView::RackView(Session& sessionToUse, const Engine& engineToShow) :
     session(sessionToUse), engine(engineToShow) {}
 
 int RackView::getIdealHeight() const {
-    return (session.getNumMachines() + 1) * (rowHeight + gap);
+    return only >= 0 ? rowHeight + gap : (session.getNumMachines() + 1) * (rowHeight + gap);
 }
 
 juce::Rectangle<int> RackView::nameBounds(int machine) const {
@@ -42,7 +42,7 @@ juce::Rectangle<int> RackView::addBounds() const {
 }
 
 juce::Rectangle<int> RackView::rowBounds(int machine) const {
-    return { 0, machine * (rowHeight + gap), getWidth(), rowHeight };
+    return { 0, (only >= 0 ? 0 : machine) * (rowHeight + gap), getWidth(), rowHeight };
 }
 
 juce::Rectangle<int> RackView::bankBounds(int machine, int bank) const {
@@ -59,7 +59,7 @@ juce::Rectangle<int> RackView::padBounds(int machine, int slot) const {
 void RackView::paint(juce::Graphics& g) {
     g.fillAll(background);
 
-    if (session.getNumMachines() < Engine::maxMachines) {
+    if (showsAddRow()) {
         // An empty rack bay with a "+" key.
         const auto add = addBounds().reduced(0, 6).toFloat();
         g.setColour(juce::Colour(0xff1f2023));
@@ -74,6 +74,9 @@ void RackView::paint(juce::Graphics& g) {
     const bool blinkOn = (juce::Time::getMillisecondCounter() / 250) % 2 == 0;
 
     for (int m = 0; m < session.getNumMachines(); m++) {
+        if (!isShown(m)) {
+            continue;
+        }
         const auto& state = session.getSong().machines[static_cast<size_t>(m)];
         const auto row = rowBounds(m).toFloat();
         const auto colour = Theme::machineColour(state.type);
@@ -137,11 +140,14 @@ void RackView::paint(juce::Graphics& g) {
 
 void RackView::mouseDown(const juce::MouseEvent& event) {
     const auto position = event.getPosition();
-    if (session.getNumMachines() < Engine::maxMachines && addBounds().contains(position)) {
+    if (showsAddRow() && addBounds().contains(position)) {
         showAddMenu();
         return;
     }
     for (int m = 0; m < session.getNumMachines(); m++) {
+        if (!isShown(m)) {
+            continue;
+        }
         if (!rowBounds(m).contains(position)) {
             continue;
         }

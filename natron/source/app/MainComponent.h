@@ -1,10 +1,6 @@
 #pragma once
 
-#include "MachineExtrasPanel.h"
-#include "MixerView.h"
-#include "ParameterPanel.h"
-#include "PatternEditorView.h"
-#include "RackView.h"
+#include "RackScroll.h"
 #include "SettingsView.h"
 #include "SongView.h"
 #include "core/Engine.h"
@@ -13,15 +9,13 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
-// Transport bar (play, mode, tempo, position, save/load/export) over six tabs, each one screen
-// (landscape phone first):
-//  Rack     — machines and pattern pads
-//  Machine  — the selected machine's panel, its two effect pedals and its extras, side by side in
-//             a full-height strip that scrolls sideways
-//  Pattern  — piano roll / step grid for the selected machine's selected pattern
-//  Song     — the song timeline
-//  Mixer    — channel strips and the master section
-//  Settings — audio device and buffer size, CPU, new/demo song
+// One page at a time above a transport bar along the bottom:
+//  the rack — every screen in one vertical scroll (see RackScroll): each machine's sound editor and
+//             pattern editor, the FX screens, the mixer screens and the master;
+//  the song timeline (the Song key toggles it);
+//  settings (from the menu).
+// Bottom bar: Song, Menu (undo/redo, tempo, files, export, settings), the display (song name and
+// position; tap it for tempo), Save, Pattern/Song mode, Click, Play, Stop, Rec.
 // The song is autosaved when the app is backgrounded or closed, and restored on launch.
 class MainComponent : public juce::AudioAppComponent,
                       private juce::Timer,
@@ -43,47 +37,13 @@ public:
     // Writes the autosave; called when the app is suspended or quits.
     void saveAutosave();
 
-    // Android back button: returns to the Rack tab; returns false (leave the app) when already there.
+    // Android back button: returns to the rack; returns false (leave the app) when already there.
     bool handleBackButton();
 
 private:
-    // The Rack tab: every machine's row of pattern pads.
-    class RackPage : public juce::Component {
-    public:
-        explicit RackPage(MainComponent& owner);
-        void resized() override;
-
-        RackView rack;
-
-    private:
-        juce::Viewport viewport;
-    };
-
-    // The Machine tab: the selected machine's panel, extras and effect pedals in one strip.
-    class MachinePage : public juce::Component {
-    public:
-        explicit MachinePage(MainComponent& owner);
-        void resized() override;
-        void paint(juce::Graphics& g) override;
-        void showMachine(int machine);
-
-    private:
-        struct EffectSlotControls {
-            juce::Label label;
-            juce::ComboBox type;
-            std::unique_ptr<ParameterPanel> panel;
-        };
-
-        MainComponent& owner;
-        int machine = -1;
-        juce::Viewport viewport;
-        juce::Component content;
-        std::unique_ptr<ParameterPanel> machinePanel;
-        std::unique_ptr<MachineExtrasPanel> extras;
-        std::array<EffectSlotControls, Engine::effectsPerMachine> effectSlots;
-    };
-
     class ExportJob;
+    class Display;
+    class TempoPanel;
 
     Engine engine;
     Session session { engine };
@@ -91,28 +51,24 @@ private:
     juce::StringArray openMidiInputs;
     int midiScanCountdown = 0;
 
-    juce::Label title;
-    juce::TextButton playButton { "Play" };
-    juce::TextButton modeButton { "Pattern" };
+    juce::TextButton songButton { "Song" };   // timeline <-> rack
+    juce::TextButton menuButton { "Menu" };
+    std::unique_ptr<Display> display;          // song name and position; tap for tempo
     juce::TextButton saveButton { "Save" };
-    juce::TextButton loadButton { "Load" };
-    juce::TextButton exportButton { "Export" };
-    juce::TextButton fileButton { "File" }; // replaces Save/Load/Export on narrow screens
-    juce::TextButton recordButton { "Rec" }; // record live notes into the playing pattern
-    juce::TextButton clickButton { "Click" }; // metronome
-    juce::TextButton tapButton { "Tap" };     // tap tempo
+    juce::TextButton modeButton { "Pattern" };
+    juce::TextButton clickButton { "Click" };  // metronome
+    juce::TextButton playButton { "Play" };
+    juce::TextButton stopButton { "Stop" };
+    juce::TextButton recordButton { "Rec" };   // record live notes into the playing pattern
     TapTempo tapTempo;
-    juce::TextButton undoButton { "Undo" };
-    juce::TextButton redoButton { "Redo" };
-    juce::Slider tempoSlider;
-    juce::Label positionLabel;
-    juce::TabbedComponent tabs { juce::TabbedButtonBar::TabsAtTop };
-    RackPage* rackPage = nullptr;
-    MachinePage* machinePage = nullptr;
-    PatternEditorView* patternEditor = nullptr;
-    SongView* songView = nullptr;
-    MixerView* mixerView = nullptr;
-    SettingsView* settingsView = nullptr;
+    juce::String songName { "Untitled" };
+    juce::File songFile;                       // where Save writes, once saved or loaded
+
+    std::unique_ptr<RackScroll> rack;
+    std::unique_ptr<SongView> songView;
+    std::unique_ptr<SettingsView> settingsView;
+    juce::Component* page = nullptr;           // the one showing
+    int selectedMachine = 0;
     juce::ApplicationProperties settings;
     std::unique_ptr<juce::FileChooser> chooser;
     std::unique_ptr<ExportJob> exportJob;
@@ -128,11 +84,12 @@ private:
     void saveSong();
     void loadSong();
     void exportAudio(juce::Component& anchor);
-    void showFileMenu();
+    void showMenu();
+    void showTempo();
+    void showPage(juce::Component* newPage);
     void loadNewSong(const Song& song);
     void undo();
     void redo();
-    void updateUndoButtons();
     void startExport(bool wholeSong);
     void startMidiExport(bool wholeSong);
     static void showError(const juce::String& message);

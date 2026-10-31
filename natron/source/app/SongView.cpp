@@ -303,6 +303,8 @@ void SongView::refresh() {
     timeline->repaint();
 }
 
+SongView::~SongView() = default;
+
 void SongView::resized() {
     auto area = getLocalBounds();
     auto header = area.removeFromTop(34);
