@@ -43,6 +43,15 @@ int Arrangement::place(BlockList& blocks, SongBlock block) {
     return indexAt(blocks, block.startBar);
 }
 
+int Arrangement::duplicate(BlockList& blocks, int index) {
+    if (index < 0 || index >= static_cast<int>(blocks.size())) {
+        return -1;
+    }
+    auto copy = blocks[static_cast<size_t>(index)];
+    copy.startBar = copy.endBar();
+    return place(blocks, copy);
+}
+
 bool Arrangement::remove(BlockList& blocks, int index) {
     if (index < 0 || index >= static_cast<int>(blocks.size())) {
         return false;

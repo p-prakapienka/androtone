@@ -118,8 +118,7 @@ public:
         working = owner.session.getBlocks(dragRow);
         blockIndex = Arrangement::indexAt(working, bar);
         if (blockIndex >= 0 && event.mods.isPopupMenu()) {
-            Arrangement::remove(working, blockIndex);
-            commit();
+            showBlockMenu();
             return;
         }
         if (blockIndex >= 0) {
@@ -176,8 +175,7 @@ public:
                 Arrangement::place(working, { pressBar, machine.patterns[static_cast<size_t>(pattern)].bars, pattern });
                 commit();
             } else if ((mode == Mode::moveBlock || mode == Mode::resizeBlock) && event.getLengthOfMousePress() >= 500) {
-                Arrangement::remove(working, blockIndex); // long press
-                commit();
+                showBlockMenu(); // long press
             }
         }
         dragged = false;
@@ -209,6 +207,35 @@ private:
     bool pinching = false;
     float pinchStartDistance = 1.0f;
     float pinchStartWidth = 44.0f;
+
+    // Duplicate / Delete for the pressed block (long press, or right-click).
+    void showBlockMenu() {
+        juce::PopupMenu menu;
+        const int row = dragRow;
+        const int index = blockIndex;
+        juce::Component::SafePointer<juce::Component> safe(this);
+        menu.addItem("Duplicate", [this, safe, row, index] {
+            if (safe != nullptr && row < owner.session.getNumMachines()) {
+                auto blocks = owner.session.getBlocks(row);
+                if (Arrangement::duplicate(blocks, index) >= 0) {
+                    owner.session.setBlocks(row, blocks);
+                    owner.resized();
+                    repaint();
+                }
+            }
+        });
+        menu.addItem("Delete", [this, safe, row, index] {
+            if (safe != nullptr && row < owner.session.getNumMachines()) {
+                auto blocks = owner.session.getBlocks(row);
+                if (Arrangement::remove(blocks, index)) {
+                    owner.session.setBlocks(row, blocks);
+                    owner.resized();
+                    repaint();
+                }
+            }
+        });
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this).withMousePosition());
+    }
 
     void commit() {
         owner.session.setBlocks(dragRow, working);

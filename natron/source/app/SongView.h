@@ -9,7 +9,7 @@
 // The song timeline: one row per machine, one column per bar, pattern blocks on the rows.
 //  - tap an empty bar: place the machine's selected pattern there (as long as the pattern)
 //  - drag a block: move it; drag its right edge: resize it
-//  - long-press or right-click a block: delete it
+//  - long-press or right-click a block: Duplicate / Delete menu
 //  - drag across the ruler: set the loop region (and turn looping on); tap the ruler: toggle looping
 //  - pinch / magnify / ctrl+wheel: zoom
 // Above: the song's swing; below: the song automation lane editor.

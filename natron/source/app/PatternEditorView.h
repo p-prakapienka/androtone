@@ -12,6 +12,7 @@
 //  - drag a note: move it; drag its right edge: resize (overlap the next note on Acid = slide)
 //  - long-press a note: cycle velocity, default → accent → soft
 //  - pinch (or trackpad magnify / ctrl+wheel): zoom horizontally
+//  - Pattern... menu: copy / paste / clear, transpose, double the length
 // Drums show one row per kit sound (a step grid); other machines show a keyboard range.
 // Below: the pattern's automation lane editor and an on-screen keyboard that plays the machine.
 class PatternEditorView : public juce::Component, private juce::Timer {
@@ -34,10 +35,13 @@ private:
 
     juce::Label title;
     juce::ComboBox lengthBox;
+    juce::TextButton toolsButton { "Pattern..." }; // copy/paste/clear, transpose, double
     juce::Viewport viewport;
     std::unique_ptr<Grid> grid;
     AutomationEditor automation;
     juce::MidiKeyboardComponent keyboard;
 
     void timerCallback() override;
+    void showToolsMenu();
+    void editPattern(const std::function<bool(Pattern&)>& change);
 };

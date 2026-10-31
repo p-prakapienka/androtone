@@ -13,6 +13,7 @@
       <FILE id="NtApMh" name="MixerView.h" compile="0" resource="0" file="source/app/MixerView.h" />
       <FILE id="NtApPc" name="ParameterPanel.cpp" compile="1" resource="0" file="source/app/ParameterPanel.cpp" />
       <FILE id="NtApPh" name="ParameterPanel.h" compile="0" resource="0" file="source/app/ParameterPanel.h" />
+      <FILE id="mbOQqA" name="PatternClipboard.h" compile="0" resource="0" file="source/app/PatternClipboard.h" />
       <FILE id="NtApEc" name="PatternEditorView.cpp" compile="1" resource="0" file="source/app/PatternEditorView.cpp" />
       <FILE id="NtApEh" name="PatternEditorView.h" compile="0" resource="0" file="source/app/PatternEditorView.h" />
       <FILE id="NtApRc" name="RackView.cpp" compile="1" resource="0" file="source/app/RackView.cpp" />

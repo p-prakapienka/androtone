@@ -1,5 +1,6 @@
 #include "RackView.h"
 
+#include "PatternClipboard.h"
 #include "Theme.h"
 #include "core/MachineRegistry.h"
 
@@ -133,7 +134,14 @@ void RackView::mouseDown(const juce::MouseEvent& event) {
         }
         for (int slot = 0; slot < PatternBank::patternsPerBank; slot++) {
             if (padBounds(m, slot).contains(position)) {
-                session.selectPattern(m, PatternBank::indexOf(visibleBank[static_cast<size_t>(m)], slot));
+                const int index = PatternBank::indexOf(visibleBank[static_cast<size_t>(m)], slot);
+                if (event.mods.isPopupMenu()) {
+                    showPatternMenu(m, index);
+                    return;
+                }
+                session.selectPattern(m, index);
+                pressedPadMachine = m;
+                pressedPad = index;
                 repaint();
                 return;
             }
@@ -142,6 +150,15 @@ void RackView::mouseDown(const juce::MouseEvent& event) {
 }
 
 void RackView::mouseUp(const juce::MouseEvent& event) {
+    if (pressedPad >= 0) {
+        const int padMachine = pressedPadMachine;
+        const int pad = pressedPad;
+        pressedPadMachine = pressedPad = -1;
+        if (event.getLengthOfMousePress() >= 500 && event.getDistanceFromDragStart() < 10) {
+            showPatternMenu(padMachine, pad);
+        }
+        return;
+    }
     const int machine = pressedName;
     pressedName = -1;
     if (machine < 0 || machine >= session.getNumMachines() || !nameBounds(machine).contains(event.getPosition())) {
@@ -173,6 +190,17 @@ void RackView::showAddMenu() {
             }
         }
     });
+}
+
+void RackView::showPatternMenu(int machine, int index) {
+    juce::PopupMenu menu;
+    PatternClipboard::addItems(menu, session, machine, index, [this] {
+        repaint();
+        if (onRackChanged) {
+            onRackChanged();
+        }
+    });
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(this));
 }
 
 void RackView::showMachineMenu(int machine) {

@@ -26,7 +26,7 @@ public:
     void setSelectedMachine(int machine) { selected = machine; repaint(); }
 
     std::function<void(int machine)> onSelect;
-    std::function<void()> onRackChanged; // a machine was added or removed
+    std::function<void()> onRackChanged; // a machine was added or removed, or patterns pasted/cleared
 
 private:
     Session& session;
@@ -34,6 +34,7 @@ private:
     std::array<int, Engine::maxMachines> visibleBank {};
     int selected = 0;
     int pressedName = -1;
+    int pressedPadMachine = -1, pressedPad = -1; // a long press on a pad opens its pattern menu
 
     static constexpr int rowHeight = 56;
     static constexpr int nameWidth = 110;
@@ -45,6 +46,7 @@ private:
     juce::Rectangle<int> addBounds() const;
     void showAddMenu();
     void showMachineMenu(int machine);
+    void showPatternMenu(int machine, int index);
     juce::Rectangle<int> bankBounds(int machine, int bank) const;
     juce::Rectangle<int> padBounds(int machine, int slot) const;
 };

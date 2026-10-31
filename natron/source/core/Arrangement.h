@@ -33,6 +33,10 @@ namespace Arrangement {
 
     bool remove(BlockList& blocks, int index);
 
+    // Places a copy of block `index` right after it (cutting into whatever is there). Returns the
+    // copy's index, or -1 (no such block, or it would run past maxBars).
+    int duplicate(BlockList& blocks, int index);
+
     // Moves / resizes block `index` (then re-places it, so it can cut into neighbours). Return the
     // block's new index, or -1.
     int move(BlockList& blocks, int index, int newStartBar);

@@ -1,5 +1,6 @@
 #include "PatternEditorView.h"
 
+#include "PatternClipboard.h"
 #include "Theme.h"
 
 #include "core/PatternEditing.h"
@@ -274,6 +275,8 @@ PatternEditorView::PatternEditorView(Session& sessionToUse, const Engine& engine
         }
     };
     addAndMakeVisible(lengthBox);
+    toolsButton.onClick = [this] { showToolsMenu(); };
+    addAndMakeVisible(toolsButton);
 
     grid = std::make_unique<Grid>(*this);
     viewport.setViewedComponent(grid.get(), false);
@@ -318,6 +321,8 @@ void PatternEditorView::resized() {
     auto area = getLocalBounds();
     auto header = area.removeFromTop(40).reduced(4);
     lengthBox.setBounds(header.removeFromRight(110));
+    header.removeFromRight(6);
+    toolsButton.setBounds(header.removeFromRight(100));
     title.setBounds(header);
     keyboard.setBounds(area.removeFromBottom(64));
     area.removeFromBottom(4);
@@ -326,6 +331,35 @@ void PatternEditorView::resized() {
     viewport.setBounds(area);
     grid->fitWidth = static_cast<float>(viewport.getMaximumVisibleWidth());
     grid->setSize(juce::jmax(viewport.getMaximumVisibleWidth(), grid->idealWidth()), grid->idealHeight());
+}
+
+void PatternEditorView::editPattern(const std::function<bool(Pattern&)>& change) {
+    if (machine >= session.getNumMachines()) {
+        return;
+    }
+    const int index = session.getSong().machines[static_cast<size_t>(machine)].selectedPattern;
+    auto pattern = session.getPattern(machine, index);
+    if (change(pattern)) {
+        session.setPattern(machine, index, pattern);
+    }
+    refresh();
+}
+
+void PatternEditorView::showToolsMenu() {
+    if (machine >= session.getNumMachines()) {
+        return;
+    }
+    const int index = session.getSong().machines[static_cast<size_t>(machine)].selectedPattern;
+    juce::PopupMenu menu;
+    PatternClipboard::addItems(menu, session, machine, index, [this] { refresh(); });
+    menu.addSeparator();
+    for (const int semitones : { 1, -1, 12, -12 }) {
+        menu.addItem(juce::String("Transpose ") + (semitones > 0 ? "+" : "") + juce::String(semitones),
+                     [this, semitones] { editPattern([semitones](Pattern& p) { return PatternEditing::transpose(p, semitones); }); });
+    }
+    menu.addItem("Double length", session.getPattern(machine, index).bars < 8, false,
+                 [this] { editPattern([](Pattern& p) { return PatternEditing::doubleLength(p); }); });
+    menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&toolsButton));
 }
 
 void PatternEditorView::timerCallback() {

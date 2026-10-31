@@ -112,4 +112,71 @@ namespace PatternEditing {
         pattern.bars = bars;
         return true;
     }
+
+    // Moves every note by `semitones`. Changes nothing (returns false) if a note would leave 0..127.
+    inline bool transpose(Pattern& pattern, int semitones) {
+        for (const auto& note : pattern.notes) {
+            if (note.pitch + semitones < 0 || note.pitch + semitones > 127) {
+                return false;
+            }
+        }
+        for (auto& note : pattern.notes) {
+            note.pitch += semitones;
+        }
+        sort(pattern);
+        return true;
+    }
+
+    // Doubles the length and repeats the pattern (notes and automation) into the new half. Hidden
+    // notes past the old end are dropped, since the copy now sits there. Fails at 8 bars.
+    inline bool doubleLength(Pattern& pattern) {
+        const int bars = pattern.bars * 2;
+        if (!Pattern::isValidLength(bars)) {
+            return false;
+        }
+        const double length = pattern.lengthInBeats();
+        std::vector<Note> notes;
+        for (const auto& note : pattern.notes) {
+            if (note.start < length - 1.0e-9) {
+                notes.push_back(note);
+            }
+        }
+        const size_t count = notes.size();
+        for (size_t i = 0; i < count; i++) {
+            Note copy = notes[i];
+            copy.start += length;
+            notes.push_back(copy);
+        }
+        for (auto& lane : pattern.automation) {
+            const auto original = lane.points;
+            lane.points.clear();
+            for (const auto& point : original) {
+                if (point.beat < length - 1.0e-9) {
+                    lane.setPoint(point.beat, point.value);
+                    lane.setPoint(point.beat + length, point.value);
+                } else if (point.beat < length + 1.0e-9) {
+                    lane.setPoint(2.0 * length, point.value); // a point on the old end moves to the new end
+                }
+            }
+        }
+        pattern.bars = bars;
+        pattern.notes = std::move(notes);
+        sort(pattern);
+        return true;
+    }
+
+    // Removes every note and automation lane; keeps the length.
+    inline void clear(Pattern& pattern) {
+        pattern.notes.clear();
+        pattern.automation.clear();
+    }
+
+    // A copied pattern as pasted onto a machine: onto another machine type only the notes go, as its
+    // automation lanes name the source machine's parameters.
+    inline Pattern forPaste(Pattern pattern, bool sameMachineType) {
+        if (!sameMachineType) {
+            pattern.automation.clear();
+        }
+        return pattern;
+    }
 }

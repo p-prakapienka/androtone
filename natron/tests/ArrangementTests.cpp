@@ -140,3 +140,72 @@ TEST_CASE("Pattern length changes keep notes", "[editing]") {
     CHECK_FALSE(PatternEditing::setBars(p, 3));
     CHECK(p.bars == 1);
 }
+
+TEST_CASE("Duplicating a block puts a copy right after it", "[arrangement]") {
+    BlockList row { { 0, 2, 5 }, { 3, 2, 7 } };
+    CHECK(Arrangement::duplicate(row, 0) == 1);
+    REQUIRE(row.size() == 3);
+    CHECK(row[1] == SongBlock { 2, 2, 5 });
+    CHECK(row[2] == SongBlock { 4, 1, 7 }); // the copy cut into the next block
+    CHECK(Arrangement::isValid(row));
+
+    BlockList end { { Arrangement::maxBars - 1, 1, 0 } };
+    CHECK(Arrangement::duplicate(end, 0) == -1);
+    CHECK(Arrangement::duplicate(end, 3) == -1);
+    CHECK(end.size() == 1);
+}
+
+TEST_CASE("Transposing moves every note or none", "[editing]") {
+    Pattern p;
+    p.notes = { { 0.0, 0.25, 60, 0.8f }, { 1.0, 0.25, 64, 0.8f } };
+    CHECK(PatternEditing::transpose(p, 12));
+    CHECK(p.notes[0].pitch == 72);
+    CHECK(p.notes[1].pitch == 76);
+    CHECK_FALSE(PatternEditing::transpose(p, 60)); // 76 + 60 > 127
+    CHECK(p.notes[1].pitch == 76);
+    CHECK(PatternEditing::transpose(p, -72));
+    CHECK(p.notes[0].pitch == 0);
+}
+
+TEST_CASE("Doubling a pattern repeats its notes and automation", "[editing]") {
+    Pattern p;
+    p.bars = 2;
+    p.notes = { { 0.0, 0.5, 60, 0.8f }, { 7.5, 1.0, 62, 1.0f }, { 9.0, 0.25, 70, 0.8f } }; // the last is past the end
+    AutomationLane lane;
+    lane.target.parameterId = "cutoff";
+    lane.points = { { 0.0, 0.1f }, { 4.0, 0.9f }, { 8.0, 0.3f } };
+    p.automation = { lane };
+
+    REQUIRE(PatternEditing::doubleLength(p));
+    CHECK(p.bars == 4);
+    REQUIRE(p.notes.size() == 4);
+    CHECK(p.notes[0] == Note { 0.0, 0.5, 60, 0.8f });
+    CHECK(p.notes[1] == Note { 7.5, 1.0, 62, 1.0f });
+    CHECK(p.notes[2] == Note { 8.0, 0.5, 60, 0.8f });
+    CHECK(p.notes[3] == Note { 15.5, 1.0, 62, 1.0f });
+    const std::vector<AutomationPoint> expected { { 0.0, 0.1f }, { 4.0, 0.9f }, { 8.0, 0.1f }, { 12.0, 0.9f }, { 16.0, 0.3f } };
+    CHECK(p.automation[0].points == expected);
+
+    p.bars = 8;
+    CHECK_FALSE(PatternEditing::doubleLength(p));
+}
+
+TEST_CASE("Clearing and pasting patterns", "[editing]") {
+    Pattern p;
+    p.bars = 2;
+    p.notes = { { 0.0, 0.25, 60, 0.8f } };
+    AutomationLane lane;
+    lane.target.parameterId = "cutoff";
+    lane.points = { { 0.0, 0.5f } };
+    p.automation = { lane };
+
+    CHECK(PatternEditing::forPaste(p, true) == p);
+    const auto other = PatternEditing::forPaste(p, false);
+    CHECK(other.notes == p.notes);
+    CHECK(other.automation.empty());
+    CHECK(other.bars == 2);
+
+    PatternEditing::clear(p);
+    CHECK(p.isEmpty());
+    CHECK(p.bars == 2);
+}
