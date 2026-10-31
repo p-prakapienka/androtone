@@ -41,8 +41,10 @@ the general style, but never added to the repository, traced, or reproduced: dra
   - `Song` — the document; `SongFile` — save/load; `Session` — message-thread API that edits the
     Song and posts the matching commands, and keeps the undo history. **UI code talks to
     `Session`, never to `Engine`'s rack directly.**
-- `source/app/` — the JUCE app shell and UI: `MainComponent` (transport bar, tabs, export job, MIDI
-  inputs, keyboard, autosave, back button), `RackView`, `PatternEditorView`, `SongView`, `MixerView`,
+- `source/app/` — the JUCE app shell and UI. Every tab must fit one landscape phone screen
+  (~870x390 dp): strips scroll sideways and fit the height rather than stacking off-screen; check
+  new UI at that size. `MainComponent` (transport bar, Rack / Machine / Pattern / Song / Mixer /
+  Settings tabs, export job, MIDI inputs, keyboard, autosave, back button), `RackView`, `PatternEditorView`, `SongView`, `MixerView`,
   `SettingsView` (audio device, CPU), `ParameterPanel` (generic controls; choices become menus),
   `TouchKnob` (long-press fine adjust), `MachineExtrasPanel` (samples, formulas), `AutomationEditor`
   (lanes), `Theme` (machine, panel and effect colours, touch sizes), `PatternClipboard` (copy/paste

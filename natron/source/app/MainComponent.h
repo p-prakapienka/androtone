@@ -13,8 +13,11 @@
 
 #include <juce_audio_utils/juce_audio_utils.h>
 
-// Transport bar (play, mode, tempo, position, save/load/export) over five tabs:
-//  Rack     — machines and pattern pads, the selected machine's controls and its two effect slots
+// Transport bar (play, mode, tempo, position, save/load/export) over six tabs, each one screen
+// (landscape phone first):
+//  Rack     — machines and pattern pads
+//  Machine  — the selected machine's panel, its two effect pedals and its extras, side by side in
+//             a full-height strip that scrolls sideways
 //  Pattern  — piano roll / step grid for the selected machine's selected pattern
 //  Song     — the song timeline
 //  Mixer    — channel strips and the master section
@@ -44,14 +47,25 @@ public:
     bool handleBackButton();
 
 private:
-    // The Rack tab: the rack on top; below, the selected machine's controls and effect slots.
+    // The Rack tab: every machine's row of pattern pads.
     class RackPage : public juce::Component {
     public:
         explicit RackPage(MainComponent& owner);
         void resized() override;
-        void showMachine(int machine);
 
         RackView rack;
+
+    private:
+        juce::Viewport viewport;
+    };
+
+    // The Machine tab: the selected machine's panel, extras and effect pedals in one strip.
+    class MachinePage : public juce::Component {
+    public:
+        explicit MachinePage(MainComponent& owner);
+        void resized() override;
+        void paint(juce::Graphics& g) override;
+        void showMachine(int machine);
 
     private:
         struct EffectSlotControls {
@@ -61,6 +75,7 @@ private:
         };
 
         MainComponent& owner;
+        int machine = -1;
         juce::Viewport viewport;
         juce::Component content;
         std::unique_ptr<ParameterPanel> machinePanel;
@@ -93,6 +108,7 @@ private:
     juce::Label positionLabel;
     juce::TabbedComponent tabs { juce::TabbedButtonBar::TabsAtTop };
     RackPage* rackPage = nullptr;
+    MachinePage* machinePage = nullptr;
     PatternEditorView* patternEditor = nullptr;
     SongView* songView = nullptr;
     MixerView* mixerView = nullptr;

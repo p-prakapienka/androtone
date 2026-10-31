@@ -30,10 +30,21 @@ namespace {
 // One machine's channel: knobs in two columns, mute / solo, and its name plate.
 class MixerView::Strip : public juce::Component {
 public:
-    static constexpr int width = 120;
-    static constexpr int knobSize = 56;
-    static constexpr int rowHeight = knobSize + 18;
-    static constexpr int idealHeight = 4 * rowHeight + 44 + 30 + 16;
+    static constexpr int labelHeight = 14;
+    static constexpr int footerHeight = 30 + 40 + 16; // name plate, M / S, margins
+    static constexpr int cellWidth = 58;
+
+    // Knob columns for a strip `height` tall: as few as keep knobs at least 40 px.
+    static int columnsFor(int height) {
+        for (int columns = 2; columns < 4; columns++) {
+            const int rows = (8 + columns - 1) / columns;
+            if ((height - footerHeight) / rows - labelHeight >= 40) {
+                return columns;
+            }
+        }
+        return 4;
+    }
+    static int widthFor(int height) { return columnsFor(height) * cellWidth + 16; }
 
     Strip(Session& sessionToUse, int machineIndex) :
         session(sessionToUse), machine(machineIndex) {
@@ -99,15 +110,19 @@ public:
 
     void resized() override {
         auto area = getLocalBounds().reduced(8, 8);
+        auto footer = area.removeFromBottom(footerHeight - 16);
+        const int columns = columnsFor(getHeight());
+        const int rows = (static_cast<int>(knobs.size()) + columns - 1) / columns;
+        const int rowHeight = area.getHeight() / juce::jmax(1, rows);
+        const int knobSize = juce::jlimit(32, 60, juce::jmin(rowHeight - labelHeight, cellWidth));
         for (size_t i = 0; i < knobs.size(); i++) {
-            const int column = static_cast<int>(i % 2);
-            const int row = static_cast<int>(i / 2);
-            const juce::Rectangle<int> cell(area.getX() + column * (area.getWidth() / 2), area.getY() + row * rowHeight,
-                                            area.getWidth() / 2, rowHeight);
-            knobs[i].label->setBounds(cell.withHeight(14));
-            knobs[i].knob->setBounds(cell.withTrimmedTop(14).withSizeKeepingCentre(knobSize, knobSize));
+            const int column = static_cast<int>(i) % columns;
+            const int row = static_cast<int>(i) / columns;
+            const juce::Rectangle<int> cell(area.getX() + column * cellWidth, area.getY() + row * rowHeight, cellWidth, rowHeight);
+            knobs[i].label->setBounds(cell.withHeight(labelHeight));
+            knobs[i].knob->setBounds(cell.withTrimmedTop(labelHeight).withSizeKeepingCentre(knobSize, knobSize));
         }
-        auto buttons = area.withTrimmedTop(4 * rowHeight + 6).removeFromTop(34);
+        auto buttons = footer.removeFromTop(36);
         mute.setBounds(buttons.removeFromLeft(buttons.getWidth() / 2).reduced(3, 2));
         solo.setBounds(buttons.reduced(3, 2));
     }
@@ -129,11 +144,9 @@ private:
 
 MixerView::MixerView(Session& sessionToUse) :
     session(sessionToUse) {
-    stripViewport.setViewedComponent(&strips, false);
-    stripViewport.setScrollBarsShown(false, true);
-    addAndMakeVisible(stripViewport);
-    masterViewport.setScrollBarsShown(true, false);
-    addAndMakeVisible(masterViewport);
+    viewport.setViewedComponent(&content, false);
+    viewport.setScrollBarsShown(false, true);
+    addAndMakeVisible(viewport);
     rebuild();
 }
 
@@ -142,14 +155,15 @@ void MixerView::rebuild() {
     for (int m = 0; m < session.getNumMachines(); m++) {
         if (session.getMixerParameters(m) != nullptr) {
             channelStrips.push_back(std::make_unique<Strip>(session, m));
-            strips.addAndMakeVisible(*channelStrips.back());
+            content.addAndMakeVisible(*channelStrips.back());
         }
     }
     master = std::make_unique<ParameterPanel>(
         session.getMasterParameters(), [this](const juce::String& id, float value) { session.setMasterParameter(id, value); },
         "Master");
     master->setLayout("Master", juce::Colour(0xff9aa3ad));
-    masterViewport.setViewedComponent(master.get(), false);
+    master->setFitToHeight(true);
+    content.addAndMakeVisible(*master);
     resized();
 }
 
@@ -158,20 +172,16 @@ void MixerView::paint(juce::Graphics& g) {
 }
 
 void MixerView::resized() {
-    auto area = getLocalBounds();
-    // Strips on top at full height when there's room; the master section takes the rest.
-    const int stripHeight = juce::jmin(Strip::idealHeight, area.getHeight() - 120);
-    stripViewport.setBounds(area.removeFromTop(juce::jmax(160, stripHeight + 14)));
+    viewport.setBounds(getLocalBounds());
+    const int height = juce::jmax(200, viewport.getHeight() - viewport.getScrollBarThickness() - 2);
     int x = 0;
     for (auto& strip : channelStrips) {
-        strip->setBounds(x, 0, Strip::width, Strip::idealHeight);
-        x += Strip::width + 4;
+        strip->setBounds(x, 0, Strip::widthFor(height), height);
+        x = strip->getRight() + 4;
     }
-    strips.setSize(juce::jmax(x, stripViewport.getMaximumVisibleWidth()), Strip::idealHeight);
-    area.removeFromTop(6);
-    masterViewport.setBounds(area);
     if (master != nullptr) {
-        const int width = juce::jmax(1, masterViewport.getMaximumVisibleWidth());
-        master->setBounds(0, 0, width, master->getHeightForWidth(width));
+        master->setBounds(x + 4, 0, master->getWidthForHeight(height), height);
+        x = master->getRight();
     }
+    content.setSize(juce::jmax(x, viewport.getWidth()), height);
 }

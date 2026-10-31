@@ -283,6 +283,10 @@ SongView::SongView(Session& sessionToUse, const Engine& engineToShow) :
     swing.setRange(Song::minSwing * 100.0, Song::maxSwing * 100.0, 1.0);
     swing.setTextValueSuffix(" %");
     swing.setTextBoxStyle(juce::Slider::TextBoxRight, false, 70, 28);
+    automationButton.setClickingTogglesState(true);
+    automationButton.setToggleState(!Theme::isTouchDevice(), juce::dontSendNotification);
+    automationButton.onClick = [this] { resized(); };
+    addAndMakeVisible(automationButton);
     swing.onValueChange = [this] { session.setSwing(static_cast<float>(swing.getValue() / 100.0)); };
     addAndMakeVisible(swing);
     addAndMakeVisible(automation);
@@ -303,9 +307,13 @@ void SongView::resized() {
     auto area = getLocalBounds();
     auto header = area.removeFromTop(34);
     swingLabel.setBounds(header.removeFromLeft(60));
-    swing.setBounds(header.removeFromLeft(300));
-    automation.setBounds(area.removeFromBottom(juce::jmin(150, area.getHeight() / 3)));
-    area.removeFromBottom(4);
+    automationButton.setBounds(header.removeFromRight(120).reduced(2));
+    swing.setBounds(header.removeFromLeft(juce::jmin(300, header.getWidth() - 8)));
+    automation.setVisible(automationButton.getToggleState());
+    if (automation.isVisible()) {
+        automation.setBounds(area.removeFromBottom(juce::jmin(150, area.getHeight() / 3)));
+        area.removeFromBottom(4);
+    }
     viewport.setBounds(area);
     timeline->setSize(juce::jmax(viewport.getMaximumVisibleWidth(), timeline->idealWidth()),
                       juce::jmax(viewport.getMaximumVisibleHeight(), timeline->idealHeight()));

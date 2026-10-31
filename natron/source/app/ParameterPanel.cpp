@@ -60,6 +60,23 @@ ParameterPanel::ParameterPanel(const ParameterSet& parametersToShow, Setter onCh
 void ParameterPanel::setLayout(const juce::String& type, juce::Colour colour) {
     sections = PanelLayouts::sectionsFor(type, parameters);
     panelColour = colour;
+    // Inside a section, labels drop a leading repeat of its title ("KICK TUNE" under KICK: "TUNE").
+    for (const auto& section : sections) {
+        const auto prefix = section.title.toUpperCase() + " ";
+        for (const int index : section.parameters) {
+            auto& control = controls[static_cast<size_t>(index)];
+            const auto name = parameters.getSpec(index).name.toUpperCase();
+            if (section.title.isNotEmpty() && name.startsWith(prefix)) {
+                const auto shortName = name.substring(prefix.length());
+                if (control.label != nullptr) {
+                    control.label->setText(shortName, juce::dontSendNotification);
+                }
+                if (control.toggle != nullptr) {
+                    control.toggle->setButtonText(shortName);
+                }
+            }
+        }
+    }
     resized();
     repaint();
 }
@@ -107,6 +124,51 @@ std::vector<ParameterPanel::Placed> ParameterPanel::place(int width, int& height
     return placed;
 }
 
+int ParameterPanel::headerHeight(const PanelLayouts::Section& section) const {
+    return section.title.isNotEmpty() ? NatronLookAndFeel::sectionTabHeight : padding;
+}
+
+std::vector<ParameterPanel::Placed> ParameterPanel::placeInColumns(int height, int& width) const {
+    // Each section is as many control rows tall as fit (wrapping its controls into more columns);
+    // short sections stack under each other while they fit, so the panel fills the height.
+    std::vector<Placed> placed;
+    const int top = title.isNotEmpty() ? titleHeight : padding;
+    const int available = juce::jmax(cellHeight() + NatronLookAndFeel::sectionTabHeight + padding, height - top - padding);
+    int x = padding;
+    int y = top;
+    int columnWidth = 0;
+    for (const auto& section : sections) {
+        const int count = static_cast<int>(section.parameters.size());
+        const int rowsThatFit = juce::jmax(1, (available - headerHeight(section) - padding) / cellHeight());
+        const int rows = juce::jmin(count, rowsThatFit);
+        const int columns = (count + rows - 1) / rows;
+        const int sectionWidth = columns * cellWidth() + 2 * padding;
+        const int sectionHeight = headerHeight(section) + rows * cellHeight() + padding;
+        const bool fitsBelow = y > top && y + sectionHeight <= top + available && sectionWidth <= columnWidth;
+        if (!fitsBelow && y > top) {
+            x += columnWidth + padding;
+            y = top;
+            columnWidth = 0;
+        }
+        placed.push_back({ { x, y, sectionWidth, sectionHeight }, columns });
+        y += sectionHeight + padding;
+        columnWidth = juce::jmax(columnWidth, sectionWidth);
+    }
+    width = x + columnWidth + padding;
+    return placed;
+}
+
+int ParameterPanel::getWidthForHeight(int height) const {
+    int width = 0;
+    placeInColumns(height, width);
+    return width;
+}
+
+std::vector<ParameterPanel::Placed> ParameterPanel::currentPlacement() const {
+    int size = 0;
+    return fitToHeight ? placeInColumns(getHeight(), size) : place(getWidth(), size);
+}
+
 int ParameterPanel::getHeightForWidth(int width) const {
     int height = 0;
     place(width, height);
@@ -128,19 +190,17 @@ void ParameterPanel::paint(juce::Graphics& g) {
         g.drawText(title.toUpperCase(), bar, juce::Justification::centredLeft);
     }
 
-    int height = 0;
-    const auto placed = place(getWidth(), height);
+    const auto placed = currentPlacement();
     for (size_t s = 0; s < sections.size(); s++) {
         NatronLookAndFeel::drawSection(g, placed[s].area.toFloat(), panelColour, sections[s].title);
     }
 }
 
 void ParameterPanel::resized() {
-    int height = 0;
-    const auto placed = place(getWidth(), height);
+    const auto placed = currentPlacement();
     for (size_t s = 0; s < sections.size(); s++) {
         const auto& area = placed[s].area;
-        const int top = area.getY() + (sections[s].title.isNotEmpty() ? NatronLookAndFeel::sectionTabHeight : padding);
+        const int top = area.getY() + headerHeight(sections[s]);
         for (size_t k = 0; k < sections[s].parameters.size(); k++) {
             const int column = static_cast<int>(k) % placed[s].columns;
             const int row = static_cast<int>(k) / placed[s].columns;

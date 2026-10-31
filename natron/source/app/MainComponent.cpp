@@ -136,6 +136,7 @@ MainComponent::MainComponent() {
     addAndMakeVisible(positionLabel);
 
     rackPage = new RackPage(*this);
+    machinePage = new MachinePage(*this);
     patternEditor = new PatternEditorView(session, engine, keyboardState);
     keyboardState.addListener(this);
     songView = new SongView(session, engine);
@@ -145,6 +146,7 @@ MainComponent::MainComponent() {
     settingsView->onDemoSong = [this] { loadNewSong(makeDemoSong()); };
     const juce::Colour tabColour = NatronLookAndFeel::background;
     tabs.addTab("Rack", tabColour, rackPage, true);
+    tabs.addTab("Machine", tabColour, machinePage, true);
     tabs.addTab("Pattern", tabColour, patternEditor, true);
     tabs.addTab("Song", tabColour, songView, true);
     tabs.addTab("Mixer", tabColour, mixerView, true);
@@ -282,8 +284,9 @@ void MainComponent::paint(juce::Graphics& g) {
 }
 
 void MainComponent::resized() {
-    // Narrow screens (phones in landscape) drop the title and fold Save/Load/Export into a menu.
-    const bool narrow = getWidth() < 860;
+    // When the full bar doesn't fit (phones in landscape), drop the title and fold Save / Load /
+    // Export into a File menu. The full bar needs ~1100 px with a usable tempo control.
+    const bool narrow = getWidth() < 1100;
     auto area = getLocalBounds().reduced(narrow ? 6 : 12);
     auto bar = area.removeFromTop(44);
     title.setVisible(!narrow);
@@ -317,7 +320,8 @@ void MainComponent::resized() {
 void MainComponent::selectMachine(int machine) {
     engine.setLiveTarget(machine); // the keyboard and MIDI devices play the selected machine
     rackPage->rack.setSelectedMachine(machine);
-    rackPage->showMachine(machine);
+    rackPage->resized();
+    machinePage->showMachine(machine);
     patternEditor->setMachine(machine);
 }
 
@@ -357,21 +361,30 @@ void MainComponent::timerCallback() {
     rackPage->rack.repaint();
 }
 
-MainComponent::RackPage::RackPage(MainComponent& ownerToUse) :
-    rack(ownerToUse.session, ownerToUse.engine), owner(ownerToUse) {
-    rack.onSelect = [this](int machine) { owner.selectMachine(machine); };
-    rack.onRackChanged = [this] { owner.refreshFromSong(); };
-    content.addAndMakeVisible(rack);
+MainComponent::RackPage::RackPage(MainComponent& owner) :
+    rack(owner.session, owner.engine) {
+    rack.onSelect = [&owner](int machine) { owner.selectMachine(machine); };
+    rack.onRackChanged = [&owner] { owner.refreshFromSong(); };
+    viewport.setViewedComponent(&rack, false);
+    viewport.setScrollBarsShown(true, false);
+    addAndMakeVisible(viewport);
+}
 
+void MainComponent::RackPage::resized() {
+    viewport.setBounds(getLocalBounds());
+    rack.setBounds(0, 6, juce::jmax(1, viewport.getMaximumVisibleWidth()), rack.getIdealHeight());
+}
+
+MainComponent::MachinePage::MachinePage(MainComponent& ownerToUse) :
+    owner(ownerToUse) {
     for (int slot = 0; slot < Engine::effectsPerMachine; slot++) {
         auto& controls = effectSlots[static_cast<size_t>(slot)];
-        controls.label.setText("Effect " + juce::String(slot + 1), juce::dontSendNotification);
+        controls.label.setText("FX " + juce::String(slot + 1), juce::dontSendNotification);
         controls.label.setFont(NatronLookAndFeel::labelFont(14.0f));
         controls.label.setColour(juce::Label::textColourId, juce::Colour(0xffd5d8dc));
         controls.type.addItem("None", 1);
         controls.type.addItemList(EffectRegistry::getTypeNames(), 2);
         controls.type.onChange = [this, slot] {
-            const int machine = rack.getSelectedMachine();
             const auto& box = effectSlots[static_cast<size_t>(slot)].type;
             owner.session.setEffect(machine, slot, box.getSelectedId() == 1 ? juce::String() : box.getText());
             showMachine(machine);
@@ -381,11 +394,12 @@ MainComponent::RackPage::RackPage(MainComponent& ownerToUse) :
     }
 
     viewport.setViewedComponent(&content, false);
-    viewport.setScrollBarsShown(true, false);
+    viewport.setScrollBarsShown(false, true); // a strip: swipe sideways
     addAndMakeVisible(viewport);
 }
 
-void MainComponent::RackPage::showMachine(int machine) {
+void MainComponent::MachinePage::showMachine(int machineIndex) {
+    machine = machineIndex;
     machinePanel.reset();
     extras.reset();
     for (auto& controls : effectSlots) {
@@ -397,10 +411,11 @@ void MainComponent::RackPage::showMachine(int machine) {
         const auto& state = owner.session.getSong().machines[static_cast<size_t>(machine)];
         machinePanel = std::make_unique<ParameterPanel>(
             *owner.session.getParameters(machine),
-            [this, machine](const juce::String& id, float value) { owner.session.setParameter(machine, id, value); },
+            [this](const juce::String& id, float value) { owner.session.setParameter(machine, id, value); },
             state.name + " (" + state.type + ")");
         machinePanel->setAccentColour(Theme::machineColour(state.type));
         machinePanel->setLayout(state.type, Theme::panelColour(state.type));
+        machinePanel->setFitToHeight(true);
         content.addAndMakeVisible(*machinePanel);
         if (MachineExtrasPanel::hasExtras(state.type)) {
             extras = std::make_unique<MachineExtrasPanel>(owner.session, machine, [](const juce::String& message) { showError(message); });
@@ -413,10 +428,11 @@ void MainComponent::RackPage::showMachine(int machine) {
             controls.type.setText(type.isEmpty() ? "None" : type, juce::dontSendNotification);
             if (const auto* parameters = owner.session.getEffectParameters(machine, slot)) {
                 controls.panel = std::make_unique<ParameterPanel>(
-                    *parameters, [this, machine, slot](const juce::String& id, float value) {
+                    *parameters, [this, slot](const juce::String& id, float value) {
                         owner.session.setEffectParameter(machine, slot, id, value);
                     });
                 controls.panel->setLayout(type, Theme::effectColour(type)); // a pedal in the effect's colour
+                controls.panel->setFitToHeight(true);
                 content.addAndMakeVisible(*controls.panel);
             }
         }
@@ -428,32 +444,44 @@ void MainComponent::RackPage::showMachine(int machine) {
     resized();
 }
 
-void MainComponent::RackPage::resized() {
+void MainComponent::MachinePage::paint(juce::Graphics& g) {
+    g.fillAll(NatronLookAndFeel::background);
+    if (machinePanel == nullptr) {
+        g.setColour(juce::Colour(0xffb9bdc3));
+        g.setFont(NatronLookAndFeel::labelFont(15.0f));
+        g.drawText("ADD A MACHINE ON THE RACK TAB", getLocalBounds(), juce::Justification::centred);
+    }
+}
+
+void MainComponent::MachinePage::resized() {
     viewport.setBounds(getLocalBounds());
-    const int width = juce::jmax(1, viewport.getMaximumVisibleWidth());
-    rack.setBounds(0, 8, width, rack.getIdealHeight());
-    int bottom = rack.getBottom();
+    // Everything is as tall as the page (less the sideways scroll bar); widths follow.
+    const int height = juce::jmax(160, viewport.getHeight() - viewport.getScrollBarThickness() - 2);
+    constexpr int gap = 8;
+    constexpr int headerHeight = 36;
+    int x = 0;
     if (machinePanel != nullptr) {
-        machinePanel->setBounds(0, bottom + 12, width, machinePanel->getHeightForWidth(width));
-        bottom = machinePanel->getBottom();
+        machinePanel->setBounds(x, 0, machinePanel->getWidthForHeight(height), height);
+        x = machinePanel->getRight() + gap;
     }
     if (extras != nullptr) {
-        extras->setBounds(0, bottom + 8, juce::jmin(width, 720), extras->getIdealHeight());
-        bottom = extras->getBottom();
+        extras->setBounds(x, 0, 380, juce::jmin(height, extras->getIdealHeight() * 2));
+        x = extras->getRight() + gap;
     }
     for (auto& controls : effectSlots) {
         if (!controls.type.isVisible()) {
             continue;
         }
-        controls.label.setBounds(4, bottom + 12, 90, 32);
-        controls.type.setBounds(100, bottom + 12, 180, 32);
-        bottom += 12 + 32;
+        controls.label.setBounds(x, 2, 56, headerHeight - 6);
+        const int pedalHeight = height - headerHeight;
+        const int width = controls.panel != nullptr ? juce::jmax(220, controls.panel->getWidthForHeight(pedalHeight)) : 220;
+        controls.type.setBounds(x + 58, 2, width - 58, headerHeight - 6);
         if (controls.panel != nullptr) {
-            controls.panel->setBounds(0, bottom + 4, width, controls.panel->getHeightForWidth(width));
-            bottom = controls.panel->getBottom();
+            controls.panel->setBounds(x, headerHeight, width, pedalHeight);
         }
+        x += width + gap;
     }
-    content.setSize(width, bottom + 12);
+    content.setSize(juce::jmax(x, viewport.getWidth()), height);
 }
 
 void MainComponent::saveSong() {

@@ -30,6 +30,7 @@ private:
     juce::Label swingLabel;
     juce::Slider swing;
     AutomationEditor automation;
+    juce::TextButton automationButton { "Automation" }; // folds the lane away (folded on phones)
 
     void timerCallback() override;
 };

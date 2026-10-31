@@ -26,8 +26,13 @@ public:
     void resized() override;
     void paint(juce::Graphics& g) override;
 
-    // Height needed to show every control at `width`.
+    // Height needed to show every control at `width` (sections flow left to right, wrapping).
     int getHeightForWidth(int width) const;
+
+    // Fit-to-height layout instead: sections stack into columns that fill `height`, and the panel
+    // grows sideways (for a strip that scrolls horizontally). Width needed at `height`:
+    void setFitToHeight(bool shouldFit) { fitToHeight = shouldFit; resized(); repaint(); }
+    int getWidthForHeight(int height) const;
 
     // Re-reads every value (after a load, or a change made elsewhere).
     void refresh();
@@ -58,8 +63,13 @@ private:
     juce::Colour accentColour = juce::Colours::transparentBlack;
     juce::Colour panelColour { 0xffc4c8ce };
     std::vector<PanelLayouts::Section> sections;
+    bool fitToHeight = false;
     std::vector<Control> controls;
 
     // Where each section goes at `width` (same order as `sections`), and the total height.
     std::vector<Placed> place(int width, int& height) const;
+    // Fit-to-height: where each section goes at `height`, and the total width.
+    std::vector<Placed> placeInColumns(int height, int& width) const;
+    std::vector<Placed> currentPlacement() const;
+    int headerHeight(const PanelLayouts::Section& section) const;
 };

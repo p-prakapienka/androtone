@@ -36,6 +36,8 @@ private:
     juce::Label title;
     juce::ComboBox lengthBox;
     juce::TextButton toolsButton { "Pattern..." }; // copy/paste/clear, transpose, double
+    juce::TextButton automationButton { "Auto" };  // fold the automation lane (folded on phones)
+    juce::TextButton keysButton { "Keys" };        // fold the keyboard (folded on phones)
     juce::Viewport viewport;
     std::unique_ptr<Grid> grid;
     AutomationEditor automation;

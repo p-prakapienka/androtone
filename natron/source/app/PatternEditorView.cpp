@@ -277,6 +277,12 @@ PatternEditorView::PatternEditorView(Session& sessionToUse, const Engine& engine
     addAndMakeVisible(lengthBox);
     toolsButton.onClick = [this] { showToolsMenu(); };
     addAndMakeVisible(toolsButton);
+    for (auto* button : { &automationButton, &keysButton }) {
+        button->setClickingTogglesState(true);
+        button->setToggleState(!Theme::isTouchDevice(), juce::dontSendNotification);
+        button->onClick = [this] { resized(); };
+        addAndMakeVisible(*button);
+    }
 
     grid = std::make_unique<Grid>(*this);
     viewport.setViewedComponent(grid.get(), false);
@@ -320,15 +326,28 @@ void PatternEditorView::paint(juce::Graphics& g) {
 void PatternEditorView::resized() {
     auto area = getLocalBounds();
     auto header = area.removeFromTop(40).reduced(4);
-    lengthBox.setBounds(header.removeFromRight(110));
+    lengthBox.setBounds(header.removeFromRight(100));
     header.removeFromRight(6);
     toolsButton.setBounds(header.removeFromRight(100));
+    header.removeFromRight(6);
+    keysButton.setBounds(header.removeFromRight(64));
+    header.removeFromRight(4);
+    automationButton.setBounds(header.removeFromRight(64));
     title.setBounds(header);
-    keyboard.setBounds(area.removeFromBottom(64));
-    area.removeFromBottom(4);
-    automation.setBounds(area.removeFromBottom(juce::jmin(150, area.getHeight() / 3)));
-    area.removeFromBottom(4);
+    keyboard.setVisible(keysButton.getToggleState());
+    if (keyboard.isVisible()) {
+        keyboard.setBounds(area.removeFromBottom(64));
+        area.removeFromBottom(4);
+    }
+    automation.setVisible(automationButton.getToggleState());
+    if (automation.isVisible()) {
+        automation.setBounds(area.removeFromBottom(juce::jmin(150, area.getHeight() / 3)));
+        area.removeFromBottom(4);
+    }
     viewport.setBounds(area);
+    if (grid->isDrums()) { // the kit's few rows fill the height, within finger size
+        grid->rowHeight = juce::jlimit(28, 44, (viewport.getHeight() - viewport.getScrollBarThickness()) / juce::jmax(1, grid->numRows()));
+    }
     grid->fitWidth = static_cast<float>(viewport.getMaximumVisibleWidth());
     grid->setSize(juce::jmax(viewport.getMaximumVisibleWidth(), grid->idealWidth()), grid->idealHeight());
 }
