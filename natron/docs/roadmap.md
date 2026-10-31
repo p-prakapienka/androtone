@@ -115,3 +115,26 @@ size, profile on a mid-range phone, and check touch sizes by hand.
 
 Deferred: periodic autosave while in the foreground; per-machine colour choice; tablet portrait
 layout.
+
+## Phase 6 — editing workflow ✅
+
+From what the spec still listed and earlier phases deferred:
+
+- **6a undo/redo:** `Session` snapshots the song before every edit (all but pattern selection,
+  play/stop and the pattern/song mode). Undo applies only the differences, so playback goes on;
+  machines added at the end are removed / re-added in place, and only undoing a removal from the
+  middle reloads the rack. Editor presses are gestures (one step per drag); repeated edits of one
+  value under a second apart (a knob being turned) merge. 100 steps; loading a song clears them.
+- **6b pattern tools:** copy / paste / clear (rack pad long-press or right-click, or the pattern
+  editor's Pattern... menu; pasting onto another machine type takes the notes only), transpose ±1
+  / ±12, double the length. Song blocks: Duplicate / Delete menu.
+- **6c recording:** with Rec on, notes played live are written into the selected machine's
+  playing pattern (pattern mode, while playing), quantised to 1/16 by default; a take is one undo
+  step. The engine reports notes through a lock-free queue; `LiveRecorder` pairs them.
+- **6d metronome and tap tempo:** a click per beat after the master section (app setting, not in
+  the song); tap tempo averages the last four gaps.
+- **6e MIDI export:** song timeline or pattern loop, one track per machine (`SongExport::writeMidi`).
+
+Deferred: count-in before recording; swing in MIDI export; MIDI learn for knobs; selecting several
+notes for copy/move in the piano roll; a list of undo steps.
+

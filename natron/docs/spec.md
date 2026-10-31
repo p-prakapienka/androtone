@@ -64,7 +64,8 @@ canonical answer to "how should this behave?" — when unsure, check Caustic and
 
 Natron (Phase 3): the pattern editor uses a 1/16 grid; long-press cycles velocity default (0.8)
 → accent (1.0) → soft (0.5). Pattern switching in pattern mode waits for the end of the current
-pattern (verify).
+pattern (verify). Phase 6: copy/paste/clear, transpose, double length; live recording into the
+playing pattern (pattern mode), quantised to 1/16 by default (verify Caustic's record behaviour).
 
 ## 3. Song sequencer
 
@@ -94,11 +95,12 @@ pattern (verify).
 
 - Play/stop, tempo (BPM), swing/shuffle, metronome (verify), time signature 4/4 (verify).
 - Tap tempo (verify).
+- Natron: metronome and tap tempo (Phase 6); undo/redo of every edit (Phase 6).
 
 ## 7. Files and I/O
 
 - Save/load songs (Caustic uses its own `.caustic` format; we use our own format, not theirs).
-- Export song to WAV (and OGG/MIDI, verify); export loops/patterns.
+- Export song to WAV (and OGG/MIDI, verify); export loops/patterns. Natron: WAV and MIDI (Phase 6).
 - Import WAV samples into PCMSynth/BeatBox from device storage.
 - MIDI input from USB/Bluetooth controllers (verify).
 

@@ -25,7 +25,8 @@ never decompile Caustic or copy its assets.
     `TestToneMachine` placeholder (kept for tests).
   - `Automation` — automation lanes (pattern and song); `SampleData` — samples (import, song
     embedding); `SwappableResource` — lock-free swap for data the audio thread reads; `Autosave` —
-    save on suspend/quit, restore on launch.
+    save on suspend/quit, restore on launch; `LiveRecorder` — pairs recorded live notes into
+    pattern notes; `TapTempo`.
   - `dsp/` — shared DSP (`Biquad`, `Oscillator`, `DrumKit`, `FastSine` — use it rather than `std::sin`
     in per-sample loops). `mixer/` — `ChannelStrip` (one per
     machine, created and freed with it) and `MasterBus` (send returns, volume, limiter).
@@ -34,16 +35,16 @@ never decompile Caustic or copy its assets.
   - `Arrangement` — song timeline rows and their editing operations; `PatternEditing` — note
     editing operations for the piano roll. Pure functions: put new editing logic here, with tests,
     not in the views.
-  - `SongExport` — offline render (on a private engine) and WAV writing.
+  - `SongExport` — offline render (on a private engine), WAV writing, and MIDI export.
   - `Engine` — audio thread: rack, pattern switching, mixer. Edited only via `EngineCommand`s.
   - `Song` — the document; `SongFile` — save/load; `Session` — message-thread API that edits the
-    Song and posts the matching commands. **UI code talks to `Session`, never to `Engine`'s
-    rack directly.**
+    Song and posts the matching commands, and keeps the undo history. **UI code talks to
+    `Session`, never to `Engine`'s rack directly.**
 - `source/app/` — the JUCE app shell and UI: `MainComponent` (transport bar, tabs, export job, MIDI
   inputs, keyboard, autosave, back button), `RackView`, `PatternEditorView`, `SongView`, `MixerView`,
   `SettingsView` (audio device, CPU), `ParameterPanel` (generic controls; choices become menus),
   `TouchKnob` (long-press fine adjust), `MachineExtrasPanel` (samples, formulas), `AutomationEditor`
-  (lanes), `Theme` (machine colours, touch sizes).
+  (lanes), `Theme` (machine colours, touch sizes), `PatternClipboard` (copy/paste menu items).
 - `tests/` — Catch2 tests. `TestHelpers.h`: offline renderers and `Rig` (engine + session +
   renderer) and `MachineRig` (one machine); `Analysis.h`: pitch, centroid, band energy, onset;
   `TestMachines.h`: `RecordingMachine` (logs the MIDI it receives) and `DataMachine` (machine data);
@@ -89,6 +90,10 @@ Android Studio or run `./gradlew assembleDebug` there.
   own sample counter, not per block, so output doesn't depend on block size (a test checks).
 - Machine-specific data (samples, formulas, tables) goes through `Machine::getData/setData`; anything
   the audio thread reads from it is swapped with a `SwappableResource` (never freed on the audio thread).
+- Undo: new `Session` edits must go through `edit(key, ...)` (see Session.cpp) so they are undoable,
+  and `Session::restore` must apply the new state; the "Undoing everything restores the song
+  exactly" test in `UndoTests.cpp` checks this — extend its edit list. Editor presses that edit
+  continuously wrap themselves in `beginGesture` / `endGesture`.
 - Song format changes: bump `SongFile::currentVersion` and upgrade older versions in
   `fromValueTree` (see the version notes in `SongFile.h`), with a test.
 - Live MIDI (`Engine::pushLiveMidi`) is the only engine entry point safe from any thread; everything
