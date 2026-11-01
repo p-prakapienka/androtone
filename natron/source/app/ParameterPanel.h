@@ -26,6 +26,10 @@ public:
     // The machine's (or effect's) colour: value rings, section marks and the title mark.
     void setAccentColour(juce::Colour colour);
 
+    // Columns: every section is a full-height column with its controls stacked top to bottom
+    // (the drum machine: one column per kit sound).
+    void setColumnsLayout(bool shouldUseColumns) { columnsLayout = shouldUseColumns; resized(); repaint(); }
+
     void resized() override;
     void paint(juce::Graphics& g) override;
 
@@ -61,6 +65,7 @@ private:
     std::vector<PanelLayouts::Section> sections;
     std::vector<Control> controls;
     std::vector<Placed> placed;
+    bool columnsLayout = false;
 
     // Finds the arrangement with the biggest knobs for the current size.
     void arrange();

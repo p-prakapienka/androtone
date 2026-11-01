@@ -104,6 +104,19 @@ void ParameterPanel::arrange() {
     if (sections.empty() || area.isEmpty()) {
         return;
     }
+    if (columnsLayout) {
+        const int count = static_cast<int>(sections.size());
+        int x = area.getX();
+        for (size_t s = 0; s < sections.size(); s++) {
+            const int width = s + 1 == sections.size() ? area.getRight() - x : (area.getWidth() - (count - 1) * gap) / count;
+            const int header = sections[s].title.isNotEmpty() ? NatronLookAndFeel::sectionTabHeight + 2 : gap;
+            const int controlsHere = juce::jmax(1, static_cast<int>(sections[s].parameters.size()));
+            placed[s] = { { x, area.getY(), width, area.getHeight() }, 1, width - 2 * gap,
+                          (area.getHeight() - header - gap) / controlsHere };
+            x += width + gap;
+        }
+        return;
+    }
     int total = 0;
     for (const auto& section : sections) {
         total += static_cast<int>(section.parameters.size());

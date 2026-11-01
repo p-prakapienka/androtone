@@ -27,6 +27,10 @@ public:
             juce::String(machine + 1) + "   " + state.name + (state.name == state.type ? juce::String() : "  -  " + state.type));
         panel->setAccentColour(Theme::machineColour(state.type));
         panel->setLayout(state.type, Theme::panelColour(state.type));
+        // The drum machine is played from its pattern, not a keyboard: its sounds are full-height
+        // columns, and mute / solo / sample sit in the title bar.
+        showsKeyboard = state.type != "Drums";
+        panel->setColumnsLayout(!showsKeyboard);
         addAndMakeVisible(*panel);
 
         for (auto* button : { &mute, &solo }) {
@@ -52,11 +56,13 @@ public:
 
         keyboard.setScrollButtonsVisible(false); // our octave keys move it instead (see shiftOctave)
         keyboard.setAvailableRange(lowestKey, lowestKey + keysShown);
-        addAndMakeVisible(keyboard);
         octaveUp.onClick = [this] { shiftOctave(12); };
         octaveDown.onClick = [this] { shiftOctave(-12); };
-        addAndMakeVisible(octaveUp);
-        addAndMakeVisible(octaveDown);
+        if (showsKeyboard) {
+            addAndMakeVisible(keyboard);
+            addAndMakeVisible(octaveUp);
+            addAndMakeVisible(octaveDown);
+        }
     }
 
     void paint(juce::Graphics& g) override {
@@ -65,6 +71,22 @@ public:
 
     void resized() override {
         auto area = getLocalBounds();
+        if (!showsKeyboard) {
+            panel->setBounds(area);
+            // Small keys at the right of the panel's title bar.
+            auto bar = area.removeFromTop(26).reduced(6, 2);
+            if (extrasButton.isVisible()) {
+                extrasButton.setBounds(bar.removeFromRight(84));
+                bar.removeFromRight(4);
+            }
+            solo.setBounds(bar.removeFromRight(40));
+            bar.removeFromRight(4);
+            mute.setBounds(bar.removeFromRight(40));
+            for (auto* key : { &mute, &solo, &extrasButton }) {
+                key->toFront(false);
+            }
+            return;
+        }
         auto keys = area.removeFromBottom(juce::jlimit(70, 130, getHeight() / 3)).reduced(0, 3);
         panel->setBounds(area);
 
@@ -86,6 +108,7 @@ private:
     int machine;
     std::function<void(const juce::String&)> showError;
     std::unique_ptr<ParameterPanel> panel;
+    bool showsKeyboard = true;
     juce::TextButton mute { "M" }, solo { "S" }, extrasButton;
     juce::MidiKeyboardComponent keyboard;
     IconButton octaveUp { "Octave up", NatronLookAndFeel::Icon::octaveUp };
