@@ -76,14 +76,15 @@ void ChannelStripView::refresh() {
 }
 
 void ChannelStripView::paint(juce::Graphics& g) {
-    auto area = getLocalBounds().toFloat().reduced(2.0f);
+    // Edge to edge, so it lines up with the machine panel beside it.
+    auto area = getLocalBounds().toFloat();
     NatronLookAndFeel::drawPanel(g, area, NatronLookAndFeel::surface);
     // Its rack position, top right.
     g.setColour(NatronLookAndFeel::textDim.withAlpha(0.6f));
     g.setFont(NatronLookAndFeel::labelFont(16.0f));
     g.drawText(juce::String(machine + 1), getLocalBounds().reduced(8, 5).removeFromTop(18), juce::Justification::topRight);
     // Name key with the machine's colour mark.
-    auto plate = area.removeFromBottom(32.0f).reduced(5.0f, 4.0f);
+    auto plate = area.removeFromBottom(34.0f).reduced(7.0f, 6.0f);
     NatronLookAndFeel::drawKey(g, plate, NatronLookAndFeel::raised, false);
     g.setColour(colour);
     g.fillRoundedRectangle(plate.removeFromLeft(4.0f).reduced(0.0f, 5.0f).translated(4.0f, 0.0f), 1.5f);

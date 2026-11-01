@@ -19,11 +19,7 @@ public:
         keyboard(keyboardToUse), note(noteToPlay), colour(colourToUse) {}
 
     void paint(juce::Graphics& g) override {
-        const auto area = getLocalBounds().toFloat().reduced(1.0f);
-        NatronLookAndFeel::drawKey(g, area, down ? colour : NatronLookAndFeel::raised, down);
-        const float size = juce::jmin(area.getWidth(), area.getHeight()) * 0.34f;
-        NatronLookAndFeel::drawIcon(g, NatronLookAndFeel::Icon::play, area.withSizeKeepingCentre(size, size),
-                                    down ? NatronLookAndFeel::ink : colour);
+        NatronLookAndFeel::drawKey(g, getLocalBounds().toFloat().reduced(1.0f), down ? colour : NatronLookAndFeel::raised, down);
     }
 
     void mouseDown(const juce::MouseEvent&) override {
