@@ -203,40 +203,48 @@ private:
     std::unique_ptr<juce::Component> content;
 };
 
-// The scroll grip: notches down the left edge and a marker for where the view is. Dragging it moves
-// the whole page proportionally.
+// The rack rail down the left edge: dark metal with evenly spaced mounting slots that move with the
+// page, as if the screens were mounted on it. Drag it to slide the whole rack (it follows the finger
+// one to one); on release the rack settles on the nearest screen.
 class RackScroll::Grip : public juce::Component {
 public:
     explicit Grip(RackScroll& ownerToUse) : owner(ownerToUse) {}
 
     void paint(juce::Graphics& g) override {
-        g.fillAll(NatronLookAndFeel::background);
-        g.setColour(NatronLookAndFeel::line);
-        for (int y = 8; y < getHeight() - 4; y += 12) {
-            g.fillRoundedRectangle(8.0f, static_cast<float>(y), static_cast<float>(getWidth() - 16), 2.0f, 1.0f);
+        const auto area = getLocalBounds().toFloat();
+        // The rail: brushed dark metal, lit along its left edge, shadowed along its right.
+        g.setGradientFill(juce::ColourGradient(juce::Colour(0xff26282c), area.getX(), 0.0f, juce::Colour(0xff17181b),
+                                               area.getRight(), 0.0f, false));
+        g.fillRect(area);
+        g.setColour(juce::Colours::white.withAlpha(0.07f));
+        g.drawVerticalLine(0, 0.0f, area.getBottom());
+        g.setColour(juce::Colours::black.withAlpha(0.6f));
+        g.drawVerticalLine(getWidth() - 1, 0.0f, area.getBottom());
+
+        // Mounting slots, scrolling with the page.
+        const float pitch = 15.0f;
+        const float offset = -std::fmod(static_cast<float>(owner.viewport.getViewPositionY()), pitch);
+        const auto slotWidth = area.getWidth() - 14.0f;
+        for (float y = offset - pitch; y < area.getBottom() + pitch; y += pitch) {
+            const juce::Rectangle<float> slot(7.0f, y + pitch * 0.5f - 2.5f, slotWidth, 5.0f);
+            g.setColour(juce::Colour(0xff08090a));
+            g.fillRoundedRectangle(slot, 2.5f);
+            g.setColour(juce::Colours::white.withAlpha(0.08f)); // light catching the slot's lower lip
+            g.drawHorizontalLine(juce::roundToInt(slot.getBottom()), slot.getX() + 2.0f, slot.getRight() - 2.0f);
         }
-        const auto& viewport = owner.viewport;
-        const int total = juce::jmax(1, owner.content.getHeight());
-        const float top = static_cast<float>(viewport.getViewPositionY()) / static_cast<float>(total) * static_cast<float>(getHeight());
-        const float size = static_cast<float>(viewport.getHeight()) / static_cast<float>(total) * static_cast<float>(getHeight());
-        g.setColour(NatronLookAndFeel::accent.withAlpha(0.22f));
-        g.fillRoundedRectangle(3.0f, top, static_cast<float>(getWidth()) - 6.0f, juce::jmax(10.0f, size), 4.0f);
-        g.setColour(NatronLookAndFeel::accent);
-        g.fillRoundedRectangle(3.0f, top, 2.0f, juce::jmax(10.0f, size), 1.0f);
     }
 
-    void mouseDown(const juce::MouseEvent& event) override { scrollTo(event.position.y); }
-    void mouseDrag(const juce::MouseEvent& event) override { scrollTo(event.position.y); }
+    void mouseDown(const juce::MouseEvent&) override { startY = owner.viewport.getViewPositionY(); }
+
+    void mouseDrag(const juce::MouseEvent& event) override {
+        owner.viewport.setViewPosition(0, juce::jmax(0, startY - event.getDistanceFromDragStartY()));
+    }
+
     void mouseUp(const juce::MouseEvent&) override { owner.settleOnNearestScreen(); }
 
 private:
     RackScroll& owner;
-
-    void scrollTo(float y) {
-        const double fraction = juce::jlimit(0.0, 1.0, static_cast<double>(y) / juce::jmax(1, getHeight()));
-        const int target = juce::roundToInt(fraction * owner.content.getHeight() - owner.viewport.getHeight() / 2.0);
-        owner.viewport.setViewPosition(0, juce::jmax(0, target));
-    }
+    int startY = 0;
 };
 
 RackScroll::RackScroll(Session& sessionToUse, const Engine& engineToShow, juce::MidiKeyboardState& keyboardState,
