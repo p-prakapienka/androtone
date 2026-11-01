@@ -29,6 +29,14 @@ public:
     // Columns: every section is a full-height column with its controls stacked top to bottom
     // (the drum machine: one column per kit sound).
     void setColumnsLayout(bool shouldUseColumns) { columnsLayout = shouldUseColumns; resized(); repaint(); }
+    // Height kept free at the bottom of each column (for something placed there, like a drum pad),
+    // and where that space is for section `section`.
+    void setColumnFooter(int height) { columnFooter = height; resized(); }
+    juce::Rectangle<int> getColumnFooter(size_t section) const;
+
+    // Knobs stop growing past a comfortable size, so the panel may not need all the width it is
+    // given: the width it uses at `height` when offered `maxWidth`.
+    int getNaturalWidth(int maxWidth, int height) const;
 
     void resized() override;
     void paint(juce::Graphics& g) override;
@@ -66,7 +74,16 @@ private:
     std::vector<Control> controls;
     std::vector<Placed> placed;
     bool columnsLayout = false;
+    int columnFooter = 0;
 
-    // Finds the arrangement with the biggest knobs for the current size.
-    void arrange();
+    static constexpr int maxKnob = 60;
+    static constexpr int maxCellWidth = maxKnob + 26;
+    static constexpr int maxCellHeight = maxKnob + labelHeight + 14;
+
+    struct Layout {
+        std::vector<Placed> placed;
+        int naturalWidth = 0;
+    };
+    // The arrangement with the biggest knobs (up to maxKnob) for a panel this size.
+    Layout layoutFor(int width, int height) const;
 };

@@ -4,6 +4,8 @@
     <GROUP id="{6E1F1C55-3C7B-4E0B-9A21-0C1D2B3A4F03}" name="app">
       <FILE id="WDgZhl" name="AutomationEditor.cpp" compile="1" resource="0" file="source/app/AutomationEditor.cpp" />
       <FILE id="NyBZrF" name="AutomationEditor.h" compile="0" resource="0" file="source/app/AutomationEditor.h" />
+      <FILE id="kBlxKT" name="ChannelStripView.cpp" compile="1" resource="0" file="source/app/ChannelStripView.cpp" />
+      <FILE id="NqJiiv" name="ChannelStripView.h" compile="0" resource="0" file="source/app/ChannelStripView.h" />
       <FILE id="ctqBHV" name="FxRackView.cpp" compile="1" resource="0" file="source/app/FxRackView.cpp" />
       <FILE id="oMpBOv" name="FxRackView.h" compile="0" resource="0" file="source/app/FxRackView.h" />
       <FILE id="BpXtfe" name="MachineExtrasPanel.cpp" compile="1" resource="0" file="source/app/MachineExtrasPanel.cpp" />

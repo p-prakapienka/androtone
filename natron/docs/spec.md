@@ -112,9 +112,10 @@ playing pattern (pattern mode), quantised to 1/16 by default (verify Caustic's r
   transport bar runs along the bottom: timeline key (jumps to the timeline and back), menu, display
   (song name, position), save, pattern/song mode, metronome, play, stop, record. The reference
   screenshots are of the original's dark theme.
-- Sound editor: the machine's whole panel in titled sections, with mute/solo, a keyboard and octave
-  keys along the bottom. The drum machine has no keyboard: one full-height column of knobs per kit
-  sound (8 columns). Pattern editor: a toolbar (bank A-D as 2x2 keys, patterns 1-16 as 2x8, size,
+- Sound editor: the machine's whole panel in titled sections (knobs stop growing at a comfortable
+  size), the machine's mixer channel strip beside it, and a keyboard with octave keys along the
+  bottom. The drum machine has no keyboard: one full-height column of knobs per kit sound
+  (8 columns), each ending in a play pad. Pattern editor: a toolbar (bank A-D as 2x2 keys, patterns 1-16 as 2x8, size,
   edit tools) over the piano roll / step grid. FX screen: per machine a name key over two effect
   slots (pedal with its knobs and a remove key, or an empty bay with "+"). Mixer screen: seven
   numbered strips (EQ, sends, pan, width, mute/solo, volume, name plate). Master: delay and reverb

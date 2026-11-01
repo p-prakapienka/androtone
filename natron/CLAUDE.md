@@ -50,8 +50,9 @@ the general style, but never added to the repository, traced, or reproduced: dra
   palette (`surface`, `raised`, `line`, `text`, `textDim`, `accent`) and helpers (`drawPanel`,
   `drawSection`, `drawKey`, `drawLed`, `drawIcon`, `IconButton`) rather than new colours.
   `MainComponent` (bottom bar, menu, pages, export, MIDI inputs, autosave, back button),
-  `RackScroll` (screens, left scroll grip, settling on screens), `PatternEditorView` (pattern keys
-  toolbar and roll), `FxRackView` (effect pedals per machine), `MixerView` (7 strips or the master),
+  `RackScroll` (screens, left scroll grip, settling on screens, drum play pads), `PatternEditorView`
+  (pattern keys toolbar and roll), `FxRackView` (effect pedals per machine), `MixerView` (7 strips or
+  the master), `ChannelStripView` (one machine's channel, on the mixer and beside its sound editor),
   `ParameterPanel` (sectioned controls; fit-to-box shrinks a whole machine onto one screen),
   `PanelLayouts` (which parameters go in which section), `TouchKnob` (long-press fine adjust),
   `MachineExtrasPanel` (samples, formulas), `AutomationEditor` (lanes), `Theme` (colours, touch

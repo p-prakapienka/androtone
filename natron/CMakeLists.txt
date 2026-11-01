@@ -80,6 +80,7 @@ target_sources(Natron
         source/app/MachineExtrasPanel.cpp
         source/app/Main.cpp
         source/app/MainComponent.cpp
+        source/app/ChannelStripView.cpp
         source/app/FxRackView.cpp
         source/app/MixerView.cpp
         source/app/NatronLookAndFeel.cpp

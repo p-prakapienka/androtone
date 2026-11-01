@@ -46,6 +46,8 @@ add_library( ${BINARY_NAME}
 
     "../../../source/app/AutomationEditor.cpp"
     "../../../source/app/AutomationEditor.h"
+    "../../../source/app/ChannelStripView.cpp"
+    "../../../source/app/ChannelStripView.h"
     "../../../source/app/FxRackView.cpp"
     "../../../source/app/FxRackView.h"
     "../../../source/app/MachineExtrasPanel.cpp"
@@ -2563,6 +2565,7 @@ add_library( ${BINARY_NAME}
 
 set_source_files_properties(
     "../../../source/app/AutomationEditor.h"
+    "../../../source/app/ChannelStripView.h"
     "../../../source/app/FxRackView.h"
     "../../../source/app/MachineExtrasPanel.h"
     "../../../source/app/MainComponent.h"

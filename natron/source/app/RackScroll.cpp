@@ -3,6 +3,7 @@
 #include "NatronLookAndFeel.h"
 #include "Theme.h"
 #include "core/MachineRegistry.h"
+#include "core/machines/DrumMachine.h"
 
 #include <limits>
 
@@ -11,15 +12,49 @@ namespace {
     constexpr int screenGap = 6;
 }
 
-// A machine's sound editor, one screen: its whole panel (shrunk to fit), and along the bottom
-// mute / solo, its sample or formula editor where it has one, a keyboard that plays it, and
-// octave keys.
+// A play pad: hold it to sound one drum (the note goes to the machine in view, like the keyboard's).
+class DrumPad : public juce::Component {
+public:
+    DrumPad(juce::MidiKeyboardState& keyboardToUse, int noteToPlay, juce::Colour colourToUse) :
+        keyboard(keyboardToUse), note(noteToPlay), colour(colourToUse) {}
+
+    void paint(juce::Graphics& g) override {
+        const auto area = getLocalBounds().toFloat().reduced(1.0f);
+        NatronLookAndFeel::drawKey(g, area, down ? colour : NatronLookAndFeel::raised, down);
+        const float size = juce::jmin(area.getWidth(), area.getHeight()) * 0.34f;
+        NatronLookAndFeel::drawIcon(g, NatronLookAndFeel::Icon::play, area.withSizeKeepingCentre(size, size),
+                                    down ? NatronLookAndFeel::ink : colour);
+    }
+
+    void mouseDown(const juce::MouseEvent&) override {
+        down = true;
+        keyboard.noteOn(1, note, 0.9f);
+        repaint();
+    }
+
+    void mouseUp(const juce::MouseEvent&) override {
+        down = false;
+        keyboard.noteOff(1, note, 0.0f);
+        repaint();
+    }
+
+private:
+    juce::MidiKeyboardState& keyboard;
+    int note;
+    juce::Colour colour;
+    bool down = false;
+};
+
+// A machine's sound editor, one screen: its panel at the size its knobs need, the machine's mixer
+// channel strip in the rest of the width, and along the bottom a keyboard that plays it with octave
+// keys and its sample or formula editor where it has one. The drum machine has no keyboard: its
+// sounds are full-height columns, each with a play pad.
 class RackScroll::SoundScreen : public juce::Component {
 public:
     SoundScreen(Session& sessionToUse, int machineIndex, juce::MidiKeyboardState& keyboardState,
                 std::function<void(const juce::String&)> errorHandler) :
         session(sessionToUse), machine(machineIndex), showError(std::move(errorHandler)),
-        keyboard(keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard) {
+        keyboard(keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard), strip(sessionToUse, machineIndex) {
         const auto& state = session.getSong().machines[static_cast<size_t>(machine)];
         panel = std::make_unique<ParameterPanel>(
             *session.getParameters(machine),
@@ -27,22 +62,18 @@ public:
             juce::String(machine + 1) + "   " + state.name + (state.name == state.type ? juce::String() : "  -  " + state.type));
         panel->setAccentColour(Theme::machineColour(state.type));
         panel->setLayout(state.type, Theme::panelColour(state.type));
-        // The drum machine is played from its pattern, not a keyboard: its sounds are full-height
-        // columns, and mute / solo / sample sit in the title bar.
-        showsKeyboard = state.type != "Drums";
-        panel->setColumnsLayout(!showsKeyboard);
+        isDrums = state.type == DrumMachine::typeName;
+        panel->setColumnsLayout(isDrums);
         addAndMakeVisible(*panel);
+        addAndMakeVisible(strip);
 
-        for (auto* button : { &mute, &solo }) {
-            button->setClickingTogglesState(true);
-            addAndMakeVisible(*button);
+        if (isDrums) {
+            panel->setColumnFooter(padHeight);
+            for (int slot = 0; slot < DrumMachine::numSlots; slot++) {
+                pads.push_back(std::make_unique<DrumPad>(keyboardState, DrumMachine::firstNote + slot, Theme::machineColour(state.type)));
+                addAndMakeVisible(*pads.back());
+            }
         }
-        mute.setColour(juce::TextButton::buttonOnColourId, Theme::muteColour);
-        solo.setColour(juce::TextButton::buttonOnColourId, Theme::soloColour);
-        mute.setToggleState(session.getMixerParameter(machine, "mute") >= 0.5f, juce::dontSendNotification);
-        solo.setToggleState(session.getMixerParameter(machine, "solo") >= 0.5f, juce::dontSendNotification);
-        mute.onClick = [this] { session.setMixerParameter(machine, "mute", mute.getToggleState() ? 1.0f : 0.0f); };
-        solo.onClick = [this] { session.setMixerParameter(machine, "solo", solo.getToggleState() ? 1.0f : 0.0f); };
 
         if (MachineExtrasPanel::hasExtras(state.type)) {
             extrasButton.setButtonText(state.type == "Bytebeat" ? "Formula" : "Sample");
@@ -58,11 +89,17 @@ public:
         keyboard.setAvailableRange(lowestKey, lowestKey + keysShown);
         octaveUp.onClick = [this] { shiftOctave(12); };
         octaveDown.onClick = [this] { shiftOctave(-12); };
-        if (showsKeyboard) {
+        if (!isDrums) {
             addAndMakeVisible(keyboard);
             addAndMakeVisible(octaveUp);
             addAndMakeVisible(octaveDown);
         }
+    }
+
+    // Re-reads every value, for edits made on another screen.
+    void refresh() {
+        panel->refresh();
+        strip.refresh();
     }
 
     void paint(juce::Graphics& g) override {
@@ -71,30 +108,29 @@ public:
 
     void resized() override {
         auto area = getLocalBounds();
-        if (!showsKeyboard) {
-            panel->setBounds(area);
-            // Small keys at the right of the panel's title bar.
-            auto bar = area.removeFromTop(26).reduced(6, 2);
-            if (extrasButton.isVisible()) {
-                extrasButton.setBounds(bar.removeFromRight(84));
-                bar.removeFromRight(4);
+        auto upper = isDrums ? area : area.withTrimmedBottom(juce::jlimit(70, 130, getHeight() / 3));
+        // The panel takes the width its knobs need (leaving at least a narrow strip); the strip the rest.
+        const int panelWidth = panel->getNaturalWidth(upper.getWidth() - ChannelStripView::minimumWidth - 4, upper.getHeight());
+        const int stripWidth = juce::jlimit(ChannelStripView::minimumWidth, 220, upper.getWidth() - panelWidth - 4);
+        strip.setBounds(area.removeFromRight(stripWidth));
+        area.removeFromRight(4);
+        upper.setRight(area.getRight());
+        panel->setBounds(upper);
+
+        if (isDrums) {
+            for (size_t slot = 0; slot < pads.size(); slot++) {
+                pads[slot]->setBounds(panel->getColumnFooter(slot).translated(panel->getX(), panel->getY()));
             }
-            solo.setBounds(bar.removeFromRight(40));
-            bar.removeFromRight(4);
-            mute.setBounds(bar.removeFromRight(40));
-            for (auto* key : { &mute, &solo, &extrasButton }) {
-                key->toFront(false);
+            if (extrasButton.isVisible()) { // in the panel's title bar
+                extrasButton.setBounds(upper.removeFromTop(26).reduced(6, 2).removeFromRight(84));
+                extrasButton.toFront(false);
             }
             return;
         }
-        auto keys = area.removeFromBottom(juce::jlimit(70, 130, getHeight() / 3)).reduced(0, 3);
-        panel->setBounds(area);
-
-        auto left = keys.removeFromLeft(juce::jmin(150, keys.getWidth() / 5));
-        auto buttons = left.removeFromTop(left.getHeight() / 2);
-        mute.setBounds(buttons.removeFromLeft(buttons.getWidth() / 2).reduced(3));
-        solo.setBounds(buttons.reduced(3));
-        extrasButton.setBounds(left.reduced(3));
+        auto keys = area.withTop(upper.getBottom()).reduced(0, 3);
+        if (extrasButton.isVisible()) {
+            extrasButton.setBounds(keys.removeFromLeft(juce::jmin(110, keys.getWidth() / 6)).reduced(3));
+        }
         auto octave = keys.removeFromRight(48);
         octaveUp.setBounds(octave.removeFromTop(octave.getHeight() / 2).reduced(2));
         octaveDown.setBounds(octave.reduced(2));
@@ -104,13 +140,17 @@ public:
     }
 
 private:
+    static constexpr int padHeight = 40;
+
     Session& session;
     int machine;
     std::function<void(const juce::String&)> showError;
     std::unique_ptr<ParameterPanel> panel;
-    bool showsKeyboard = true;
-    juce::TextButton mute { "M" }, solo { "S" }, extrasButton;
+    bool isDrums = false;
+    std::vector<std::unique_ptr<DrumPad>> pads;
+    juce::TextButton extrasButton;
     juce::MidiKeyboardComponent keyboard;
+    ChannelStripView strip;
     IconButton octaveUp { "Octave up", NatronLookAndFeel::Icon::octaveUp };
     IconButton octaveDown { "Octave down", NatronLookAndFeel::Icon::octaveDown };
 
@@ -159,6 +199,8 @@ public:
     }
 
     void resized() override { content->setBounds(getLocalBounds().withTrimmedTop(titleBarHeight)); }
+
+    juce::Component* getContent() const { return content.get(); }
 
 private:
     juce::String title;
@@ -304,6 +346,24 @@ void RackScroll::timerCallback() {
     }
 }
 
+void RackScroll::refreshScreensInView() {
+    // Screens build their controls once; an edit made on another screen (a mixer strip, the
+    // machine's own strip) is picked up when a screen comes into view.
+    const auto visible = juce::Rectangle<int>(0, viewport.getViewPositionY(), 1, viewport.getHeight());
+    for (auto& screen : screens) {
+        if (!screen->getBounds().intersects(visible)) {
+            continue;
+        }
+        if (auto* sound = dynamic_cast<SoundScreen*>(screen.get())) {
+            sound->refresh();
+        } else if (auto* titled = dynamic_cast<TitledScreen*>(screen.get())) {
+            if (auto* mixer = dynamic_cast<MixerView*>(titled->getContent())) {
+                mixer->rebuild();
+            }
+        }
+    }
+}
+
 void RackScroll::settleOnNearestScreen() {
     const int position = viewport.getViewPositionY();
     int best = position;
@@ -320,6 +380,7 @@ void RackScroll::settleOnNearestScreen() {
         viewport.setViewPosition(0, best);
     }
     lastScrollTime = 0.0;
+    refreshScreensInView();
 }
 
 void RackScroll::updateMachineInView() {

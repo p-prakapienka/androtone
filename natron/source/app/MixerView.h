@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ChannelStripView.h"
 #include "ParameterPanel.h"
 #include "core/Session.h"
 
@@ -22,13 +23,12 @@ public:
     void paint(juce::Graphics& g) override;
 
 private:
-    class Strip;
 
     Session& session;
     const int first;
     const bool showsMaster;
     juce::Viewport viewport;
     juce::Component content;
-    std::vector<std::unique_ptr<Strip>> channelStrips;
+    std::vector<std::unique_ptr<ChannelStripView>> channelStrips;
     std::unique_ptr<ParameterPanel> master;
 };

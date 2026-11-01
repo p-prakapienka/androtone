@@ -1,5 +1,6 @@
 #pragma once
 
+#include "ChannelStripView.h"
 #include "FxRackView.h"
 #include "MachineExtrasPanel.h"
 #include "MixerView.h"
@@ -75,6 +76,7 @@ private:
     void layoutScreens();
     void updateMachineInView();
     void settleOnNearestScreen();
+    void refreshScreensInView();
     int screenHeight() const;
     void showAddMenu();
     void timerCallback() override;

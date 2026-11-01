@@ -93,40 +93,46 @@ void ParameterPanel::refresh() {
     }
 }
 
-void ParameterPanel::arrange() {
+ParameterPanel::Layout ParameterPanel::layoutFor(int width, int height) const {
     // Try 1-4 rows of sections and 1-4 control rows per row of sections; keep the arrangement whose
-    // smallest knob is biggest (past 64 px a knob is big enough, so it doesn't sprawl for more).
-    placed.assign(sections.size(), {});
-    auto area = getLocalBounds().reduced(gap);
+    // smallest knob is biggest. Cells stop growing at maxCellWidth / maxCellHeight; sections pack
+    // left to right and the rows sit together, centred top to bottom, so nothing stretches.
+    Layout layout;
+    layout.placed.assign(sections.size(), {});
+    auto area = juce::Rectangle<int>(0, 0, width, height).reduced(gap);
     if (title.isNotEmpty()) {
         area.removeFromTop(titleHeight - gap);
     }
     if (sections.empty() || area.isEmpty()) {
-        return;
-    }
-    if (columnsLayout) {
-        const int count = static_cast<int>(sections.size());
-        int x = area.getX();
-        for (size_t s = 0; s < sections.size(); s++) {
-            const int width = s + 1 == sections.size() ? area.getRight() - x : (area.getWidth() - (count - 1) * gap) / count;
-            const int header = sections[s].title.isNotEmpty() ? NatronLookAndFeel::sectionTabHeight + 2 : gap;
-            const int controlsHere = juce::jmax(1, static_cast<int>(sections[s].parameters.size()));
-            placed[s] = { { x, area.getY(), width, area.getHeight() }, 1, width - 2 * gap,
-                          (area.getHeight() - header - gap) / controlsHere };
-            x += width + gap;
-        }
-        return;
-    }
-    int total = 0;
-    for (const auto& section : sections) {
-        total += static_cast<int>(section.parameters.size());
+        return layout;
     }
     const auto headerOf = [](const PanelLayouts::Section& s) {
         return s.title.isNotEmpty() ? NatronLookAndFeel::sectionTabHeight + 2 : gap;
     };
 
+    if (columnsLayout) {
+        const int count = static_cast<int>(sections.size());
+        const int columnWidth = juce::jmin(maxCellWidth + 2 * gap, (area.getWidth() - (count - 1) * gap) / count);
+        int x = area.getX();
+        for (size_t s = 0; s < sections.size(); s++) {
+            const int controlsHere = juce::jmax(1, static_cast<int>(sections[s].parameters.size()));
+            const int cellHeight = juce::jmin(maxCellHeight, (area.getHeight() - headerOf(sections[s]) - gap - columnFooter) / controlsHere);
+            layout.placed[s] = { { x, area.getY(), columnWidth, area.getHeight() }, 1, columnWidth - 2 * gap, cellHeight };
+            x += columnWidth + gap;
+        }
+        layout.naturalWidth = x;
+        const int shift = juce::jmax(0, (width - layout.naturalWidth) / 2);
+        for (auto& place : layout.placed) {
+            place.area.translate(shift, 0);
+        }
+        return layout;
+    }
+
+    int total = 0;
+    for (const auto& section : sections) {
+        total += static_cast<int>(section.parameters.size());
+    }
     float bestScore = -1.0f;
-    std::vector<Placed> best;
     const int maxRows = juce::jmin(4, static_cast<int>(sections.size()));
     for (int rows = 1; rows <= maxRows; rows++) {
         // Split the sections, in order, into `rows` runs of about equal control counts.
@@ -149,14 +155,16 @@ void ParameterPanel::arrange() {
             begin = end;
         }
 
-        const int rowHeight = (area.getHeight() - (rows - 1) * gap) / rows;
+        const int rowSpace = (area.getHeight() - (rows - 1) * gap) / rows;
         std::vector<Placed> candidate(sections.size());
+        std::vector<int> rowHeights;
         float score = 1.0e9f;
-        int y = area.getY();
+        int widest = 0;
         for (const auto& [from, to] : runs) {
             const int sectionsHere = static_cast<int>(to - from);
-            const int spare = area.getWidth() - (sectionsHere - 1) * gap;
+            const int spare = area.getWidth() - (sectionsHere - 1) * gap - sectionsHere * 2 * gap;
             float rowBest = -1.0f;
+            int rowHeight = 0;
             for (int inner = 1; inner <= 4; inner++) { // control rows inside each section
                 int columns = 0;
                 int header = 0;
@@ -164,33 +172,62 @@ void ParameterPanel::arrange() {
                     columns += (static_cast<int>(sections[s].parameters.size()) + inner - 1) / inner;
                     header = juce::jmax(header, headerOf(sections[s]));
                 }
-                const int cellWidth = (spare - sectionsHere * 2 * gap) / juce::jmax(1, columns);
-                const int cellHeight = (rowHeight - header - gap) / inner;
+                const int cellWidth = juce::jmin(maxCellWidth, spare / juce::jmax(1, columns));
+                const int cellHeight = juce::jmin(maxCellHeight, (rowSpace - header - gap) / inner);
                 const float knob = static_cast<float>(juce::jmin(cellWidth - 6, cellHeight - labelHeight - 4));
-                if (knob <= rowBest) {
+                if (knob <= rowBest + 0.5f) {
                     continue;
                 }
                 rowBest = knob;
-                // Sections share the row in proportion to their columns.
+                rowHeight = header + inner * cellHeight + gap;
                 int x = area.getX();
                 for (size_t s = from; s < to; s++) {
                     const int sectionColumns = (static_cast<int>(sections[s].parameters.size()) + inner - 1) / inner;
-                    const int width = s + 1 == to ? area.getRight() - x
-                                                  : juce::roundToInt(static_cast<float>(spare) * static_cast<float>(sectionColumns)
-                                                                     / static_cast<float>(columns));
-                    candidate[s] = { { x, y, width, rowHeight }, sectionColumns, (width - 2 * gap) / sectionColumns, cellHeight };
-                    x += width + gap;
+                    const int sectionWidth = sectionColumns * cellWidth + 2 * gap;
+                    candidate[s] = { { x, 0, sectionWidth, rowHeight }, sectionColumns, cellWidth, cellHeight };
+                    x += sectionWidth + gap;
                 }
+                widest = juce::jmax(widest, x - gap - area.getX());
             }
-            score = juce::jmin(score, juce::jmin(64.0f, rowBest));
-            y += rowHeight + gap;
+            rowHeights.push_back(rowHeight);
+            score = juce::jmin(score, juce::jmin(static_cast<float>(maxKnob), rowBest));
         }
         if (score > bestScore + 0.5f) {
             bestScore = score;
-            best = candidate;
+            // Rows stack from the top, the block centred in the height.
+            int used = (rows - 1) * gap;
+            for (const int h : rowHeights) {
+                used += h;
+            }
+            int y = area.getY() + juce::jmax(0, (area.getHeight() - used) / 2);
+            for (size_t r = 0; r < runs.size(); r++) {
+                for (size_t s = runs[r].first; s < runs[r].second; s++) {
+                    candidate[s].area.setY(y);
+                }
+                y += rowHeights[r] + gap;
+            }
+            layout.placed = candidate;
+            layout.naturalWidth = widest + 2 * gap;
         }
     }
-    placed = best;
+    // Centre the packed sections in the width they were given.
+    const int shift = juce::jmax(0, (width - layout.naturalWidth) / 2);
+    for (auto& place : layout.placed) {
+        place.area.translate(shift, 0);
+    }
+    return layout;
+}
+
+int ParameterPanel::getNaturalWidth(int maxWidth, int height) const {
+    return juce::jmin(maxWidth, layoutFor(maxWidth, height).naturalWidth);
+}
+
+juce::Rectangle<int> ParameterPanel::getColumnFooter(size_t section) const {
+    if (section >= placed.size() || columnFooter <= 0) {
+        return {};
+    }
+    const auto& area = placed[section].area;
+    return area.withTop(area.getBottom() - columnFooter - gap).withHeight(columnFooter).reduced(gap, 0);
 }
 
 void ParameterPanel::paint(juce::Graphics& g) {
@@ -210,15 +247,16 @@ void ParameterPanel::paint(juce::Graphics& g) {
 }
 
 void ParameterPanel::resized() {
-    arrange();
+    placed = layoutFor(getWidth(), getHeight()).placed;
     for (size_t s = 0; s < sections.size() && s < placed.size(); s++) {
         const auto& place = placed[s];
         const int header = sections[s].title.isNotEmpty() ? NatronLookAndFeel::sectionTabHeight + 2 : gap;
         // Centre the grid in its section.
         const int count = static_cast<int>(sections[s].parameters.size());
         const int rows = (count + place.columns - 1) / place.columns;
+        const int footer = columnsLayout ? columnFooter : 0;
         const int top = place.area.getY() + header
-                        + juce::jmax(0, (place.area.getHeight() - header - gap - rows * place.cellHeight) / 2);
+                        + juce::jmax(0, (place.area.getHeight() - header - gap - footer - rows * place.cellHeight) / 2);
         const int left = place.area.getX() + gap
                          + juce::jmax(0, (place.area.getWidth() - 2 * gap - place.columns * place.cellWidth) / 2);
         const int knobSize = juce::jlimit(18, 72, juce::jmin(place.cellWidth - 6, place.cellHeight - labelHeight - 4));
