@@ -14,8 +14,8 @@
 //  - pinch (or trackpad magnify / ctrl+wheel): zoom horizontally
 //  - Pattern... menu: copy / paste / clear, transpose, double the length
 // Drums show one row per kit sound (a step grid); other machines show a keyboard range.
-// Toolbar: the machine's plate, bank and pattern keys, Size, Edit (copy/paste, transpose, double,
-// quantise) and Auto, which unfolds the pattern's automation lane below the roll.
+// Toolbar: the Mode key (top left: the screen shows the notes or the pattern's automation lanes),
+// bank and pattern keys, Size, and Edit (copy/paste, transpose, double, quantise).
 class PatternEditorView : public juce::Component, private juce::Timer {
 public:
     explicit PatternEditorView(Session& sessionToUse, const Engine& engineToShow);
@@ -36,11 +36,11 @@ private:
     const Engine& engine;
     int machine = 0;
 
-    juce::Label title;
+    juce::TextButton modeButton; // top left: switches the screen between notes and automation
     std::unique_ptr<PatternKeys> patternKeys;     // bank A-D and pattern 1-16 keys
     juce::ComboBox lengthBox;                     // Size: 1, 2, 4 or 8 bars
     juce::TextButton toolsButton { "Edit" };      // copy/paste/clear, transpose, double, quantise
-    juce::TextButton automationButton { "Auto" }; // fold the automation lane (folded on phones)
+    bool showingAutomation = false;
     juce::Viewport viewport;
     std::unique_ptr<Grid> grid;
     AutomationEditor automation;

@@ -353,9 +353,11 @@ private:
 PatternEditorView::PatternEditorView(Session& sessionToUse, const Engine& engineToShow) :
     session(sessionToUse), engine(engineToShow), automation(sessionToUse, AutomationEditor::Mode::pattern) {
     addAndMakeVisible(automation);
-    title.setFont(NatronLookAndFeel::labelFont(13.0f));
-    title.setJustificationType(juce::Justification::centred);
-    addAndMakeVisible(title);
+    modeButton.onClick = [this] {
+        showingAutomation = !showingAutomation;
+        refresh();
+    };
+    addAndMakeVisible(modeButton);
     patternKeys = std::make_unique<PatternKeys>(*this);
     addAndMakeVisible(*patternKeys);
 
@@ -376,10 +378,7 @@ PatternEditorView::PatternEditorView(Session& sessionToUse, const Engine& engine
     addAndMakeVisible(lengthBox);
     toolsButton.onClick = [this] { showToolsMenu(); };
     addAndMakeVisible(toolsButton);
-    automationButton.setClickingTogglesState(true);
-    automationButton.setToggleState(!Theme::isTouchDevice(), juce::dontSendNotification);
-    automationButton.onClick = [this] { resized(); };
-    addAndMakeVisible(automationButton);
+
 
     grid = std::make_unique<Grid>(*this);
     viewport.setViewedComponent(grid.get(), false);
@@ -406,15 +405,13 @@ void PatternEditorView::setMachine(int newMachine) {
 
 void PatternEditorView::refresh() {
     if (machine >= session.getNumMachines()) {
-        title.setText("No machine", juce::dontSendNotification);
+        modeButton.setButtonText("No machine");
         return;
     }
     const auto& state = session.getSong().machines[static_cast<size_t>(machine)];
     grid->rowHeight = grid->isDrums() ? 44 : 22; // drum rows are few: make them easy to hit
-    title.setText(state.name.toUpperCase() + "\n" + PatternBank::nameOf(state.selectedPattern), juce::dontSendNotification);
-    title.setColour(juce::Label::backgroundColourId, NatronLookAndFeel::raised);
-    title.setColour(juce::Label::outlineColourId, Theme::machineColour(state.type));
-    title.setColour(juce::Label::textColourId, NatronLookAndFeel::text);
+    modeButton.setButtonText(PatternBank::nameOf(state.selectedPattern) + (showingAutomation ? "\nAUTO" : "\nNOTES"));
+    modeButton.setToggleState(showingAutomation, juce::dontSendNotification);
     patternKeys->bank = PatternBank::bankOf(state.selectedPattern);
     patternKeys->repaint();
     lengthBox.setSelectedId(state.patterns[static_cast<size_t>(state.selectedPattern)].bars, juce::dontSendNotification);
@@ -428,22 +425,19 @@ void PatternEditorView::paint(juce::Graphics& g) {
 }
 
 void PatternEditorView::resized() {
-    // Toolbar: the machine's plate, the pattern keys, Size, Edit and Auto; the roll below.
+    // Toolbar: Mode, the pattern keys, Size and Edit; below, the roll or the automation lanes.
     auto area = getLocalBounds();
     auto toolbar = area.removeFromTop(juce::jlimit(56, 84, getHeight() / 5)).reduced(4, 3);
     const int unit = juce::jlimit(48, 80, toolbar.getWidth() / 12);
-    automationButton.setBounds(toolbar.removeFromRight(unit).reduced(2));
     toolsButton.setBounds(toolbar.removeFromRight(unit).reduced(2));
     lengthBox.setBounds(toolbar.removeFromRight(unit + 16).reduced(2).withSizeKeepingCentre(unit + 12, 30));
-    title.setBounds(toolbar.removeFromLeft(unit + 10));
+    modeButton.setBounds(toolbar.removeFromLeft(unit + 24).reduced(2));
     toolbar.removeFromLeft(4);
     patternKeys->setBounds(toolbar.removeFromLeft(juce::jmin(toolbar.getWidth() - 4, 640)));
     area.removeFromTop(2);
-    automation.setVisible(automationButton.getToggleState());
-    if (automation.isVisible()) {
-        automation.setBounds(area.removeFromBottom(juce::jmin(150, area.getHeight() / 3)));
-        area.removeFromBottom(4);
-    }
+    automation.setVisible(showingAutomation);
+    viewport.setVisible(!showingAutomation);
+    automation.setBounds(area);
     viewport.setBounds(area);
     if (grid->isDrums()) { // the kit's few rows fill the height, within finger size
         grid->rowHeight = juce::jlimit(28, 44, (viewport.getHeight() - viewport.getScrollBarThickness()) / juce::jmax(1, grid->numRows()));

@@ -115,8 +115,9 @@ playing pattern (pattern mode), quantised to 1/16 by default (verify Caustic's r
 - Sound editor: the machine's whole panel in titled sections (knobs stop growing at a comfortable
   size), the machine's mixer channel strip beside it, and a keyboard with octave keys along the
   bottom. The drum machine has no keyboard: one full-height column of knobs per kit sound
-  (8 columns), each ending in a play pad. Pattern editor: a toolbar (bank A-D as 2x2 keys, patterns 1-16 as 2x8, size,
-  edit tools) over the piano roll / step grid. FX screen: per machine a name key over two effect
+  (8 columns), each ending in a play pad. Pattern editor: a toolbar (a mode key top left, bank A-D as 2x2 keys,
+  patterns 1-16 as 2x8, size, edit tools) over the piano roll / step grid; the mode key switches the
+  screen to the pattern's automation lanes and back. FX screen: per machine a name key over two effect
   slots (pedal with its knobs and a remove key, or an empty bay with "+"). Mixer screen: seven
   numbered strips (EQ, sends, pan, width, mute/solo, volume, name plate). Master: delay and reverb
   over EQ, limiter and master volume.
