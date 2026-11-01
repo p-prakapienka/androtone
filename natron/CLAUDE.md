@@ -46,7 +46,9 @@ the general style, but never added to the repository, traced, or reproduced: dra
   vertical scroll of one-view-tall screens (`RackScroll`: per machine a sound editor and a pattern
   editor, then FX 1-7 / 8-14, Mixer 1-7 / 8-14, Master and the song timeline, `SongView`, which the
   Song key jumps to) — or `SettingsView` (menu). Every screen must fit one landscape phone screen (~870x390 dp);
-  check new UI at that size. Graphics are our own (`NatronLookAndFeel`, drawn in code).
+  check new UI at that size. Graphics are our own (`NatronLookAndFeel`, drawn in code): use its
+  palette (`surface`, `raised`, `line`, `text`, `textDim`, `accent`) and helpers (`drawPanel`,
+  `drawSection`, `drawKey`, `drawLed`, `drawIcon`, `IconButton`) rather than new colours.
   `MainComponent` (bottom bar, menu, pages, export, MIDI inputs, autosave, back button),
   `RackScroll` (screens, left scroll grip, settling on screens), `PatternEditorView` (pattern keys
   toolbar and roll), `FxRackView` (effect pedals per machine), `MixerView` (7 strips or the master),

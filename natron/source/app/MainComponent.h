@@ -49,15 +49,15 @@ private:
     juce::StringArray openMidiInputs;
     int midiScanCountdown = 0;
 
-    juce::TextButton songButton { "Song" };   // jumps to the timeline (the rack's last screen) and back
-    juce::TextButton menuButton { "Menu" };
-    std::unique_ptr<Display> display;          // song name and position; tap for tempo
-    juce::TextButton saveButton { "Save" };
-    juce::TextButton modeButton { "Pattern" };
-    juce::TextButton clickButton { "Click" };  // metronome
-    juce::TextButton playButton { "Play" };
-    juce::TextButton stopButton { "Stop" };
-    juce::TextButton recordButton { "Rec" };   // record live notes into the playing pattern
+    IconButton songButton { "Song", NatronLookAndFeel::Icon::timeline }; // jumps to the timeline and back
+    IconButton menuButton { "Menu", NatronLookAndFeel::Icon::menu };
+    std::unique_ptr<Display> display;                                      // song name and position; tap for tempo
+    IconButton saveButton { "Save", NatronLookAndFeel::Icon::save };
+    juce::TextButton modeButton { "Pattern" };                             // pattern / song mode
+    IconButton clickButton { "Metronome", NatronLookAndFeel::Icon::metronome };
+    IconButton playButton { "Play", NatronLookAndFeel::Icon::play };
+    IconButton stopButton { "Stop", NatronLookAndFeel::Icon::stop };
+    IconButton recordButton { "Record", NatronLookAndFeel::Icon::record }; // live notes into the playing pattern
     TapTempo tapTempo;
     juce::String songName { "Untitled" };
     juce::File songFile;                       // where Save writes, once saved or loaded

@@ -98,24 +98,25 @@ public:
     explicit Display(MainComponent& ownerToUse) : owner(ownerToUse) {}
 
     void paint(juce::Graphics& g) override {
-        const auto area = getLocalBounds().toFloat().reduced(1.0f);
+        const auto area = getLocalBounds().toFloat().reduced(1.0f, 1.5f);
         g.setColour(NatronLookAndFeel::lcd);
-        g.fillRoundedRectangle(area, 4.0f);
-        g.setColour(juce::Colour(0xff4a4d52));
-        g.drawRoundedRectangle(area.reduced(0.5f), 4.0f, 1.0f);
+        g.fillRoundedRectangle(area, 6.0f);
+        g.setColour(NatronLookAndFeel::line);
+        g.drawRoundedRectangle(area.reduced(0.5f), 6.0f, 1.0f);
 
         const double beat = owner.session.isPlaying() ? owner.engine.getPlayheadBeat() : 0.0;
         const int bar = static_cast<int>(beat / Transport::beatsPerBar) + 1;
         const int beatInBar = static_cast<int>(std::fmod(beat, Transport::beatsPerBar)) + 1;
         const int step = static_cast<int>(std::fmod(beat, 1.0) * 4.0) + 1;
         auto text = area.reduced(8.0f, 3.0f);
-        g.setColour(NatronLookAndFeel::lcdText.withAlpha(0.75f));
-        g.setFont(juce::FontOptions(text.getHeight() * 0.36f));
-        g.drawText(owner.songName, text.removeFromTop(text.getHeight() * 0.42f), juce::Justification::centredLeft);
+        g.setColour(NatronLookAndFeel::textDim);
+        g.setFont(NatronLookAndFeel::labelFont(text.getHeight() * 0.32f));
+        g.drawText(owner.songName.toUpperCase(), text.removeFromTop(text.getHeight() * 0.4f), juce::Justification::centredLeft);
         g.setColour(NatronLookAndFeel::lcdText);
-        g.setFont(juce::FontOptions(text.getHeight() * 0.9f));
+        g.setFont(NatronLookAndFeel::displayFont(text.getHeight() * 0.95f));
         g.drawText(juce::String(bar) + "." + juce::String(beatInBar) + "." + juce::String(step), text, juce::Justification::centredLeft);
-        g.setFont(juce::FontOptions(text.getHeight() * 0.6f));
+        g.setColour(NatronLookAndFeel::lcdText.withAlpha(0.7f));
+        g.setFont(NatronLookAndFeel::displayFont(text.getHeight() * 0.6f));
         g.drawText(juce::String(juce::roundToInt(owner.session.getSong().tempo)) + " BPM", text, juce::Justification::centredRight);
     }
 
@@ -166,13 +167,15 @@ MainComponent::MainComponent() {
         settings.getUserSettings()->setValue("metronome", clickButton.getToggleState());
     };
     playButton.setClickingTogglesState(true);
-    playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff3f8f5a));
+    playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xff57c27c));
     playButton.onClick = [this] { session.setPlaying(true); };
     stopButton.onClick = [this] { session.setPlaying(false); };
     recordButton.setClickingTogglesState(true);
-    recordButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffcc3333));
+    recordButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffe5484d));
+    recordButton.iconColour = juce::Colour(0xffe5484d);
     recordButton.onClick = [this] { session.setRecording(recordButton.getToggleState()); };
-    for (auto* button : { &songButton, &menuButton, &saveButton, &modeButton, &clickButton, &playButton, &stopButton, &recordButton }) {
+    for (juce::Button* button : std::initializer_list<juce::Button*> { &songButton, &menuButton, &saveButton, &modeButton,
+                                                                       &clickButton, &playButton, &stopButton, &recordButton }) {
         addAndMakeVisible(*button);
     }
     setWantsKeyboardFocus(true);

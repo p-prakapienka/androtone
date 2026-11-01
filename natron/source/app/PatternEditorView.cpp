@@ -9,13 +9,13 @@
 #include "core/machines/DrumMachine.h"
 
 namespace {
-    const juce::Colour background { 0xff1d1f21 };
-    const juce::Colour lane { 0xff232528 };
-    const juce::Colour blackKeyLane { 0xff1f2023 };
-    const juce::Colour gridLine { 0xff2f3236 };
-    const juce::Colour barLine { 0xff4a4f55 };
-    const juce::Colour accentColour { 0xffde935f };
-    const juce::Colour text { 0xffc5c8c6 };
+    const juce::Colour background = NatronLookAndFeel::background;
+    const juce::Colour lane { 0xff1e2024 };
+    const juce::Colour blackKeyLane { 0xff17181b };
+    const juce::Colour gridLine { 0xff26282d };
+    const juce::Colour barLine { 0xff464a52 };
+    const juce::Colour accentColour = NatronLookAndFeel::accent;
+    const juce::Colour text = NatronLookAndFeel::textDim;
 
     constexpr int gutterWidth = 70;
     constexpr int lowestPitch = 24;  // C1
@@ -273,19 +273,22 @@ public:
 
         for (int b = 0; b < PatternBank::numBanks; b++) {
             const auto key = bankKey(b).toFloat().reduced(2.0f);
-            NatronLookAndFeel::drawKey(g, key, b == bank ? juce::Colour(0xff4a4e55) : juce::Colour(0xffe3e5e8), b == bank);
-            g.setColour(b == bank ? juce::Colour(0xffffb238) : NatronLookAndFeel::ink);
+            NatronLookAndFeel::drawKey(g, key, b == bank ? NatronLookAndFeel::accent : NatronLookAndFeel::raised, false);
+            g.setColour(b == bank ? NatronLookAndFeel::ink : NatronLookAndFeel::text);
             g.drawText(juce::String::charToString(static_cast<juce::juce_wchar>('A' + b)), key, juce::Justification::centred);
         }
         for (int slot = 0; slot < PatternBank::patternsPerBank; slot++) {
             const int index = PatternBank::indexOf(bank, slot);
             const auto key = patternKey(slot).toFloat().reduced(2.0f);
             const bool hasNotes = !state.patterns[static_cast<size_t>(index)].isEmpty();
-            NatronLookAndFeel::drawKey(g, key, hasNotes ? colour.interpolatedWith(juce::Colour(0xffe3e5e8), 0.35f)
-                                                        : juce::Colour(0xffc9ccd1), index == current);
-            NatronLookAndFeel::drawLed(g, { key.getX() + 4.0f, key.getY() + 4.0f, 5.0f, 5.0f },
+            NatronLookAndFeel::drawKey(g, key, NatronLookAndFeel::raised, index == current);
+            if (hasNotes) { // a bar of the machine's colour along the bottom
+                g.setColour(colour);
+                g.fillRoundedRectangle(key.withTrimmedTop(key.getHeight() - 4.0f).reduced(6.0f, 0.0f).translated(0.0f, -3.0f), 1.5f);
+            }
+            NatronLookAndFeel::drawLed(g, { key.getX() + 5.0f, key.getY() + 5.0f, 5.0f, 5.0f },
                                        index == current || (index == queued && blinkOn));
-            g.setColour(NatronLookAndFeel::ink);
+            g.setColour(index == current ? NatronLookAndFeel::accent : NatronLookAndFeel::text);
             g.drawText(juce::String(slot + 1), key, juce::Justification::centred);
         }
     }
@@ -409,9 +412,9 @@ void PatternEditorView::refresh() {
     const auto& state = session.getSong().machines[static_cast<size_t>(machine)];
     grid->rowHeight = grid->isDrums() ? 44 : 22; // drum rows are few: make them easy to hit
     title.setText(state.name.toUpperCase() + "\n" + PatternBank::nameOf(state.selectedPattern), juce::dontSendNotification);
-    title.setColour(juce::Label::backgroundColourId, Theme::machineColour(state.type));
-    title.setColour(juce::Label::textColourId, Theme::machineColour(state.type).getPerceivedBrightness() > 0.55f
-                                                 ? NatronLookAndFeel::ink : juce::Colours::white);
+    title.setColour(juce::Label::backgroundColourId, NatronLookAndFeel::raised);
+    title.setColour(juce::Label::outlineColourId, Theme::machineColour(state.type));
+    title.setColour(juce::Label::textColourId, NatronLookAndFeel::text);
     patternKeys->bank = PatternBank::bankOf(state.selectedPattern);
     patternKeys->repaint();
     lengthBox.setSelectedId(state.patterns[static_cast<size_t>(state.selectedPattern)].bars, juce::dontSendNotification);

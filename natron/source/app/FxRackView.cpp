@@ -22,10 +22,8 @@ void FxRackView::rebuild() {
                 slot->pedal = std::make_unique<ParameterPanel>(
                     *parameters, [this, m, s](const juce::String& id, float value) { session.setEffectParameter(m, s, id, value); },
                     type);
-                slot->pedal->setLayout({}, Theme::effectColour(type).darker(0.55f));
+                slot->pedal->setLayout({}, NatronLookAndFeel::surface);
                 slot->pedal->setAccentColour(Theme::effectColour(type));
-                slot->pedal->setCompact(true);
-                slot->pedal->setFitToBox(true); // every knob shows, however small the slot
                 addAndMakeVisible(*slot->pedal);
                 slot->removeButton.onClick = [this, m, s] {
                     session.setEffect(m, s, {});
@@ -78,22 +76,22 @@ void FxRackView::paint(juce::Graphics& g) {
         auto key = juce::Rectangle<int>(c * width, 0, width, nameHeight).reduced(3).toFloat();
         const int machine = first + c;
         const bool exists = machine < session.getNumMachines();
-        NatronLookAndFeel::drawKey(g, key, exists ? juce::Colour(0xffe3e5e8) : juce::Colour(0xff8d9198), false);
+        NatronLookAndFeel::drawKey(g, key, NatronLookAndFeel::raised, !exists);
         if (exists) {
             const auto& state = session.getSong().machines[static_cast<size_t>(machine)];
             g.setColour(Theme::machineColour(state.type));
-            g.fillRect(key.removeFromLeft(5.0f).reduced(0.0f, 4.0f));
-            g.setColour(NatronLookAndFeel::ink);
+            g.fillRoundedRectangle(key.removeFromLeft(4.0f).reduced(0.0f, 5.0f).translated(4.0f, 0.0f), 1.5f);
+            g.setColour(NatronLookAndFeel::text);
             g.setFont(NatronLookAndFeel::labelFont(12.0f));
             g.drawFittedText(state.name, key.toNearestInt().reduced(4, 0), juce::Justification::centred, 1);
         }
         // Empty bays behind the slots.
         for (int s = 0; s < Engine::effectsPerMachine; s++) {
             const auto bay = slotBounds(c, s).reduced(3).toFloat();
-            g.setColour(juce::Colour(0xff222326));
-            g.fillRoundedRectangle(bay, 6.0f);
-            g.setColour(juce::Colour(0xff3a3c40));
-            g.drawRoundedRectangle(bay.reduced(0.5f), 6.0f, 1.0f);
+            g.setColour(NatronLookAndFeel::surface.darker(0.25f));
+            g.fillRoundedRectangle(bay, 8.0f);
+            g.setColour(NatronLookAndFeel::line.withAlpha(0.6f));
+            g.drawRoundedRectangle(bay.reduced(0.5f), 8.0f, 1.0f);
         }
     }
 }
@@ -103,7 +101,7 @@ void FxRackView::resized() {
         const auto bay = slotBounds(slot->machine - first, slot->index).reduced(3);
         if (slot->pedal != nullptr) {
             slot->pedal->setBounds(bay);
-            slot->removeButton.setBounds(bay.getRight() - 30, bay.getBottom() - 30, 26, 26);
+            slot->removeButton.setBounds(bay.getRight() - 28, bay.getY() + 3, 24, 22); // top right, beside the title
             slot->removeButton.toFront(false);
         } else {
             slot->addButton.setBounds(bay.withSizeKeepingCentre(juce::jmin(56, bay.getWidth() - 8), juce::jmin(56, bay.getHeight() - 8)));

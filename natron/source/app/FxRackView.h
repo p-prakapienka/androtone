@@ -23,8 +23,8 @@ private:
         int machine = 0;
         int index = 0;
         std::unique_ptr<ParameterPanel> pedal;
-        juce::TextButton removeButton { "X" };
-        juce::TextButton addButton { "+" };
+        IconButton removeButton { "Remove effect", NatronLookAndFeel::Icon::cross };
+        IconButton addButton { "Add effect", NatronLookAndFeel::Icon::plus };
     };
 
     Session& session;

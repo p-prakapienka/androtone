@@ -28,9 +28,9 @@ namespace Theme {
         return juce::Colour(0xff707880); // grey: unknown or test machines
     }
 
-    // The face of a machine's panel: dark, with a hint of its colour.
+    // The face of a machine's panel: the dark surface with the faintest hint of its colour.
     inline juce::Colour panelColour(const juce::String& type) {
-        return juce::Colour(0xff2c2e32).interpolatedWith(machineColour(type), 0.08f);
+        return juce::Colour(0xff1b1d21).interpolatedWith(machineColour(type), 0.04f);
     }
 
     // Effect "pedals": each type its own colour.
@@ -39,6 +39,10 @@ namespace Theme {
                                               0xffd9cf7a, 0xff8fd0c8, 0xffc4a98a };
         return juce::Colour(palette[static_cast<size_t>(type.hashCode() & 0x7fffffff) % std::size(palette)]);
     }
+
+    // Lit mute and solo keys.
+    inline const juce::Colour muteColour { 0xffe0603e };
+    inline const juce::Colour soloColour { 0xffffc94a };
 
     // Phones get bigger knobs and buttons; a fingertip is ~8 mm.
     inline bool isTouchDevice() {

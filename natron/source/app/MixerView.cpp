@@ -21,10 +21,9 @@ namespace {
         if (id == "volume") {
             return juce::Colour(0xfff4f4f4);
         }
-        return juce::Colour(0xff9a9fa6); // EQ
+        return juce::Colour(0xffb8bec6); // EQ
     }
 
-    const juce::Colour stripColour { 0xffb7bcc3 };
 }
 
 // One machine's channel: knobs in two columns, mute / solo, and its name plate.
@@ -61,7 +60,7 @@ public:
             auto label = std::make_unique<juce::Label>(id, spec.name.toUpperCase());
             label->setFont(NatronLookAndFeel::labelFont(10.0f));
             label->setJustificationType(juce::Justification::centred);
-            label->setColour(juce::Label::textColourId, NatronLookAndFeel::ink);
+            label->setColour(juce::Label::textColourId, NatronLookAndFeel::textDim);
             addAndMakeVisible(*label);
             knobs.push_back({ std::move(knob), std::move(label) });
         }
@@ -69,8 +68,8 @@ public:
             button->setClickingTogglesState(true);
             addAndMakeVisible(*button);
         }
-        mute.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffd0643c));
-        solo.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffd9b23a));
+        mute.setColour(juce::TextButton::buttonOnColourId, Theme::muteColour);
+        solo.setColour(juce::TextButton::buttonOnColourId, Theme::soloColour);
         mute.setToggleState(session.getMixerParameter(machine, "mute") >= 0.5f, juce::dontSendNotification);
         solo.setToggleState(session.getMixerParameter(machine, "solo") >= 0.5f, juce::dontSendNotification);
         mute.onClick = [this] { session.setMixerParameter(machine, "mute", mute.getToggleState() ? 1.0f : 0.0f); };
@@ -79,25 +78,19 @@ public:
 
     void paint(juce::Graphics& g) override {
         auto area = getLocalBounds().toFloat().reduced(2.0f);
-        NatronLookAndFeel::drawPanel(g, area, stripColour);
-        // Fine vertical brushing.
-        g.setColour(juce::Colours::white.withAlpha(0.06f));
-        for (float x = area.getX() + 4.0f; x < area.getRight() - 4.0f; x += 3.0f) {
-            g.drawVerticalLine(juce::roundToInt(x), area.getY() + 4.0f, area.getBottom() - 34.0f);
-        }
+        NatronLookAndFeel::drawPanel(g, area, NatronLookAndFeel::surface);
         // Its rack position, top right.
-        g.setColour(NatronLookAndFeel::ink.withAlpha(0.45f));
-        g.setFont(NatronLookAndFeel::labelFont(18.0f));
-        g.drawText(juce::String(machine + 1), getLocalBounds().reduced(8, 4).removeFromTop(20), juce::Justification::topRight);
-        // Name plate in the machine's colour.
-        const auto plate = area.removeFromBottom(30.0f).reduced(5.0f, 4.0f);
+        g.setColour(NatronLookAndFeel::textDim.withAlpha(0.6f));
+        g.setFont(NatronLookAndFeel::labelFont(16.0f));
+        g.drawText(juce::String(machine + 1), getLocalBounds().reduced(8, 5).removeFromTop(18), juce::Justification::topRight);
+        // Name key with the machine's colour mark.
+        auto plate = area.removeFromBottom(32.0f).reduced(5.0f, 4.0f);
+        NatronLookAndFeel::drawKey(g, plate, NatronLookAndFeel::raised, false);
         g.setColour(colour);
-        g.fillRoundedRectangle(plate, 3.0f);
-        g.setColour(colour.darker(0.5f));
-        g.drawRoundedRectangle(plate, 3.0f, 1.0f);
-        g.setColour(colour.getPerceivedBrightness() > 0.55f ? NatronLookAndFeel::ink : juce::Colours::white);
-        g.setFont(NatronLookAndFeel::labelFont(12.0f));
-        g.drawFittedText(name.toUpperCase(), plate.toNearestInt().reduced(3, 0), juce::Justification::centred, 1);
+        g.fillRoundedRectangle(plate.removeFromLeft(4.0f).reduced(0.0f, 5.0f).translated(4.0f, 0.0f), 1.5f);
+        g.setColour(NatronLookAndFeel::text);
+        g.setFont(NatronLookAndFeel::labelFont(11.0f));
+        g.drawFittedText(name.toUpperCase(), plate.toNearestInt().reduced(6, 0), juce::Justification::centred, 1);
     }
 
     void resized() override {
@@ -151,11 +144,9 @@ void MixerView::rebuild() {
     master.reset();
     if (showsMaster) {
         master = std::make_unique<ParameterPanel>(
-            session.getMasterParameters(), [this](const juce::String& id, float value) { session.setMasterParameter(id, value); },
-            "Master");
-        master->setLayout("Master", juce::Colour(0xff34373c));
-        master->setAccentColour(juce::Colour(0xffb9c0c8));
-        master->setFitToBox(true);
+            session.getMasterParameters(), [this](const juce::String& id, float value) { session.setMasterParameter(id, value); });
+        master->setLayout("Master", NatronLookAndFeel::surface);
+        master->setAccentColour(NatronLookAndFeel::accent);
         content.addAndMakeVisible(*master);
     } else {
         for (int m = first; m < juce::jmin(first + stripsPerScreen, session.getNumMachines()); m++) {
@@ -177,11 +168,10 @@ void MixerView::paint(juce::Graphics& g) {
     const int width = getWidth() / stripsPerScreen;
     for (int c = static_cast<int>(channelStrips.size()); c < stripsPerScreen; c++) {
         auto strip = juce::Rectangle<int>(c * width, 0, width - 4, getHeight()).toFloat().reduced(2.0f);
-        g.setColour(juce::Colour(0xff222326));
-        g.fillRoundedRectangle(strip, 6.0f);
-        g.setColour(juce::Colour(0xff3a3c40));
-        g.drawRoundedRectangle(strip.reduced(0.5f), 6.0f, 1.0f);
-        NatronLookAndFeel::drawKey(g, strip.removeFromBottom(30.0f).reduced(5.0f, 4.0f), juce::Colour(0xff8d9198), false);
+        g.setColour(NatronLookAndFeel::surface.darker(0.25f));
+        g.fillRoundedRectangle(strip, 8.0f);
+        g.setColour(NatronLookAndFeel::line.withAlpha(0.6f));
+        g.drawRoundedRectangle(strip.reduced(0.5f), 8.0f, 1.0f);
     }
 }
 

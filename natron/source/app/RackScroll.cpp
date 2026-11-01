@@ -24,18 +24,17 @@ public:
         panel = std::make_unique<ParameterPanel>(
             *session.getParameters(machine),
             [this](const juce::String& id, float value) { session.setParameter(machine, id, value); },
-            juce::String(machine + 1) + "  " + state.name + "  (" + state.type + ")");
+            juce::String(machine + 1) + "   " + state.name + (state.name == state.type ? juce::String() : "  -  " + state.type));
         panel->setAccentColour(Theme::machineColour(state.type));
         panel->setLayout(state.type, Theme::panelColour(state.type));
-        panel->setFitToBox(true);
         addAndMakeVisible(*panel);
 
         for (auto* button : { &mute, &solo }) {
             button->setClickingTogglesState(true);
             addAndMakeVisible(*button);
         }
-        mute.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffd0643c));
-        solo.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xffd9b23a));
+        mute.setColour(juce::TextButton::buttonOnColourId, Theme::muteColour);
+        solo.setColour(juce::TextButton::buttonOnColourId, Theme::soloColour);
         mute.setToggleState(session.getMixerParameter(machine, "mute") >= 0.5f, juce::dontSendNotification);
         solo.setToggleState(session.getMixerParameter(machine, "solo") >= 0.5f, juce::dontSendNotification);
         mute.onClick = [this] { session.setMixerParameter(machine, "mute", mute.getToggleState() ? 1.0f : 0.0f); };
@@ -89,7 +88,8 @@ private:
     std::unique_ptr<ParameterPanel> panel;
     juce::TextButton mute { "M" }, solo { "S" }, extrasButton;
     juce::MidiKeyboardComponent keyboard;
-    juce::TextButton octaveUp { "Oct +" }, octaveDown { "Oct -" };
+    IconButton octaveUp { "Octave up", NatronLookAndFeel::Icon::octaveUp };
+    IconButton octaveDown { "Octave down", NatronLookAndFeel::Icon::octaveDown };
 
     // Without scroll buttons the keyboard starts at the bottom of its range, so the range is what
     // the octave keys move: 11 white keys from a C.
@@ -125,12 +125,14 @@ public:
     }
 
     void paint(juce::Graphics& g) override {
-        auto bar = getLocalBounds().removeFromTop(titleBarHeight).toFloat().reduced(0.0f, 2.0f);
-        g.setColour(NatronLookAndFeel::tabFill);
-        g.fillRoundedRectangle(bar, 3.0f);
-        g.setColour(juce::Colour(0xffd5d8dc));
-        g.setFont(NatronLookAndFeel::labelFont(13.0f));
-        g.drawText(title.toUpperCase(), bar.reduced(8.0f, 0.0f), juce::Justification::centredLeft);
+        g.fillAll(NatronLookAndFeel::background);
+        auto bar = getLocalBounds().removeFromTop(titleBarHeight).toFloat().reduced(6.0f, 6.0f);
+        g.setColour(NatronLookAndFeel::accent);
+        g.fillRoundedRectangle(bar.removeFromLeft(3.0f), 1.5f);
+        bar.removeFromLeft(7.0f);
+        g.setColour(NatronLookAndFeel::text);
+        g.setFont(NatronLookAndFeel::labelFont(12.0f));
+        g.drawText(title.toUpperCase(), bar, juce::Justification::centredLeft);
     }
 
     void resized() override { content->setBounds(getLocalBounds().withTrimmedTop(titleBarHeight)); }
@@ -147,17 +149,19 @@ public:
     explicit Grip(RackScroll& ownerToUse) : owner(ownerToUse) {}
 
     void paint(juce::Graphics& g) override {
-        g.fillAll(juce::Colour(0xff1d1e21));
-        g.setColour(juce::Colour(0xff4a4d52));
-        for (int y = 8; y < getHeight() - 4; y += 14) {
-            g.fillRect(6, y, getWidth() - 12, 3);
+        g.fillAll(NatronLookAndFeel::background);
+        g.setColour(NatronLookAndFeel::line);
+        for (int y = 8; y < getHeight() - 4; y += 12) {
+            g.fillRoundedRectangle(8.0f, static_cast<float>(y), static_cast<float>(getWidth() - 16), 2.0f, 1.0f);
         }
         const auto& viewport = owner.viewport;
         const int total = juce::jmax(1, owner.content.getHeight());
         const float top = static_cast<float>(viewport.getViewPositionY()) / static_cast<float>(total) * static_cast<float>(getHeight());
         const float size = static_cast<float>(viewport.getHeight()) / static_cast<float>(total) * static_cast<float>(getHeight());
-        g.setColour(juce::Colour(0xffffb238).withAlpha(0.8f));
-        g.fillRoundedRectangle(2.0f, top, static_cast<float>(getWidth()) - 4.0f, juce::jmax(10.0f, size), 3.0f);
+        g.setColour(NatronLookAndFeel::accent.withAlpha(0.22f));
+        g.fillRoundedRectangle(3.0f, top, static_cast<float>(getWidth()) - 6.0f, juce::jmax(10.0f, size), 4.0f);
+        g.setColour(NatronLookAndFeel::accent);
+        g.fillRoundedRectangle(3.0f, top, 2.0f, juce::jmax(10.0f, size), 1.0f);
     }
 
     void mouseDown(const juce::MouseEvent& event) override { scrollTo(event.position.y); }
