@@ -177,6 +177,38 @@ void NatronLookAndFeel::drawIcon(juce::Graphics& g, Icon icon, juce::Rectangle<f
             p.lineTo(a.getBottomLeft());
             g.strokePath(p, stroke);
             break;
+        case Icon::notes: { // a step grid with some steps set
+            constexpr int cells = 3;
+            const float cell = a.getWidth() / cells;
+            const bool set[cells][cells] = { { true, false, true }, { false, true, false }, { true, true, false } };
+            for (int r = 0; r < cells; r++) {
+                for (int c = 0; c < cells; c++) {
+                    const auto square = juce::Rectangle<float>(a.getX() + c * cell, a.getY() + r * cell, cell, cell).reduced(cell * 0.12f);
+                    if (set[r][c]) {
+                        g.fillRoundedRectangle(square, 2.0f);
+                    } else {
+                        g.drawRoundedRectangle(square.reduced(0.75f), 2.0f, 1.5f);
+                    }
+                }
+            }
+            break;
+        }
+        case Icon::automation: { // a lane: a line through points
+            const juce::Point<float> points[] { { a.getX(), a.getBottom() - a.getHeight() * 0.15f },
+                                                { a.getX() + a.getWidth() * 0.35f, a.getY() + a.getHeight() * 0.25f },
+                                                { a.getX() + a.getWidth() * 0.65f, a.getY() + a.getHeight() * 0.6f },
+                                                { a.getRight(), a.getY() + a.getHeight() * 0.1f } };
+            p.startNewSubPath(points[0]);
+            for (size_t i = 1; i < std::size(points); i++) {
+                p.lineTo(points[i]);
+            }
+            g.strokePath(p, stroke);
+            const float dot = a.getWidth() * 0.2f;
+            for (const auto& point : points) {
+                g.fillEllipse(juce::Rectangle<float>(dot, dot).withCentre(point));
+            }
+            break;
+        }
         case Icon::octaveUp:
         case Icon::octaveDown: {
             const bool up = icon == Icon::octaveUp;

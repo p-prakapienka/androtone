@@ -39,7 +39,7 @@ public:
     static juce::Font displayFont(float height);
 
     // Icons for the transport and toolbars, drawn into `area`.
-    enum class Icon { play, stop, record, menu, timeline, save, metronome, plus, cross, octaveUp, octaveDown };
+    enum class Icon { play, stop, record, menu, timeline, save, metronome, plus, cross, octaveUp, octaveDown, notes, automation };
     static void drawIcon(juce::Graphics& g, Icon icon, juce::Rectangle<float> area, juce::Colour colour);
 
     void drawRotarySlider(juce::Graphics& g, int x, int y, int width, int height, float sliderPosProportional,
@@ -87,6 +87,11 @@ public:
     }
 
     juce::Colour iconColour = juce::Colours::transparentBlack; // e.g. red for record
+
+    void setIcon(NatronLookAndFeel::Icon newIcon) {
+        icon = newIcon;
+        repaint();
+    }
 
 private:
     NatronLookAndFeel::Icon icon;

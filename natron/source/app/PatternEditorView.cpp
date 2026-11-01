@@ -277,19 +277,23 @@ public:
             g.setColour(b == bank ? NatronLookAndFeel::ink : NatronLookAndFeel::text);
             g.drawText(juce::String::charToString(static_cast<juce::juce_wchar>('A' + b)), key, juce::Justification::centred);
         }
+        // Pattern keys are the same keys as the banks: the selected one lit. A dot in the machine's
+        // colour marks patterns with notes; a blinking ring, the one queued to play next.
         for (int slot = 0; slot < PatternBank::patternsPerBank; slot++) {
             const int index = PatternBank::indexOf(bank, slot);
             const auto key = patternKey(slot).toFloat().reduced(2.0f);
-            const bool hasNotes = !state.patterns[static_cast<size_t>(index)].isEmpty();
-            NatronLookAndFeel::drawKey(g, key, NatronLookAndFeel::raised, index == current);
-            if (hasNotes) { // a bar of the machine's colour along the bottom
-                g.setColour(colour);
-                g.fillRoundedRectangle(key.withTrimmedTop(key.getHeight() - 4.0f).reduced(6.0f, 0.0f).translated(0.0f, -3.0f), 1.5f);
-            }
-            NatronLookAndFeel::drawLed(g, { key.getX() + 5.0f, key.getY() + 5.0f, 5.0f, 5.0f },
-                                       index == current || (index == queued && blinkOn));
-            g.setColour(index == current ? NatronLookAndFeel::accent : NatronLookAndFeel::text);
+            const bool lit = index == state.selectedPattern;
+            NatronLookAndFeel::drawKey(g, key, lit ? NatronLookAndFeel::accent : NatronLookAndFeel::raised, false);
+            g.setColour(lit ? NatronLookAndFeel::ink : NatronLookAndFeel::text);
             g.drawText(juce::String(slot + 1), key, juce::Justification::centred);
+            if (!state.patterns[static_cast<size_t>(index)].isEmpty()) {
+                g.setColour(lit ? NatronLookAndFeel::ink : colour);
+                g.fillEllipse(key.getRight() - 8.0f, key.getY() + 4.0f, 4.0f, 4.0f);
+            }
+            if (index == queued && index != current && blinkOn) {
+                g.setColour(NatronLookAndFeel::accent);
+                g.drawRoundedRectangle(key.reduced(1.0f), 5.0f, 2.0f);
+            }
         }
     }
 
@@ -328,20 +332,23 @@ private:
     PatternEditorView& owner;
     int pressedPattern = -1;
 
+    // All keys are squares of half the height: banks 2x2, then a gap, then patterns 2x8.
     float keyHeight() const { return static_cast<float>(getHeight()) / 2.0f; }
-    int bankWidth() const { return juce::roundToInt(keyHeight() * 1.1f); }
+    int keySize() const { return getHeight() / 2; }
 
     juce::Rectangle<int> bankKey(int b) const {
-        const int h = getHeight() / 2;
-        return { (b % 2) * bankWidth(), (b / 2) * h, bankWidth(), h };
+        return { (b % 2) * keySize(), (b / 2) * keySize(), keySize(), keySize() };
     }
 
     juce::Rectangle<int> patternKey(int slot) const {
-        const int left = 2 * bankWidth() + 8;
-        const int w = (getWidth() - left) / 8;
-        const int h = getHeight() / 2;
-        return { left + (slot % 8) * w, (slot / 8) * h, w, h };
+        const int left = 2 * keySize() + gapToPatterns;
+        return { left + (slot % 8) * keySize(), (slot / 8) * keySize(), keySize(), keySize() };
     }
+
+public:
+    static constexpr int gapToPatterns = 10;
+    // Width for keys `height` tall.
+    static int widthFor(int height) { return 10 * (height / 2) + gapToPatterns; }
 
     void showMenu(int index) {
         juce::PopupMenu menu;
@@ -353,6 +360,7 @@ private:
 PatternEditorView::PatternEditorView(Session& sessionToUse, const Engine& engineToShow) :
     session(sessionToUse), engine(engineToShow), automation(sessionToUse, AutomationEditor::Mode::pattern) {
     addAndMakeVisible(automation);
+    modeButton.setClickingTogglesState(false);
     modeButton.onClick = [this] {
         showingAutomation = !showingAutomation;
         refresh();
@@ -405,12 +413,12 @@ void PatternEditorView::setMachine(int newMachine) {
 
 void PatternEditorView::refresh() {
     if (machine >= session.getNumMachines()) {
-        modeButton.setButtonText("No machine");
+        modeButton.setIcon(NatronLookAndFeel::Icon::notes);
         return;
     }
     const auto& state = session.getSong().machines[static_cast<size_t>(machine)];
     grid->rowHeight = grid->isDrums() ? 44 : 22; // drum rows are few: make them easy to hit
-    modeButton.setButtonText(PatternBank::nameOf(state.selectedPattern) + (showingAutomation ? "\nAUTO" : "\nNOTES"));
+    modeButton.setIcon(showingAutomation ? NatronLookAndFeel::Icon::automation : NatronLookAndFeel::Icon::notes);
     modeButton.setToggleState(showingAutomation, juce::dontSendNotification);
     patternKeys->bank = PatternBank::bankOf(state.selectedPattern);
     patternKeys->repaint();
@@ -431,9 +439,9 @@ void PatternEditorView::resized() {
     const int unit = juce::jlimit(48, 80, toolbar.getWidth() / 12);
     toolsButton.setBounds(toolbar.removeFromRight(unit).reduced(2));
     lengthBox.setBounds(toolbar.removeFromRight(unit + 16).reduced(2).withSizeKeepingCentre(unit + 12, 30));
-    modeButton.setBounds(toolbar.removeFromLeft(unit + 24).reduced(2));
-    toolbar.removeFromLeft(4);
-    patternKeys->setBounds(toolbar.removeFromLeft(juce::jmin(toolbar.getWidth() - 4, 640)));
+    modeButton.setBounds(toolbar.removeFromLeft(toolbar.getHeight()).reduced(2)); // square
+    toolbar.removeFromLeft(8);
+    patternKeys->setBounds(toolbar.removeFromLeft(juce::jmin(toolbar.getWidth() - 4, PatternKeys::widthFor(toolbar.getHeight()))));
     area.removeFromTop(2);
     automation.setVisible(showingAutomation);
     viewport.setVisible(!showingAutomation);

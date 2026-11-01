@@ -1,6 +1,7 @@
 #pragma once
 
 #include "AutomationEditor.h"
+#include "NatronLookAndFeel.h"
 #include "core/Engine.h"
 #include "core/Session.h"
 
@@ -36,7 +37,7 @@ private:
     const Engine& engine;
     int machine = 0;
 
-    juce::TextButton modeButton; // top left: switches the screen between notes and automation
+    IconButton modeButton { "Mode", NatronLookAndFeel::Icon::notes }; // top left: notes or automation
     std::unique_ptr<PatternKeys> patternKeys;     // bank A-D and pattern 1-16 keys
     juce::ComboBox lengthBox;                     // Size: 1, 2, 4 or 8 bars
     juce::TextButton toolsButton { "Edit" };      // copy/paste/clear, transpose, double, quantise
