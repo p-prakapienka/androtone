@@ -1,5 +1,6 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Sequencer/StepSequencer.h"
+#include "Sequencer/TapTempo.h"
 
 // Headless timing tests for the sequencer. Each CHECK names the behaviour it pins down; see
 // docs/rea/checklist.md for the checklist IDs they verify.
@@ -361,6 +362,60 @@ int main() {
         h.seq.pressClip(4, 0);
         h.run(20000);
         CHECK(h.ons(5).size() == 1 && h.ons(5)[0].note == 62, "muted note silent");
+    }
+
+    // C3: tap tempo averages up to 4 intervals and resets after a pause
+    {
+        TapTempo tap;
+        CHECK(tap.tap(10.0) == 0.0, "first tap gives no tempo");
+        CHECK(std::abs(tap.tap(10.5) - 120.0) < 1e-6, "second tap 0.5 s -> 120");
+        tap.tap(11.0); tap.tap(11.6);
+        const double avg = tap.tap(12.1);
+        CHECK(std::abs(avg - 60.0 / ((0.5 + 0.5 + 0.6 + 0.5) / 4.0)) < 1e-6, "average of last 4: %f", avg);
+        CHECK(tap.tap(20.0) == 0.0, "pause > 2 s starts over");
+    }
+    // C4: metronome clicks on every beat while playing, accent on the downbeat
+    {
+        Harness h;
+        h.seq.setMetronome(true);
+        h.seq.setPlaying(true);
+        std::vector<std::pair<long long, bool>> clicks;
+        for (int b = 0; b < 200; b++) {
+            juce::MidiBuffer m; h.seq.processBlock(m, 512);
+            for (int i = 0; i < h.seq.getNumClicks(); i++) clicks.push_back({ h.now + h.seq.getClick(i).sample, h.seq.getClick(i).accent });
+            h.now += 512;
+        }
+        // 102400 samples at 24000/beat -> beats 0..4 => 5 clicks
+        CHECK(clicks.size() == 5, "5 clicks, got %zu", clicks.size());
+        if (clicks.size() == 5) {
+            CHECK(clicks[0].first == 0 && clicks[0].second, "accented click at 0");
+            CHECK(clicks[1].first == 24000 && !clicks[1].second, "beat 2 at 24000");
+            CHECK(clicks[4].first == 96000 && clicks[4].second, "bar 2 accented");
+        }
+    }
+    // C7: following the host: start at its position, jump when it jumps
+    {
+        Harness h;
+        h.seq.setHostPosition(true, 8.0);  // host playing from bar 3
+        h.seq.launchScene(1);              // queued: 1 bar quantization, host at a bar line -> immediate
+        h.seq.setPlaying(false);
+        h.run(512);
+        CHECK(h.seq.getCurrentScene() == 1, "scene launched at host position");
+        CHECK(std::abs(h.seq.getSongPosition() - (8.0 + 512 / 24000.0)) < 1e-6, "song position follows host");
+        h.seq.setHostPosition(true, 32.0);
+        h.run(512);
+        CHECK(std::abs(h.seq.getSongPosition() - (32.0 + 512 / 24000.0)) < 1e-6, "follows host jump");
+        h.seq.setHostPosition(false, 32.0);
+        h.run(512);
+        CHECK(!h.seq.isPlaying(), "host stopped -> stopped");
+    }
+    // C1: position formatting
+    {
+        auto fmt = [](double beats) {
+            const auto s = static_cast<long long>(std::floor(beats * 4.0 + 1e-6));
+            return std::to_string(s / 16 + 1) + "." + std::to_string((s / 4) % 4 + 1) + "." + std::to_string(s % 4 + 1);
+        };
+        CHECK(fmt(0.0) == "1.1.1" && fmt(5.25) == "2.2.2" && fmt(15.75) == "4.4.4", "bars.beats.16ths");
     }
 
     std::printf(failures == 0 ? "ALL PASSED\n" : "%d FAILURES\n", failures);

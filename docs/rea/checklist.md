@@ -55,13 +55,13 @@ one window. Status is updated as milestones land.
 
 | ID  | Must-have                                                                                       | Evidence        | Verify | Status |
 | --- | ----------------------------------------------------------------------------------------------- | --------------- | ------ | ------ |
-| C1  | Position display in bars.beats.sixteenths, starting at 1.1.1                                     | §6.3, §19.6     | S      | open   |
-| C2  | Tempo field with hundredths of a BPM                                                             | §9.1.1          | S      | open   |
-| C3  | Tap tempo: each tap updates tempo, more taps average better                                      | §9.1.2          | T      | open   |
-| C4  | Metronome on/off, ticks while playing, accented downbeat                                         | §19.4           | T      | open   |
+| C1  | Position display in bars.beats.sixteenths, starting at 1.1.1                                     | §6.3, §19.6     | S      | done   |
+| C2  | Tempo field with hundredths of a BPM                                                             | §9.1.1          | S      | done   |
+| C3  | Tap tempo: each tap updates tempo, more taps average better                                      | §9.1.2          | T      | done   |
+| C4  | Metronome on/off, ticks while playing, accented downbeat                                         | §19.4           | T      | done   |
 | C5  | Count-in (None/1/2/4 bars) before recording, shown as negative position                          | §19.6           | T      | open   |
-| C6  | Groove: global swing on off-beat 16ths with timing and velocity amounts                          | §14.1.1         | T      | partial   |
-| C7  | Follow host tempo and transport when running as a plugin                                         | (design)        | T      | open   |
+| C6  | Groove: global swing on off-beat 16ths with timing and velocity amounts                          | §14.1.1         | T      | done   |
+| C7  | Follow host tempo and transport when running as a plugin                                         | (design)        | T      | done   |
 | C8  | Stop twice returns to 1.1.1                                                                      | §7.1            | T      | open   |
 
 ## D. Mixer

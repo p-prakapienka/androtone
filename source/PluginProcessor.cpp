@@ -49,6 +49,7 @@ void AndrotoneAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlo
     }
 
     mixer.prepare(sampleRate);
+    metronome.prepare(sampleRate);
 }
 
 void AndrotoneAudioProcessor::releaseResources() {
@@ -64,6 +65,18 @@ void AndrotoneAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     juce::ScopedNoDenormals noDenormals;
     const int numSamples = buffer.getNumSamples();
 
+    // Plugin builds follow the host's tempo and transport; the standalone app runs its own clock.
+    if (wrapperType != wrapperType_Standalone) {
+        if (auto* playHead = getPlayHead()) {
+            if (const auto position = playHead->getPosition()) {
+                if (const auto hostBpm = position->getBpm()) {
+                    sequencer.setTempo(*hostBpm);
+                }
+                sequencer.setHostPosition(position->getIsPlaying(), position->getPpqPosition().orFallback(0.0));
+            }
+        }
+    }
+
     sequencer.processBlock(midi, numSamples);
 
     for (int t = 0; t < NUM_TRACKS; t++) {
@@ -72,6 +85,16 @@ void AndrotoneAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     }
 
     mixer.mix(buffer, trackBuffers);
+
+    // Metronome ticks, split at their sample positions.
+    int rendered = 0;
+    for (int i = 0; i < sequencer.getNumClicks(); i++) {
+        const auto& click = sequencer.getClick(i);
+        metronome.render(buffer, rendered, click.sample - rendered);
+        metronome.trigger(click.accent);
+        rendered = click.sample;
+    }
+    metronome.render(buffer, rendered, numSamples - rendered);
 }
 
 juce::AudioProcessorEditor* AndrotoneAudioProcessor::createEditor() {

@@ -102,8 +102,32 @@ public:
 
     // ---- audio thread ----------------------------------------------------------------------------
 
+    // Metronome ticks produced by the last processBlock (sample offset + downbeat accent).
+    struct Click {
+        int sample = 0;
+        bool accent = false;
+    };
+    static constexpr int MAX_CLICKS = 64;
+
+    int getNumClicks() const { return numClicks; }
+    const Click& getClick(int index) const { return clicks[static_cast<size_t>(index)]; }
+
+    // Host transport (plugin builds), set before each processBlock. While the host plays, its
+    // position drives the song position and the transport.
+    void setHostPosition(bool hostIsPlaying, double hostPpq) {
+        hostActive = true;
+        hostPlaying = hostIsPlaying;
+        hostPosition = hostPpq;
+    }
+
+    void clearHostPosition() {
+        hostActive = false;
+    }
+
     void processBlock(juce::MidiBuffer& midi, int numSamples) {
-        const bool shouldPlay = playing.load();
+        numClicks = 0;
+        const bool followHost = hostActive && hostPlaying;
+        const bool shouldPlay = playing.load() || followHost;
 
         if (!shouldPlay) {
             if (wasPlaying) {
@@ -115,18 +139,25 @@ public:
             return;
         }
 
+        const double samplesPerBeat = currentSampleRate * 60.0 / bpm.load();
+        const double halfSample = 0.5 / samplesPerBeat;
+
         if (!wasPlaying) {
-            // Transport start: song position 0 is a boundary of every quantization grid.
-            songBeat = 0.0;
-            nextQuantizationBeat = 0.0;
+            // Transport start: song position 0 (or the host's position) begins the grids.
+            songBeat = followHost ? hostPosition : 0.0;
+            nextQuantizationBeat = songBeat;
+            nextClickBeat = std::ceil(songBeat - halfSample);
             for (auto& track : tracks) {
                 track.restart(0.0);
             }
             wasPlaying = true;
+        } else if (followHost && std::abs(hostPosition - songBeat) > 2.0 * halfSample) {
+            // The host jumped (loop, scrub): follow it; grids restart from the new position.
+            songBeat = hostPosition;
+            nextQuantizationBeat = std::ceil(songBeat / Clip::STEP_LENGTH - 1e-9) * Clip::STEP_LENGTH;
+            nextClickBeat = std::ceil(songBeat - halfSample);
         }
-
-        const double samplesPerBeat = currentSampleRate * 60.0 / bpm.load();
-        const double halfSample = 0.5 / samplesPerBeat;
+        const bool clickOn = metronome.load();
         const double quantization = getQuantizationSteps() * Clip::STEP_LENGTH;
         const Groove groove { swingTiming.load(), swingVelocity.load() };
 
@@ -149,8 +180,16 @@ public:
 
             chainSongIfDue(midi, position);
 
+            if (songBeat >= nextClickBeat - halfSample) {
+                if (clickOn && numClicks < MAX_CLICKS) {
+                    const auto beatIndex = static_cast<juce::int64>(std::llround(nextClickBeat));
+                    clicks[static_cast<size_t>(numClicks++)] = { position, beatIndex % static_cast<juce::int64>(Clip::BEATS_PER_BAR) == 0 };
+                }
+                nextClickBeat = std::floor(songBeat + halfSample) + 1.0;
+            }
+
             // Split the block at the next thing any track or the grid needs to react to.
-            double untilEvent = nextQuantizationBeat - songBeat;
+            double untilEvent = juce::jmin(nextQuantizationBeat, nextClickBeat) - songBeat;
             for (auto& track : tracks) {
                 untilEvent = juce::jmin(untilEvent, track.beatsToNextEvent());
             }
@@ -352,9 +391,15 @@ public:
         return bpm.load();
     }
 
+    static constexpr double MIN_TEMPO = 20.0;
+    static constexpr double MAX_TEMPO = 999.0;
+
     void setTempo(double newBpm) {
-        bpm.store(newBpm);
+        bpm.store(juce::jlimit(MIN_TEMPO, MAX_TEMPO, newBpm));
     }
+
+    void setMetronome(bool enabled) { metronome.store(enabled); }
+    bool isMetronomeOn() const { return metronome.load(); }
 
     int getQuantizationIndex() const {
         return quantizationIndex.load();
@@ -392,7 +437,14 @@ private:
     double currentSampleRate = 44100.0;
     bool wasPlaying = false;
 
-    double songBeat = 0.0;             // beats since the transport started
+    double songBeat = 0.0;             // song position in beats (0 = 1.1.1)
+    double nextClickBeat = 0.0;
+    std::atomic<bool> metronome { false };
+    std::array<Click, MAX_CLICKS> clicks {};
+    int numClicks = 0;
+    bool hostActive = false;
+    bool hostPlaying = false;
+    double hostPosition = 0.0;
     double nextQuantizationBeat = 0.0; // next launch-quantization boundary
     std::atomic<double> songBeatForUi { 0.0 };
     std::atomic<double> swingTiming { 0.0 };

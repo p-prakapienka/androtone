@@ -4,6 +4,8 @@
 #include "Constants.h"
 #include "Sequencer/StepSequencer.h"
 #include "Mixer/Mixer.h"
+#include "Engine/SoundSources/Metronome.h"
+#include "Sequencer/TapTempo.h"
 #include <array>
 
 class AndrotoneAudioProcessor : public juce::AudioProcessor {
@@ -35,6 +37,22 @@ public:
     void setStateInformation(const void*, int) override;
 
     void setTempo(double bpm) { sequencer.setTempo(bpm); }
+    void setMetronome(bool enabled) { sequencer.setMetronome(enabled); }
+    bool isMetronomeOn() const { return sequencer.isMetronomeOn(); }
+    void setMetronomeVolume(float volume) { metronome.setVolume(volume); }
+    float getMetronomeVolume() const { return metronome.getVolume(); }
+    void setSwing(double timing, double velocity) { sequencer.setSwing(timing, velocity); }
+    double getSwingTiming() const { return sequencer.getSwingTiming(); }
+    double getSwingVelocity() const { return sequencer.getSwingVelocity(); }
+
+    // Tap tempo (UI thread): returns the new tempo, or 0 on the first tap of a sequence.
+    double tapTempo() {
+        const double bpm = tapTempoState.tap(juce::Time::getMillisecondCounterHiRes() / 1000.0);
+        if (bpm > 0.0) {
+            setTempo(bpm);
+        }
+        return bpm;
+    }
     void setVolume(float vol) { mixer.setMasterVolume(vol); }
     void setPlaying(bool shouldPlay) { sequencer.setPlaying(shouldPlay); }
     void setTrackVolume(int trackIndex, float vol) { mixer.setTrackVolume(trackIndex, vol); }
@@ -121,6 +139,8 @@ private:
     Mixer mixer;
     double currentSampleRate = 44100.0;
     ReleasePoolCollector releasePoolCollector;
+    Metronome metronome;
+    TapTempo tapTempoState;
     juce::UndoManager undoManager;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AndrotoneAudioProcessor)
