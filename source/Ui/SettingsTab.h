@@ -20,6 +20,15 @@ public:
                         processorRef.setMetronomeVolume(static_cast<float>(metronomeVolume.getValue() / 100.0));
                     });
 
+        for (auto [toggle, text, on] : { std::make_tuple(&exclusiveSolo, "Exclusive solo", processorRef.isExclusiveSolo()),
+                                         std::make_tuple(&exclusiveArm, "Exclusive arm", processorRef.isExclusiveArm()) }) {
+            toggle->setButtonText(text);
+            toggle->setToggleState(on, juce::dontSendNotification);
+            addAndMakeVisible(*toggle);
+        }
+        exclusiveSolo.onClick = [this]() { processorRef.setExclusiveSolo(exclusiveSolo.getToggleState()); };
+        exclusiveArm.onClick = [this]() { processorRef.setExclusiveArm(exclusiveArm.getToggleState()); };
+
         heading.setText("Groove", juce::dontSendNotification);
         heading.setColour(juce::Label::textColourId, juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
         addAndMakeVisible(heading);
@@ -36,11 +45,15 @@ public:
                 bounds.removeFromTop(16); // gap before the metronome row
             }
         }
+        bounds.removeFromTop(16);
+        exclusiveSolo.setBounds(bounds.removeFromTop(32).removeFromLeft(240));
+        exclusiveArm.setBounds(bounds.removeFromTop(32).removeFromLeft(240));
     }
 
 private:
     AndrotoneAudioProcessor& processorRef;
     juce::Label heading;
+    juce::ToggleButton exclusiveSolo, exclusiveArm;
     juce::Slider swingTiming, swingVelocity, metronomeVolume;
     juce::Label swingTimingLabel, swingVelocityLabel, metronomeLabel;
     std::array<std::pair<juce::Label*, juce::Slider*>, 3> rows {

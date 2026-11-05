@@ -68,12 +68,12 @@ one window. Status is updated as milestones land.
 
 | ID  | Must-have                                                                                       | Evidence        | Verify | Status |
 | --- | ----------------------------------------------------------------------------------------------- | --------------- | ------ | ------ |
-| D1  | Volume, pan (double-tap resets to centre)                                                        | §18.1           | T, S   | open   |
-| D2  | Track activator (mute)                                                                           | §18.1           | T      | open   |
-| D3  | Solo: exclusive by default, multi-solo optional; returns stay audible                            | §18.1, §18.6    | T      | open   |
-| D4  | Arm: exclusive by default                                                                        | §18.1           | T      | open   |
-| D5  | Peak meters per track and on main                                                                | §18.1           | S      | open   |
-| D6  | Return tracks with per-track sends; pre/post per return                                          | §18.4           | T      | open   |
+| D1  | Volume, pan (double-tap resets to centre)                                                        | §18.1           | T, S   | done   |
+| D2  | Track activator (mute)                                                                           | §18.1           | T      | done   |
+| D3  | Solo: exclusive by default, multi-solo optional; returns stay audible                            | §18.1, §18.6    | T      | done   |
+| D4  | Arm: exclusive by default                                                                        | §18.1           | T      | done   |
+| D5  | Peak meters per track and on main                                                                | §18.1           | S      | done   |
+| D6  | Return tracks with per-track sends; pre/post per return                                          | §18.4           | T      | done   |
 
 ## E. Recording
 

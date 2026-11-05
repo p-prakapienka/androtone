@@ -413,6 +413,17 @@ public:
         return QUANTIZATION_STEPS[static_cast<size_t>(quantizationIndex.load())];
     }
 
+    // Record-arm state per track (used by MIDI recording and live input monitoring).
+    void setArmed(int trackIndex, bool armed) {
+        if (trackIndex >= 0 && trackIndex < NUM_TRACKS) {
+            trackArmed[static_cast<size_t>(trackIndex)].store(armed);
+        }
+    }
+
+    bool isArmed(int trackIndex) const {
+        return trackIndex >= 0 && trackIndex < NUM_TRACKS && trackArmed[static_cast<size_t>(trackIndex)].load();
+    }
+
     int getNumActiveTracks() const {
         return numActiveTracks;
     }
@@ -447,6 +458,7 @@ private:
     double hostPosition = 0.0;
     double nextQuantizationBeat = 0.0; // next launch-quantization boundary
     std::atomic<double> songBeatForUi { 0.0 };
+    std::array<std::atomic<bool>, NUM_TRACKS> trackArmed {};
     std::atomic<double> swingTiming { 0.0 };
     std::atomic<double> swingVelocity { 0.0 };
 

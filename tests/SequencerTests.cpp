@@ -1,6 +1,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "Sequencer/StepSequencer.h"
 #include "Sequencer/TapTempo.h"
+#include "Mixer/Mixer.h"
 
 // Headless timing tests for the sequencer. Each CHECK names the behaviour it pins down; see
 // docs/rea/checklist.md for the checklist IDs they verify.
@@ -416,6 +417,60 @@ int main() {
             return std::to_string(s / 16 + 1) + "." + std::to_string((s / 4) % 4 + 1) + "." + std::to_string(s % 4 + 1);
         };
         CHECK(fmt(0.0) == "1.1.1" && fmt(5.25) == "2.2.2" && fmt(15.75) == "4.4.4", "bars.beats.16ths");
+    }
+
+    // D1-D6: mixer gains, pan, activator, solo, pre/post sends
+    {
+        auto runMixer = [](Mixer& mixer, std::array<float, NUM_TRACKS> inputs, int blocks = 3) {
+            std::array<juce::AudioBuffer<float>, NUM_TRACKS> tracks;
+            for (int t = 0; t < NUM_TRACKS; t++) {
+                tracks[(size_t) t].setSize(2, 256);
+                for (int ch = 0; ch < 2; ch++) for (int i = 0; i < 256; i++) tracks[(size_t) t].setSample(ch, i, inputs[(size_t) t]);
+            }
+            juce::AudioBuffer<float> out(2, 256);
+            for (int b = 0; b < blocks; b++) mixer.mix(out, tracks); // let gain ramps settle
+            return std::make_pair(out.getSample(0, 255), out.getSample(1, 255));
+        };
+        Mixer mixer; mixer.prepare(48000.0); mixer.setMasterVolume(1.0f);
+        mixer.setReturnLevel(0, 0.0f); mixer.setReturnLevel(1, 0.0f);
+        std::array<float, NUM_TRACKS> in {}; in[0] = 0.5f; in[1] = 0.25f;
+        auto lr = runMixer(mixer, in);
+        CHECK(std::abs(lr.first - 0.75f) < 1e-4 && std::abs(lr.second - 0.75f) < 1e-4, "unity sum %f %f", lr.first, lr.second);
+        mixer.setTrackPan(0, 1.0f);
+        lr = runMixer(mixer, in);
+        CHECK(std::abs(lr.first - 0.25f) < 1e-4 && std::abs(lr.second - 0.75f) < 1e-4, "hard right pan %f %f", lr.first, lr.second);
+        mixer.setTrackPan(0, 0.0f);
+        mixer.setTrackActive(1, false);
+        lr = runMixer(mixer, in);
+        CHECK(std::abs(lr.first - 0.5f) < 1e-4, "activator off mutes track 2: %f", lr.first);
+        mixer.setTrackActive(1, true);
+        mixer.setTrackSolo(1, true);
+        lr = runMixer(mixer, in);
+        CHECK(std::abs(lr.first - 0.25f) < 1e-4, "solo leaves only track 2: %f", lr.first);
+        mixer.setTrackSolo(1, false);
+        CHECK(mixer.takeMasterPeak() > 0.0f && mixer.takeMasterPeak() == 0.0f, "peak meter reads and resets");
+    }
+    // Sends: post follows mute, pre doesn't (delay return measured through its tail)
+    {
+        auto energyWithMute = [](bool pre) {
+            Mixer mixer; mixer.prepare(48000.0); mixer.setMasterVolume(1.0f);
+            mixer.setReturnLevel(Mixer::REVERB_RETURN, 0.0f);
+            mixer.setReturnPre(Mixer::DELAY_RETURN, pre);
+            mixer.setTrackDelaySend(0, 1.0f);
+            mixer.setTrackActive(0, false);
+            std::array<juce::AudioBuffer<float>, NUM_TRACKS> tracks;
+            for (auto& b : tracks) { b.setSize(2, 512); b.clear(); }
+            for (int i = 0; i < 512; i++) { tracks[0].setSample(0, i, 0.5f); tracks[0].setSample(1, i, 0.5f); }
+            juce::AudioBuffer<float> out(2, 512);
+            double energy = 0.0;
+            for (int b = 0; b < 200; b++) {
+                mixer.mix(out, tracks);
+                for (int i = 0; i < 512; i++) energy += std::abs(out.getSample(0, i));
+            }
+            return energy;
+        };
+        CHECK(energyWithMute(false) < 1e-3, "muted track: post send silent");
+        CHECK(energyWithMute(true) > 1.0, "muted track: pre send still feeds the return");
     }
 
     std::printf(failures == 0 ? "ALL PASSED\n" : "%d FAILURES\n", failures);

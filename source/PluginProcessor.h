@@ -55,9 +55,47 @@ public:
     }
     void setVolume(float vol) { mixer.setMasterVolume(vol); }
     void setPlaying(bool shouldPlay) { sequencer.setPlaying(shouldPlay); }
-    void setTrackVolume(int trackIndex, float vol) { mixer.setTrackVolume(trackIndex, vol); }
-    void setTrackReverbSend(int trackIndex, float amount) { mixer.setTrackReverbSend(trackIndex, amount); }
-    void setTrackDelaySend(int trackIndex, float amount) { mixer.setTrackDelaySend(trackIndex, amount); }
+    // ---- mixer (UI thread) ----
+    void setTrackVolume(int t, float vol) { mixer.setTrackVolume(t, vol); }
+    void setTrackPan(int t, float p) { mixer.setTrackPan(t, p); }
+    void setTrackReverbSend(int t, float amount) { mixer.setTrackReverbSend(t, amount); }
+    void setTrackDelaySend(int t, float amount) { mixer.setTrackDelaySend(t, amount); }
+    void setTrackActive(int t, bool on) { mixer.setTrackActive(t, on); }
+    void setReturnLevel(int r, float level) { mixer.setReturnLevel(r, level); }
+    void setReturnPre(int r, bool pre) { mixer.setReturnPre(r, pre); }
+
+    // Solo / arm are exclusive unless `multi` (e.g. a modifier) or the option is off.
+    void setTrackSolo(int t, bool on, bool multi = false) {
+        if (on && exclusiveSolo.load() && !multi) {
+            for (int other = 0; other < NUM_TRACKS; other++) {
+                mixer.setTrackSolo(other, false);
+            }
+        }
+        mixer.setTrackSolo(t, on);
+    }
+
+    void setTrackArmed(int t, bool on, bool multi = false) {
+        if (on && exclusiveArm.load() && !multi) {
+            for (int other = 0; other < NUM_TRACKS; other++) {
+                sequencer.setArmed(other, false);
+            }
+        }
+        sequencer.setArmed(t, on);
+    }
+
+    void setExclusiveSolo(bool on) { exclusiveSolo.store(on); }
+    bool isExclusiveSolo() const { return exclusiveSolo.load(); }
+    void setExclusiveArm(bool on) { exclusiveArm.store(on); }
+    bool isExclusiveArm() const { return exclusiveArm.load(); }
+
+    float getTrackPan(int t) const { return mixer.getTrackPan(t); }
+    bool isTrackActive(int t) const { return mixer.isTrackActive(t); }
+    bool isTrackSoloed(int t) const { return mixer.isTrackSoloed(t); }
+    bool isTrackArmed(int t) const { return sequencer.isArmed(t); }
+    float getReturnLevel(int r) const { return mixer.getReturnLevel(r); }
+    bool isReturnPre(int r) const { return mixer.isReturnPre(r); }
+    float takeTrackPeak(int t) { return mixer.takeTrackPeak(t); }
+    float takeMasterPeak() { return mixer.takeMasterPeak(); }
     void setSongMode(bool enabled) { sequencer.setSongMode(enabled); }
     void setQuantizationIndex(int index) { sequencer.setQuantizationIndex(index); }
 
@@ -140,6 +178,8 @@ private:
     double currentSampleRate = 44100.0;
     ReleasePoolCollector releasePoolCollector;
     Metronome metronome;
+    std::atomic<bool> exclusiveSolo { true };
+    std::atomic<bool> exclusiveArm { true };
     TapTempo tapTempoState;
     juce::UndoManager undoManager;
 
