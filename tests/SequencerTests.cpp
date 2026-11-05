@@ -704,6 +704,45 @@ int main() {
         file.deleteFile();
     }
 
+    // A8: per-clip quantization overrides the global one
+    {
+        Harness h;
+        h.seq.getClipSettings(0, 1).quantization = 3;            // 1/4 (global stays 1 bar)
+        h.seq.setPlaying(true);
+        h.run(30000);
+        h.seq.pressClip(0, 1);
+        h.run(40000);
+        CHECK(!h.ons(1).empty() && h.ons(1)[0].t == 48000, "clip quantized to the next beat: %lld", h.ons(1).empty() ? -1 : h.ons(1)[0].t);
+    }
+    // A8: legato takes over the play position
+    {
+        Harness h;
+        h.seq.setQuantizationIndex(0);
+        h.seq.getClipSettings(1, 2).legato = true;
+        h.seq.pressClip(1, 1);                                    // 2-bar bass
+        h.run(24000 * 5);                                         // 5 beats in
+        h.seq.pressClip(1, 2);
+        h.run(512);
+        CHECK(std::abs(h.seq.getClipPlayPosition(1) - 5.0) < 0.05, "legato launch continues at beat 5: %f", h.seq.getClipPlayPosition(1));
+    }
+    // A8: jump follow action + global follow switch
+    {
+        Harness h;
+        auto& s = h.seq.getClipSettings(0, 1);
+        s.followEnabled = true; s.followActionA = FollowAction::Jump; s.jumpTarget = 2;
+        h.seq.pressClip(0, 1);
+        h.run(96000 + 100);
+        CHECK(h.seq.getPlayingClip(0) == 2, "jump to slot 3: %d", h.seq.getPlayingClip(0));
+
+        Harness off;
+        off.seq.setFollowActionsEnabled(false);
+        auto& s2 = off.seq.getClipSettings(0, 1);
+        s2.followEnabled = true; s2.followActionA = FollowAction::Next;
+        off.seq.pressClip(0, 1);
+        off.run(96000 * 2 + 100);
+        CHECK(off.seq.getPlayingClip(0) == 1, "follow actions switched off globally");
+    }
+
     std::printf(failures == 0 ? "ALL PASSED\n" : "%d FAILURES\n", failures);
     return failures == 0 ? 0 : 1;
 }

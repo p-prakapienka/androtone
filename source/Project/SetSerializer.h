@@ -69,18 +69,24 @@ namespace SetSerializer {
         tree.setProperty("followLinked", settings.followLinked.load(), nullptr);
         tree.setProperty("followMultiplier", settings.followMultiplier.load(), nullptr);
         tree.setProperty("followSteps", settings.followTimeSteps.load(), nullptr);
+        tree.setProperty("jumpTarget", settings.jumpTarget.load(), nullptr);
+        tree.setProperty("clipQuantization", settings.quantization.load(), nullptr);
+        tree.setProperty("legato", settings.legato.load(), nullptr);
     }
 
     inline void settingsFromTree(const juce::ValueTree& tree, ClipSettings& settings) {
         settings.launchMode.store(static_cast<LaunchMode>(juce::jlimit(0, 3, static_cast<int>(tree.getProperty("launchMode", 0)))));
         settings.followEnabled.store(tree.getProperty("follow", false));
-        settings.followActionA.store(static_cast<FollowAction>(juce::jlimit(0, 8, static_cast<int>(tree.getProperty("followA", 4)))));
-        settings.followActionB.store(static_cast<FollowAction>(juce::jlimit(0, 8, static_cast<int>(tree.getProperty("followB", 0)))));
+        settings.followActionA.store(static_cast<FollowAction>(juce::jlimit(0, 9, static_cast<int>(tree.getProperty("followA", 4)))));
+        settings.followActionB.store(static_cast<FollowAction>(juce::jlimit(0, 9, static_cast<int>(tree.getProperty("followB", 0)))));
         settings.chanceA.store(tree.getProperty("chanceA", 100));
         settings.chanceB.store(tree.getProperty("chanceB", 0));
         settings.followLinked.store(tree.getProperty("followLinked", true));
         settings.followMultiplier.store(tree.getProperty("followMultiplier", 1));
         settings.followTimeSteps.store(tree.getProperty("followSteps", 16));
+        settings.jumpTarget.store(tree.getProperty("jumpTarget", 0));
+        settings.quantization.store(juce::jlimit(-1, 8, static_cast<int>(tree.getProperty("clipQuantization", -1))));
+        settings.legato.store(tree.getProperty("legato", false));
     }
 
     inline juce::ValueTree save(StepSequencer& sequencer, const Mixer& mixer, const Extras& extras) {
@@ -92,6 +98,7 @@ namespace SetSerializer {
         set.setProperty("swingTiming", sequencer.getSwingTiming(), nullptr);
         set.setProperty("swingVelocity", sequencer.getSwingVelocity(), nullptr);
         set.setProperty("metronome", sequencer.isMetronomeOn(), nullptr);
+        set.setProperty("followActions", sequencer.areFollowActionsEnabled(), nullptr);
         set.setProperty("metronomeVolume", extras.metronomeVolume, nullptr);
         set.setProperty("countIn", sequencer.getCountInBars(), nullptr);
         set.setProperty("recordQuantization", extras.recordQuantization, nullptr);
@@ -172,6 +179,7 @@ namespace SetSerializer {
         sequencer.setSongMode(set.getProperty("songMode", false));
         sequencer.setSwing(set.getProperty("swingTiming", 0.0), set.getProperty("swingVelocity", 0.0));
         sequencer.setMetronome(set.getProperty("metronome", false));
+        sequencer.setFollowActionsEnabled(set.getProperty("followActions", true));
         sequencer.setCountInBars(set.getProperty("countIn", 0));
         sequencer.setLoop(set.getProperty("loop", false), set.getProperty("loopStart", 0.0), set.getProperty("loopEnd", 16.0));
         sequencer.setStartPosition(set.getProperty("startPosition", 0.0));

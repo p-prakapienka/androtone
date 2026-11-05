@@ -25,7 +25,8 @@ enum class FollowAction {
     First,    // launch the top clip of the group
     Last,     // launch the bottom clip of the group
     Any,      // launch a random clip of the group, possibly this one
-    Other     // launch a random clip of the group other than this one (this one if it's alone)
+    Other,    // launch a random clip of the group other than this one (this one if it's alone)
+    Jump      // launch the slot chosen as the clip's jump target (an empty target stops the track)
 };
 
 // Per-clip launch / follow-action settings. Edited from the UI thread and read from the audio
@@ -44,6 +45,13 @@ struct ClipSettings {
     std::atomic<bool> followLinked { true };
     std::atomic<int> followMultiplier { 1 };
     std::atomic<int> followTimeSteps { 16 };
+    std::atomic<int> jumpTarget { 0 };           // slot for FollowAction::Jump
+
+    // -1 = follow the global launch quantization; otherwise an index into
+    // StepSequencer::QUANTIZATION_STEPS (0 = none).
+    std::atomic<int> quantization { -1 };
+    // Legato: on launch, take over the play position of the clip playing on the track.
+    std::atomic<bool> legato { false };
 
     void copyFrom(const ClipSettings& other) {
         launchMode.store(other.launchMode.load());
@@ -55,6 +63,9 @@ struct ClipSettings {
         followLinked.store(other.followLinked.load());
         followMultiplier.store(other.followMultiplier.load());
         followTimeSteps.store(other.followTimeSteps.load());
+        jumpTarget.store(other.jumpTarget.load());
+        quantization.store(other.quantization.load());
+        legato.store(other.legato.load());
     }
 
     void reset() {

@@ -26,6 +26,11 @@ public:
             toggle->setToggleState(on, juce::dontSendNotification);
             addAndMakeVisible(*toggle);
         }
+        followActions.setButtonText("Follow actions enabled");
+        followActions.setToggleState(processorRef.areFollowActionsEnabled(), juce::dontSendNotification);
+        followActions.setTooltip("Turn off to edit without playback jumping between clips");
+        followActions.onClick = [this]() { processorRef.setFollowActionsEnabled(followActions.getToggleState()); };
+        addAndMakeVisible(followActions);
         exclusiveSolo.onClick = [this]() { processorRef.setExclusiveSolo(exclusiveSolo.getToggleState()); };
         exclusiveArm.onClick = [this]() { processorRef.setExclusiveArm(exclusiveArm.getToggleState()); };
 
@@ -77,12 +82,13 @@ public:
         bounds.removeFromTop(16);
         exclusiveSolo.setBounds(bounds.removeFromTop(32).removeFromLeft(240));
         exclusiveArm.setBounds(bounds.removeFromTop(32).removeFromLeft(240));
+        followActions.setBounds(bounds.removeFromTop(32).removeFromLeft(240));
     }
 
 private:
     AndrotoneAudioProcessor& processorRef;
     juce::Label heading;
-    juce::ToggleButton exclusiveSolo, exclusiveArm;
+    juce::ToggleButton exclusiveSolo, exclusiveArm, followActions;
     juce::ComboBox countIn, recordQuantize;
     juce::Label countInLabel, recordQuantizeLabel;
     juce::Slider swingTiming, swingVelocity, metronomeVolume;

@@ -40,6 +40,8 @@ public:
 
     void setTempo(double bpm) { sequencer.setTempo(bpm); }
     void setMetronome(bool enabled) { sequencer.setMetronome(enabled); }
+    void setFollowActionsEnabled(bool enabled) { sequencer.setFollowActionsEnabled(enabled); }
+    bool areFollowActionsEnabled() const { return sequencer.areFollowActionsEnabled(); }
     bool isMetronomeOn() const { return sequencer.isMetronomeOn(); }
     void setMetronomeVolume(float volume) { metronome.setVolume(volume); }
     float getMetronomeVolume() const { return metronome.getVolume(); }

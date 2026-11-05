@@ -199,6 +199,9 @@ public:
             nextClickBeat = std::ceil(songBeat - halfSample);
         }
         const bool clickOn = metronome.load();
+        for (auto& track : tracks) {
+            track.setFollowActionsEnabled(followActionsOn.load());
+        }
         arrangementNow = arrangement.get();
         const bool loopOn = loopEnabled.load() && loopEnd.load() > loopStart.load() + Clip::STEP_LENGTH;
         const double loopFrom = loopStart.load();
@@ -244,6 +247,9 @@ public:
                 nextQuantizationBeat = (std::floor((songBeat + halfSample) / grid) + 1.0) * grid;
             }
 
+            if (!countingIn) {
+                applyClipQuantizedLaunches(midi, position, halfSample);
+            }
             chainSongIfDue(midi, position);
 
             if (songBeat >= nextClickBeat - halfSample) {
@@ -263,6 +269,7 @@ public:
             if (countingIn) {
                 untilEvent = juce::jmin(untilEvent, -songBeat);
             } else {
+                untilEvent = juce::jmin(untilEvent, beatsToClipQuantizedLaunch(halfSample));
                 for (auto& track : tracks) {
                     untilEvent = juce::jmin(untilEvent, track.beatsToNextEvent());
                 }
@@ -483,6 +490,8 @@ public:
     }
 
     void setMetronome(bool enabled) { metronome.store(enabled); }
+    void setFollowActionsEnabled(bool enabled) { followActionsOn.store(enabled); }
+    bool areFollowActionsEnabled() const { return followActionsOn.load(); }
     bool isMetronomeOn() const { return metronome.load(); }
 
     int getQuantizationIndex() const {
@@ -650,6 +659,7 @@ private:
     double songBeat = 0.0;             // song position in beats (0 = 1.1.1)
     double nextClickBeat = 0.0;
     std::atomic<bool> metronome { false };
+    std::atomic<bool> followActionsOn { true };
     std::array<Click, MAX_CLICKS> clicks {};
     int numClicks = 0;
     bool hostActive = false;
@@ -914,8 +924,44 @@ private:
         }
 
         for (auto& track : tracks) {
-            track.apply(track.takePendingRequest(), midi, position, lateBy);
+            if (track.getPendingQuantization() < 0) { // clips with their own quantization wait for it
+                track.apply(track.takePendingRequest(), midi, position, lateBy);
+            }
         }
+    }
+
+    // Launches of clips with their own launch quantization (not "Global").
+    void applyClipQuantizedLaunches(juce::MidiBuffer& midi, int position, double halfSample) {
+        for (auto& track : tracks) {
+            const int ownIndex = track.getPendingQuantization();
+            if (ownIndex < 0) {
+                continue;
+            }
+            const double grid = QUANTIZATION_STEPS[static_cast<size_t>(juce::jlimit(0, 8, ownIndex))] * Clip::STEP_LENGTH;
+            if (grid <= 0.0) {
+                track.apply(track.takePendingRequest(), midi, position, 0.0);
+                continue;
+            }
+            const double phase = std::fmod(songBeat + halfSample, grid);
+            if (phase < 2.0 * halfSample) {
+                track.apply(track.takePendingRequest(), midi, position, juce::jmax(0.0, phase - halfSample));
+            }
+        }
+    }
+
+    // Beats to the next boundary of any clip-specific quantization that a pending launch waits for.
+    double beatsToClipQuantizedLaunch(double halfSample) const {
+        double until = Track::NO_EVENT;
+        for (const auto& track : tracks) {
+            const int ownIndex = track.getPendingQuantization();
+            if (ownIndex <= 0) {
+                continue;
+            }
+            const double grid = QUANTIZATION_STEPS[static_cast<size_t>(juce::jlimit(0, 8, ownIndex))] * Clip::STEP_LENGTH;
+            const double next = (std::floor((songBeat + halfSample) / grid) + 1.0) * grid;
+            until = juce::jmin(until, next - songBeat);
+        }
+        return until;
     }
 
     void applyScene(int scene, juce::MidiBuffer& midi, int position, double lateBy) {

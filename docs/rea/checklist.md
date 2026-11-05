@@ -31,7 +31,7 @@ one window. Status is updated as milestones land.
 | A5  | Follow actions A/B with chance, linked/unlinked time, group semantics                            | launching-clips | T      | done   |
 | A6  | Launching a clip starts the transport                                                            | §7.1, §19.4     | T      | done   |
 | A7  | New empty MIDI clip in an empty slot = 1 bar, looped                                             | §19.3.3         | T, S   | done   |
-| A8  | Legato launch, jump follow action, scene follow actions, per-clip quantization                   | launching-clips | T      | open   |
+| A8  | Legato launch, jump follow action, per-clip quantization, global follow switch (scene follow actions: open) | launching-clips | T | partial |
 
 ## B. Clips and the note editor
 
@@ -40,7 +40,7 @@ one window. Status is updated as milestones land.
 | B1  | Clips hold free notes (start, length, pitch, velocity); chords and notes longer than a step      | §10.1           | T      | done   |
 | B2  | Start/end markers; unlooped clip plays start→end once then stops                                 | §8.2.1, §8.8    | T      | done   |
 | B3  | Loop on/off with loop start/end; playback may start before the loop ("run into loop")            | §8.9            | T      | done   |
-| B4  | Clip name and colour (default = track colour)                                                    | §8.1.1.2–3      | S      | partial   |
+| B4  | Clip name and colour (default = track colour)                                                    | §8.1.1.2–3      | S      | done   |
 | B5  | Note editor: pitch × time grid, add / delete / move / resize notes with grid snapping            | §10.4–10.5.5    | S      | done   |
 | B6  | Grid sizes selectable; snapping can be turned off                                                | §10.2.1         | S      | done   |
 | B7  | Velocity lane below the grid; note shade shows velocity                                          | §10.1, §10.5.12 | S      | done   |

@@ -19,6 +19,21 @@ public:
 
         addAndMakeVisible(title);
         title.setColour(juce::Label::textColourId, juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
+        // Tap the name to rename the clip.
+        title.setEditable(false, true, false);
+        title.setTooltip("Double-tap to rename the clip");
+        title.onTextChange = [this]() {
+            auto text = title.getText().fromFirstOccurrenceOf("/", false, false).trim();
+            if (text.isEmpty()) {
+                text = title.getText().trim();
+            }
+            grid.commitEdit("Rename clip", [text](ClipData& d) { d.name = text; });
+            refresh();
+        };
+
+        colourButton.setTooltip("Clip colour");
+        colourButton.onClick = [this]() { showColourMenu(); };
+        addAndMakeVisible(colourButton);
 
         setUpButton(lengthDown, "-", "Shorten clip by a bar", [this]() { changeLength(-Clip::BEATS_PER_BAR); });
         setUpButton(lengthUp, "+", "Lengthen clip by a bar", [this]() { changeLength(Clip::BEATS_PER_BAR); });
@@ -114,6 +129,7 @@ public:
             lengthLabel.setText(formatBars(data->looping ? data->loopEnd - data->loopStart : data->endMarker - data->startMarker),
                                 juce::dontSendNotification);
             loopButton.setToggleState(data->looping, juce::dontSendNotification);
+            colourButton.setColour(juce::TextButton::buttonColourId, processorRef.getClipColour(grid.getTrack(), grid.getClipIndex()));
         }
         updateButtons();
     }
@@ -125,7 +141,8 @@ public:
         auto row2 = bounds.removeFromTop(30);
         bounds.removeFromTop(6);
 
-        title.setBounds(row1.removeFromLeft(juce::jmin(260, row1.getWidth() / 3)));
+        colourButton.setBounds(row1.removeFromLeft(26).reduced(2, 4));
+        title.setBounds(row1.removeFromLeft(juce::jmin(240, row1.getWidth() / 3)));
         auto place = [](juce::Rectangle<int>& row, juce::Component& c, int width) {
             c.setBounds(row.removeFromLeft(width).reduced(2, 0));
         };
@@ -188,6 +205,29 @@ private:
                              });
     }
     juce::Label lengthLabel;
+    juce::TextButton colourButton;
+
+    // Clip colour: the track colour (default) or one of a fixed palette.
+    void showColourMenu() {
+        if (!grid.hasClip()) {
+            return;
+        }
+        static const juce::uint32 palette[] { 0, 0xFFE57373, 0xFFFFB74D, 0xFFFFF176, 0xFF9CCC65, 0xFF26A69A,
+                                              0xFF4FC3F7, 0xFF9575CD, 0xFFF06292, 0xFFBDBDBD };
+        juce::PopupMenu menu;
+        for (int i = 0; i < 10; i++) {
+            const auto colour = palette[i] == 0 ? AndrotoneAudioProcessor::getTrackColour(grid.getTrack()) : juce::Colour(palette[i]);
+            menu.addColouredItem(i + 1, i == 0 ? "Track colour" : "Colour " + juce::String(i), colour);
+        }
+        menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&colourButton), [this](int result) {
+            if (result <= 0) {
+                return;
+            }
+            const juce::uint32 colour = palette[result - 1];
+            grid.commitEdit("Clip colour", [colour](ClipData& d) { d.colour = colour; });
+            refresh();
+        });
+    }
     juce::ComboBox gridChooser;
     juce::Slider quantizeAmount;
 

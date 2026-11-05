@@ -149,9 +149,26 @@ public:
     // Starts `clipIndex` from its start marker. Notes still sounding from the previous clip ring
     // out to their own length.
     void launch(int clipIndex, double lateBy) {
+        // Legato: keep the play position of the clip that was playing (wrapped into the new one).
+        const bool legato = clips[static_cast<size_t>(clipIndex)].settings.legato.load();
+        const bool wasPlaying = playingData != nullptr && playingClip.load() != NOT_PLAYING;
+        const double previousPosition = clipPos;
         playingClip.store(clipIndex);
         restart(lateBy);
         launchCount++;
+        if (legato && wasPlaying) {
+            refreshData();
+            if (playingData != nullptr) {
+                double position = previousPosition;
+                if (position >= playingData->getPlayEnd()) {
+                    position = playingData->looping
+                        ? playingData->loopStart + std::fmod(position - playingData->loopStart, playingData->getLoopLength())
+                        : playingData->startMarker;
+                }
+                clipPos = juce::jmax(0.0, position);
+                needsStart = false;
+            }
+        }
     }
 
     // ---- arrangement ----
@@ -180,6 +197,18 @@ public:
     }
 
     int getLaunchCount() const { return launchCount; }
+
+    // Global follow-action switch (lets you edit without playback jumping around).
+    void setFollowActionsEnabled(bool enabled) { followActionsEnabled = enabled; }
+
+    // Launch quantization (in steps) a pending request should wait for, or -1 for the global one.
+    int getPendingQuantization() const {
+        const int request = pendingRequest.load();
+        if (request < 0) {
+            return -1;
+        }
+        return clips[static_cast<size_t>(request)].settings.quantization.load();
+    }
     double getElapsedSinceLaunch() const { return elapsed; }
 
     void stop(juce::MidiBuffer& midi, int samplePosition) {
@@ -211,7 +240,7 @@ public:
         ensureStarted();
         double until = playingData->getPlayEnd() - clipPos;
         const ClipSettings& settings = clips[playingClip.load()].settings;
-        if (settings.followEnabled.load() && !followFired) {
+        if (settings.followEnabled.load() && !followFired && followActionsEnabled) {
             until = juce::jmin(until, Clip::getFollowBeats(*playingData, settings) - elapsed);
         }
         return juce::jmax(0.0, until);
@@ -332,6 +361,7 @@ private:
     std::atomic<bool> overridden { false };
     bool chaseArrangement = true;
     int launchCount = 0;
+    bool followActionsEnabled = true;
 
     ClipData::Ptr playingData; // snapshot of the playing clip; refreshed every chunk
     double clipPos = 0.0;      // position inside the clip (beats)
@@ -374,7 +404,7 @@ private:
     void runFollowActionIfDue(juce::MidiBuffer& midi, int samplePosition, double halfSample, juce::Random& random) {
         const int index = playingClip.load();
         const ClipSettings& settings = clips[static_cast<size_t>(index)].settings;
-        if (!settings.followEnabled.load() || followFired) {
+        if (!settings.followEnabled.load() || followFired || !followActionsEnabled) {
             return;
         }
         if (elapsed < Clip::getFollowBeats(*playingData, settings) - halfSample) {
@@ -523,6 +553,10 @@ private:
             case FollowAction::First: return first;
             case FollowAction::Last: return last;
             case FollowAction::Any: return first + random.nextInt(size);
+            case FollowAction::Jump: {
+                const int target = juce::jlimit(0, MAX_CLIPS - 1, settings.jumpTarget.load());
+                return clips[static_cast<size_t>(target)].hasClip() ? target : STOP_REQUEST;
+            }
             case FollowAction::Other: {
                 if (size == 1) {
                     return current;

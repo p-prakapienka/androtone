@@ -25,6 +25,18 @@ public:
         };
         addAndMakeVisible(launchMode);
 
+        setUpLabel(quantLabel, "Quantize");
+        clipQuantization.addItemList({ "Global", "None", "1/16", "1/8", "1/4", "1/2", "1 Bar", "2 Bars", "4 Bars", "8 Bars" }, 1);
+        clipQuantization.setSelectedItemIndex(settings.quantization.load() + 1, juce::dontSendNotification);
+        clipQuantization.onChange = [this]() { settings.quantization.store(clipQuantization.getSelectedItemIndex() - 1); };
+        addAndMakeVisible(clipQuantization);
+
+        legato.setButtonText("Legato");
+        legato.setTooltip("Take over the play position of the clip playing on this track");
+        legato.setToggleState(settings.legato.load(), juce::dontSendNotification);
+        legato.onClick = [this]() { settings.legato.store(legato.getToggleState()); };
+        addAndMakeVisible(legato);
+
         followEnabled.setButtonText("Follow action");
         followEnabled.setToggleState(settings.followEnabled.load(), juce::dontSendNotification);
         followEnabled.onClick = [this]() {
@@ -86,8 +98,19 @@ public:
         };
         addChildComponent(followTime);
 
+        setUpLabel(jumpLabel, "Jump to");
+        jumpTarget.setSliderStyle(juce::Slider::IncDecButtons);
+        jumpTarget.setTextBoxStyle(juce::Slider::TextBoxLeft, false, 70, 24);
+        jumpTarget.setRange(1.0, MAX_CLIPS, 1.0);
+        jumpTarget.setValue(settings.jumpTarget.load() + 1, juce::dontSendNotification);
+        jumpTarget.textFromValueFunction = [](double v) { return "Slot " + juce::String(static_cast<int>(v)); };
+        jumpTarget.valueFromTextFunction = [](const juce::String& text) { return text.retainCharacters("0123456789").getDoubleValue(); };
+        jumpTarget.updateText();
+        jumpTarget.onValueChange = [this]() { settings.jumpTarget.store(static_cast<int>(jumpTarget.getValue()) - 1); };
+        addAndMakeVisible(jumpTarget);
+
         updateEnablement();
-        setSize(300, 7 * ROW_HEIGHT + 2 * PADDING);
+        setSize(300, 9 * ROW_HEIGHT + 2 * PADDING);
     }
 
     void resized() override {
@@ -101,6 +124,11 @@ public:
         auto launchRow = row();
         launchLabel.setBounds(launchRow.removeFromLeft(labelWidth));
         launchMode.setBounds(launchRow);
+
+        auto quantRow = row();
+        quantLabel.setBounds(quantRow.removeFromLeft(labelWidth));
+        legato.setBounds(quantRow.removeFromRight(90));
+        clipQuantization.setBounds(quantRow.withTrimmedRight(6));
 
         followEnabled.setBounds(row());
 
@@ -120,6 +148,10 @@ public:
         timeLabel.setBounds(timeRow.removeFromLeft(labelWidth));
         multiplier.setBounds(timeRow);
         followTime.setBounds(timeRow);
+
+        auto jumpRow = row();
+        jumpLabel.setBounds(jumpRow.removeFromLeft(labelWidth));
+        jumpTarget.setBounds(jumpRow);
     }
 
 private:
@@ -142,6 +174,10 @@ private:
     juce::Label timeLabel;
     juce::Slider multiplier;
     juce::Slider followTime;
+    juce::Label quantLabel, jumpLabel;
+    juce::ComboBox clipQuantization;
+    juce::ToggleButton legato;
+    juce::Slider jumpTarget;
 
     void setUpLabel(juce::Label& label, const juce::String& text) {
         label.setText(text, juce::dontSendNotification);
@@ -153,10 +189,11 @@ private:
                      std::atomic<FollowAction>& target) {
         setUpLabel(label, "Action " + name);
         // Order matches the FollowAction enum.
-        box.addItemList({ "None", "Stop", "Again", "Previous", "Next", "First", "Last", "Any", "Other" }, 1);
+        box.addItemList({ "None", "Stop", "Again", "Previous", "Next", "First", "Last", "Any", "Other", "Jump" }, 1);
         box.setSelectedId(static_cast<int>(target.load()) + 1, juce::dontSendNotification);
-        box.onChange = [&box, &target]() {
+        box.onChange = [this, &box, &target]() {
             target.store(static_cast<FollowAction>(box.getSelectedId() - 1));
+            updateEnablement();
         };
         addAndMakeVisible(box);
     }
@@ -181,5 +218,8 @@ private:
         }
         multiplier.setVisible(linked.getToggleState());
         followTime.setVisible(!linked.getToggleState());
+        const bool jumps = settings.followActionA.load() == FollowAction::Jump || settings.followActionB.load() == FollowAction::Jump;
+        jumpTarget.setEnabled(enabled && jumps);
+        jumpLabel.setEnabled(enabled && jumps);
     }
 };
