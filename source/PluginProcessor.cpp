@@ -1,9 +1,7 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
-#include "Engine/SoundSources/SineSound.h"
-#include "Engine/SoundSources/SineVoice.h"
-#include "Engine/SoundSources/SawSound.h"
-#include "Engine/SoundSources/SawVoice.h"
+#include "Engine/SoundSources/AndroSynth.h"
+#include "Engine/SoundSources/DrumKit.h"
 #include "Engine/SoundSources/SamplePlayerSound.h"
 #include "Engine/SoundSources/SamplePlayerVoice.h"
 // BinaryData lives in the Projucer-generated JuceLibraryCode folder, which isn't
@@ -14,27 +12,77 @@ AndrotoneAudioProcessor::AndrotoneAudioProcessor() :
     AudioProcessor(
         BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)
     ) {
-        for (int i = 0; i < 8; i++) {
-            synths[0].addVoice(new SamplePlayerVoice());
-        }
-        synths[0].addSound(
-            SamplePlayerSound::fromMemory(
-                1,
-                BinaryData::wa_free_ldrum_kick_06_t1_wav,
-                BinaryData::wa_free_ldrum_kick_06_t1_wavSize
-            )
-        );
+    applyDefaultDevices();
+}
 
-        for (int i = 0; i < 8; i++) {
-            synths[1].addVoice(new SawVoice());
-        }
-        synths[1].addSound(new SawSound(2));
-
-        for (int i = 0; i < 8; i++) {
-            synths[2].addVoice(new SineVoice());
-        }
-        synths[2].addSound(new SineSound(3));
+// Default instruments: track 1 plays the kick sample, tracks 2 and 3 are synths voiced like the
+// original saw (dark, short tail) and sine tracks; the rest are plain synths.
+void AndrotoneAudioProcessor::applyDefaultDevices() {
+    for (int t = 0; t < NUM_TRACKS; t++) {
+        auto& device = devices[static_cast<size_t>(t)];
+        device.effectParams.resetTo(effectSpecs());
+        const auto type = t == 0 ? InstrumentType::Sampler : InstrumentType::Synth;
+        device.instrumentParams.resetTo(instrumentSpecs(type));
+        configureInstrument(t, type);
     }
+    auto& saw = devices[1].instrumentParams;
+    saw.set(SynthParam::Wave, 1.0f);
+    saw.set(SynthParam::Cutoff, 500.0f);
+    saw.set(SynthParam::Resonance, 0.0f);
+    saw.set(SynthParam::FilterEnv, 0.0f);
+    saw.set(SynthParam::Sustain, 1.0f);
+    saw.set(SynthParam::Release, 0.05f);
+    auto& sine = devices[2].instrumentParams;
+    sine.set(SynthParam::Wave, 0.0f);
+    sine.set(SynthParam::Cutoff, 18000.0f);
+    sine.set(SynthParam::FilterEnv, 0.0f);
+    sine.set(SynthParam::Sustain, 1.0f);
+    sine.set(SynthParam::Release, 0.05f);
+}
+
+// Rebuilds a track's synthesiser for an instrument type. The audio thread must not be rendering
+// this synth (call from the constructor or with processing suspended).
+void AndrotoneAudioProcessor::configureInstrument(int t, InstrumentType type) {
+    auto& synth = synths[static_cast<size_t>(t)];
+    auto& device = devices[static_cast<size_t>(t)];
+    const int channel = t + 1;
+    synth.clearVoices();
+    synth.clearSounds();
+    device.instrument.store(type);
+
+    switch (type) {
+        case InstrumentType::Sampler:
+            for (int i = 0; i < 8; i++) {
+                synth.addVoice(new SamplePlayerVoice(&device.instrumentParams));
+            }
+            synth.addSound(SamplePlayerSound::fromMemory(channel, BinaryData::wa_free_ldrum_kick_06_t1_wav,
+                                                         BinaryData::wa_free_ldrum_kick_06_t1_wavSize));
+            break;
+        case InstrumentType::Synth:
+            for (int i = 0; i < 8; i++) {
+                synth.addVoice(new AndroSynthVoice(device.instrumentParams));
+            }
+            synth.addSound(new AndroSynthSound(channel));
+            break;
+        case InstrumentType::Drums:
+            for (int i = 0; i < 12; i++) {
+                synth.addVoice(new DrumKitVoice(device.instrumentParams));
+            }
+            synth.addSound(new DrumKitSound(channel));
+            break;
+    }
+    synth.setCurrentPlaybackSampleRate(currentSampleRate);
+}
+
+void AndrotoneAudioProcessor::setInstrument(int t, InstrumentType type) {
+    if (t < 0 || t >= NUM_TRACKS || devices[static_cast<size_t>(t)].instrument.load() == type) {
+        return;
+    }
+    suspendProcessing(true);
+    devices[static_cast<size_t>(t)].instrumentParams.resetTo(instrumentSpecs(type));
+    configureInstrument(t, type);
+    suspendProcessing(false);
+}
 
 void AndrotoneAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     currentSampleRate = sampleRate;
@@ -51,6 +99,9 @@ void AndrotoneAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlo
 
     mixer.prepare(sampleRate);
     metronome.prepare(sampleRate);
+    for (auto& fx : trackEffects) {
+        fx.prepare(sampleRate);
+    }
 }
 
 void AndrotoneAudioProcessor::releaseResources() {
@@ -88,6 +139,7 @@ void AndrotoneAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     for (int t = 0; t < NUM_TRACKS; t++) {
         trackBuffers[t].clear(0, numSamples);
         synths[t].renderNextBlock(trackBuffers[t], midi, 0, numSamples);
+        trackEffects[static_cast<size_t>(t)].process(trackBuffers[t], numSamples, devices[static_cast<size_t>(t)].effectParams);
     }
 
     mixer.mix(buffer, trackBuffers);
@@ -108,7 +160,17 @@ juce::AudioProcessorEditor* AndrotoneAudioProcessor::createEditor() {
 }
 
 juce::ValueTree AndrotoneAudioProcessor::createSetState() {
-    SetSerializer::Extras extras { metronome.getVolume(), exclusiveSolo.load(), exclusiveArm.load(), recorder.getQuantization() };
+    SetSerializer::Extras extras { metronome.getVolume(), exclusiveSolo.load(), exclusiveArm.load(), recorder.getQuantization(), {} };
+    for (int t = 0; t < NUM_TRACKS; t++) {
+        auto& snapshot = extras.devices[static_cast<size_t>(t)];
+        const auto& device = devices[static_cast<size_t>(t)];
+        snapshot.present = true;
+        snapshot.instrument = static_cast<int>(device.instrument.load());
+        for (int i = 0; i < MAX_DEVICE_PARAMS; i++) {
+            snapshot.instrumentValues[static_cast<size_t>(i)] = device.instrumentParams.get(i);
+            snapshot.effectValues[static_cast<size_t>(i)] = device.effectParams.get(i);
+        }
+    }
     return SetSerializer::save(sequencer, mixer, extras);
 }
 
@@ -121,6 +183,19 @@ bool AndrotoneAudioProcessor::restoreSetState(const juce::ValueTree& set) {
     SetSerializer::Extras extras;
     const bool ok = SetSerializer::load(set, sequencer, mixer, extras);
     if (ok) {
+        applyDefaultDevices();
+        for (int t = 0; t < NUM_TRACKS; t++) {
+            const auto& snapshot = extras.devices[static_cast<size_t>(t)];
+            if (!snapshot.present) {
+                continue;
+            }
+            auto& device = devices[static_cast<size_t>(t)];
+            configureInstrument(t, static_cast<InstrumentType>(snapshot.instrument));
+            for (int i = 0; i < MAX_DEVICE_PARAMS; i++) {
+                device.instrumentParams.set(i, snapshot.instrumentValues[static_cast<size_t>(i)]);
+                device.effectParams.set(i, snapshot.effectValues[static_cast<size_t>(i)]);
+            }
+        }
         metronome.setVolume(extras.metronomeVolume);
         exclusiveSolo.store(extras.exclusiveSolo);
         exclusiveArm.store(extras.exclusiveArm);
@@ -155,6 +230,7 @@ void AndrotoneAudioProcessor::newSet() {
     sequencer.setPlaying(false);
     sequencer.loadProject(ProjectPresets::defaultProject);
     sequencer.setArrangement(new ArrangementData());
+    applyDefaultDevices();
     suspendProcessing(false);
     undoManager.clearUndoHistory();
     currentSetFile = juce::File();

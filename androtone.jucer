@@ -22,18 +22,17 @@
     </GROUP>
     <GROUP id="{1A2B3C4D-5E6F-4A1B-8C2D-3E4F5A6B7C8D}" name="Engine">
       <GROUP id="{9D83D883-3F8D-B4C1-A907-B5C482CB7707}" name="SoundSources">
-        <FILE id="kaEIoy" name="SineSound.h" compile="0" resource="0" file="Source/Engine/SoundSources/SineSound.h"/>
-        <FILE id="S5Yf95" name="SineVoice.h" compile="0" resource="0" file="Source/Engine/SoundSources/SineVoice.h"/>
-        <FILE id="SawSn1" name="SawSound.h" compile="0" resource="0" file="Source/Engine/SoundSources/SawSound.h"/>
-        <FILE id="SawVc1" name="SawVoice.h" compile="0" resource="0" file="Source/Engine/SoundSources/SawVoice.h"/>
         <FILE id="SmplSn1" name="SamplePlayerSound.h" compile="0" resource="0"
               file="Source/Engine/SoundSources/SamplePlayerSound.h"/>
+        <FILE id="AndSyn1" name="AndroSynth.h" compile="0" resource="0" file="Source/Engine/SoundSources/AndroSynth.h"/>
+        <FILE id="DrumKt1" name="DrumKit.h" compile="0" resource="0" file="Source/Engine/SoundSources/DrumKit.h"/>
         <FILE id="MetroH1" name="Metronome.h" compile="0" resource="0" file="Source/Engine/SoundSources/Metronome.h"/>
         <FILE id="SmplVc1" name="SamplePlayerVoice.h" compile="0" resource="0"
               file="Source/Engine/SoundSources/SamplePlayerVoice.h"/>
       </GROUP>
       <GROUP id="{2B3C4D5E-6F7A-4B2C-9D3E-4F5A6B7C8D9E}" name="Processors">
         <FILE id="ProcH1" name="Processor.h" compile="0" resource="0" file="Source/Engine/Processors/Processor.h"/>
+        <FILE id="TrkFx01" name="TrackEffects.h" compile="0" resource="0" file="Source/Engine/Processors/TrackEffects.h"/>
         <FILE id="RvrbH1" name="Reverb.h" compile="0" resource="0" file="Source/Engine/Processors/Reverb.h"/>
         <FILE id="DlayH1" name="Delay.h" compile="0" resource="0" file="Source/Engine/Processors/Delay.h"/>
       </GROUP>
@@ -48,6 +47,7 @@
       <FILE id="CtrlPn1" name="ControlPanel.h" compile="0" resource="0" file="Source/Ui/ControlPanel.h"/>
       <FILE id="NoteGr1" name="NoteGrid.h" compile="0" resource="0" file="Source/Ui/NoteGrid.h"/>
       <FILE id="MainTb1" name="ProjectTab.h" compile="0" resource="0" file="Source/Ui/ProjectTab.h"/>
+      <FILE id="DevTab1" name="DeviceTab.h" compile="0" resource="0" file="Source/Ui/DeviceTab.h"/>
       <FILE id="MixrTb1" name="MixerTab.h" compile="0" resource="0" file="Source/Ui/MixerTab.h"/>
       <FILE id="SesnTb1" name="SessionTab.h" compile="0" resource="0" file="Source/Ui/SessionTab.h"/>
       <FILE id="SetnTb1" name="SettingsTab.h" compile="0" resource="0" file="Source/Ui/SettingsTab.h"/>
@@ -61,6 +61,7 @@
             file="Source/PluginEditor.cpp"/>
       <FILE id="zXuyTD" name="PluginEditor.h" compile="0" resource="0" file="Source/PluginEditor.h"/>
       <FILE id="SetSer1" name="SetSerializer.h" compile="0" resource="0" file="Source/Project/SetSerializer.h"/>
+      <FILE id="Devics1" name="Devices.h" compile="0" resource="0" file="Source/Engine/Devices.h"/>
       <FILE id="CnstH1" name="Constants.h" compile="0" resource="0" file="Source/Constants.h"/>
     </GROUP>
   </MAINGROUP>

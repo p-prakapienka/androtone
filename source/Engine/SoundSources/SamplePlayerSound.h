@@ -7,7 +7,7 @@
 //
 // It decodes an audio file held in memory (e.g. an embedded BinaryData resource)
 // and plays it back, repitched per MIDI note relative to a root note. Like the
-// other sound sources (SineSound, SawSound) it is filtered to a single MIDI
+// other sound sources (AndroSynthSound, DrumKitSound) it is filtered to a single MIDI
 // channel so it can be routed to one sequencer track.
 //
 // Pair it with SamplePlayerVoice (which makes playback genuinely one-shot -

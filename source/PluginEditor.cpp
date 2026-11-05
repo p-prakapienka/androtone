@@ -3,6 +3,7 @@
 #include "Ui/ArrangeTab.h"
 #include "Ui/ClipTab.h"
 #include "Ui/ControlPanel.h"
+#include "Ui/DeviceTab.h"
 #include "Ui/ProjectTab.h"
 #include "Ui/MixerTab.h"
 #include "Ui/SessionTab.h"
@@ -59,6 +60,7 @@ void AndrotoneAudioProcessorEditor::buildTabs() {
     sessionTab = std::move(session);
     arrangeTab = std::make_unique<ArrangeTab>(processorRef);
     clipTab = std::make_unique<ClipTab>(processorRef);
+    deviceTab = std::make_unique<DeviceTab>(processorRef);
     mixerTab = std::make_unique<MixerTab>(processorRef);
     settingsTab = std::make_unique<SettingsTab>(processorRef);
 
@@ -67,6 +69,7 @@ void AndrotoneAudioProcessorEditor::buildTabs() {
     tabs.addTab("Session", tabColour, sessionTab.get(), false);
     tabs.addTab("Arrange", tabColour, arrangeTab.get(), false);
     tabs.addTab("Clip", tabColour, clipTab.get(), false);
+    tabs.addTab("Device", tabColour, deviceTab.get(), false);
     tabs.addTab("Mixer", tabColour, mixerTab.get(), false);
     tabs.addTab("Settings", tabColour, settingsTab.get(), false);
     tabs.setCurrentTabIndex(juce::jlimit(0, tabs.getNumTabs() - 1, current));

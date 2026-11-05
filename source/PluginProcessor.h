@@ -5,6 +5,8 @@
 #include "Sequencer/StepSequencer.h"
 #include "Mixer/Mixer.h"
 #include "Engine/SoundSources/Metronome.h"
+#include "Engine/Devices.h"
+#include "Engine/Processors/TrackEffects.h"
 #include "Sequencer/TapTempo.h"
 #include "Sequencer/Recorder.h"
 #include "Project/SetSerializer.h"
@@ -153,6 +155,13 @@ public:
 
     juce::UndoManager& getUndoManager() { return undoManager; }
 
+    // ---- devices (UI thread) ----
+    void setInstrument(int t, InstrumentType type);
+    InstrumentType getInstrument(int t) const { return devices[static_cast<size_t>(t)].instrument.load(); }
+    DeviceParams& getInstrumentParams(int t) { return devices[static_cast<size_t>(t)].instrumentParams; }
+    DeviceParams& getEffectParams(int t) { return devices[static_cast<size_t>(t)].effectParams; }
+    double getGainReductionDb(int t) const { return trackEffects[static_cast<size_t>(t)].getGainReductionDb(); }
+
     // ---- sets (UI thread) ----
     juce::ValueTree createSetState();
     bool restoreSetState(const juce::ValueTree& set);
@@ -265,7 +274,12 @@ private:
         int ticks = 0;
     };
 
+    void applyDefaultDevices();
+    void configureInstrument(int t, InstrumentType type);
+
     std::array<juce::Synthesiser, NUM_TRACKS> synths;
+    std::array<TrackDevices, NUM_TRACKS> devices;
+    std::array<TrackEffects, NUM_TRACKS> trackEffects;
     std::array<juce::AudioBuffer<float>, NUM_TRACKS> trackBuffers;
     StepSequencer sequencer;
     Mixer mixer;

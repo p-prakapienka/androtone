@@ -2,6 +2,7 @@
 
 #include "../Sequencer/StepSequencer.h"
 #include "../Mixer/Mixer.h"
+#include "../Engine/Devices.h"
 
 #include <juce_data_structures/juce_data_structures.h>
 
@@ -10,12 +11,21 @@
 // (§5.4.2). Stored as a ValueTree, written to disk as XML.
 namespace SetSerializer {
 
+    // A track's devices as plain values.
+    struct DeviceSnapshot {
+        int instrument = static_cast<int>(InstrumentType::Synth);
+        std::array<float, MAX_DEVICE_PARAMS> instrumentValues {};
+        std::array<float, MAX_DEVICE_PARAMS> effectValues {};
+        bool present = false;
+    };
+
     // Settings owned outside the sequencer / mixer.
     struct Extras {
         float metronomeVolume = 0.5f;
         bool exclusiveSolo = true;
         bool exclusiveArm = true;
         double recordQuantization = 0.0;
+        std::array<DeviceSnapshot, NUM_TRACKS> devices {};
     };
 
     static constexpr int FORMAT_VERSION = 1;
@@ -131,6 +141,22 @@ namespace SetSerializer {
             track.setProperty("reverbSend", mixer.getTrackReverbSend(t), nullptr);
             track.setProperty("armed", sequencer.isArmed(t), nullptr);
 
+            const auto& device = extras.devices[static_cast<size_t>(t)];
+            if (device.present) {
+                juce::ValueTree devices("DEVICES");
+                const auto type = static_cast<InstrumentType>(device.instrument);
+                devices.setProperty("instrument", device.instrument, nullptr);
+                const auto& specs = instrumentSpecs(type);
+                for (size_t i = 0; i < specs.size(); i++) {
+                    devices.setProperty(juce::Identifier(juce::String("i_") + specs[i].id), device.instrumentValues[i], nullptr);
+                }
+                const auto& fx = effectSpecs();
+                for (size_t i = 0; i < fx.size(); i++) {
+                    devices.setProperty(juce::Identifier(juce::String("e_") + fx[i].id), device.effectValues[i], nullptr);
+                }
+                track.appendChild(devices, nullptr);
+            }
+
             for (int slot = 0; slot < MAX_CLIPS; slot++) {
                 const auto data = sequencer.getClipData(t, slot);
                 if (data == nullptr) {
@@ -215,7 +241,19 @@ namespace SetSerializer {
             sequencer.setArmed(t, child.getProperty("armed", false));
 
             for (const auto& entry : child) {
-                if (entry.hasType("CLIP")) {
+                if (entry.hasType("DEVICES")) {
+                    auto& device = extras.devices[static_cast<size_t>(t)];
+                    device.present = true;
+                    device.instrument = juce::jlimit(0, 2, static_cast<int>(entry.getProperty("instrument", 1)));
+                    const auto& specs = instrumentSpecs(static_cast<InstrumentType>(device.instrument));
+                    for (size_t i = 0; i < specs.size(); i++) {
+                        device.instrumentValues[i] = entry.getProperty(juce::Identifier(juce::String("i_") + specs[i].id), specs[i].defaultValue);
+                    }
+                    const auto& fx = effectSpecs();
+                    for (size_t i = 0; i < fx.size(); i++) {
+                        device.effectValues[i] = entry.getProperty(juce::Identifier(juce::String("e_") + fx[i].id), fx[i].defaultValue);
+                    }
+                } else if (entry.hasType("CLIP")) {
                     const int slot = entry.getProperty("slot", -1);
                     if (slot >= 0 && slot < MAX_CLIPS) {
                         sequencer.setClipData(t, slot, clipFromTree(entry));

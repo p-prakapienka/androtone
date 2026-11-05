@@ -4,6 +4,9 @@
 #include "Mixer/Mixer.h"
 #include "Sequencer/Recorder.h"
 #include "Project/SetSerializer.h"
+#include "Engine/SoundSources/AndroSynth.h"
+#include "Engine/SoundSources/DrumKit.h"
+#include "Engine/Processors/TrackEffects.h"
 
 // Headless timing tests for the sequencer. Each CHECK names the behaviour it pins down; see
 // docs/rea/checklist.md for the checklist IDs they verify.
@@ -741,6 +744,76 @@ int main() {
         off.seq.pressClip(0, 1);
         off.run(96000 * 2 + 100);
         CHECK(off.seq.getPlayingClip(0) == 1, "follow actions switched off globally");
+    }
+
+    // G5: instruments make sound for their notes and go quiet after release / their decay
+    {
+        auto renderNote = [](juce::Synthesiser& synth, int note, int samples) {
+            synth.setCurrentPlaybackSampleRate(48000.0);
+            juce::AudioBuffer<float> buffer(2, samples);
+            buffer.clear();
+            juce::MidiBuffer midi;
+            midi.addEvent(juce::MidiMessage::noteOn(1, note, (juce::uint8) 100), 0);
+            midi.addEvent(juce::MidiMessage::noteOff(1, note), samples / 2);
+            synth.renderNextBlock(buffer, midi, 0, samples);
+            return std::make_pair(buffer.getMagnitude(0, 0, samples / 2), buffer.getMagnitude(0, samples - 2000, 2000));
+        };
+        TrackDevices synthDevice;
+        juce::Synthesiser synth;
+        for (int i = 0; i < 4; i++) synth.addVoice(new AndroSynthVoice(synthDevice.instrumentParams));
+        synth.addSound(new AndroSynthSound(1));
+        auto [on, tail] = renderNote(synth, 60, 48000);
+        CHECK(on > 0.01f && tail < 1e-4f, "synth sounds and releases: %f %f", on, tail);
+
+        TrackDevices drumDevice;
+        drumDevice.instrumentParams.resetTo(instrumentSpecs(InstrumentType::Drums));
+        juce::Synthesiser drums;
+        for (int i = 0; i < 4; i++) drums.addVoice(new DrumKitVoice(drumDevice.instrumentParams));
+        drums.addSound(new DrumKitSound(1));
+        for (int note : { 36, 37, 38, 39, 42, 45, 46, 56 }) {
+            auto [hit, end] = renderNote(drums, note, 96000);
+            CHECK(hit > 0.01f && end < 1e-4f, "drum %d sounds then decays: %f %f", note, hit, end);
+        }
+    }
+    // G6: track filter and compressor
+    {
+        TrackDevices device;
+        TrackEffects fx; fx.prepare(48000.0);
+        auto toneLevel = [&](double frequency) {
+            juce::AudioBuffer<float> buffer(2, 9600);
+            for (int i = 0; i < 9600; i++) {
+                const float v = (float) (0.5 * std::sin(juce::MathConstants<double>::twoPi * frequency * i / 48000.0));
+                buffer.setSample(0, i, v); buffer.setSample(1, i, v);
+            }
+            fx.reset();
+            fx.process(buffer, 9600, device.effectParams);
+            return buffer.getMagnitude(0, 4800, 4800);
+        };
+        CHECK(std::abs(toneLevel(5000.0) - 0.5f) < 1e-3f, "filter off: untouched");
+        device.effectParams.set(EffectParam::FilterMode, 1.0f);
+        device.effectParams.set(EffectParam::Cutoff, 500.0f);
+        device.effectParams.set(EffectParam::Resonance, 0.0f);
+        CHECK(toneLevel(5000.0) < 0.05f && toneLevel(100.0) > 0.4f, "low-pass cuts highs, keeps lows");
+        device.effectParams.set(EffectParam::FilterMode, 0.0f);
+        device.effectParams.set(EffectParam::Threshold, -20.0f);
+        device.effectParams.set(EffectParam::Ratio, 10.0f);
+        const float compressed = toneLevel(200.0);
+        CHECK(compressed < 0.2f && fx.getGainReductionDb() > 5.0, "compressor reduces a loud signal: %f (%f dB)", compressed, fx.getGainReductionDb());
+    }
+    // Devices saved with the set
+    {
+        StepSequencer a; Mixer m;
+        SetSerializer::Extras extras;
+        extras.devices[1].present = true;
+        extras.devices[1].instrument = (int) InstrumentType::Drums;
+        extras.devices[1].instrumentValues[DrumParam::Tune] = 1.5f;
+        extras.devices[1].effectValues[EffectParam::FilterMode] = 2.0f;
+        auto tree = SetSerializer::save(a, m, extras);
+        StepSequencer b; Mixer mb; SetSerializer::Extras loaded;
+        SetSerializer::load(tree, b, mb, loaded);
+        CHECK(loaded.devices[1].present && loaded.devices[1].instrument == (int) InstrumentType::Drums
+              && loaded.devices[1].instrumentValues[DrumParam::Tune] == 1.5f && loaded.devices[1].effectValues[EffectParam::FilterMode] == 2.0f,
+              "devices round-trip");
     }
 
     std::printf(failures == 0 ? "ALL PASSED\n" : "%d FAILURES\n", failures);

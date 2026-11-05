@@ -36,6 +36,10 @@ target_sources(Androtone
     PRIVATE
         ../../source/PluginEditor.cpp
         ../../source/PluginProcessor.cpp
+        ../../source/Engine/Devices.h
+        ../../source/Engine/Processors/TrackEffects.h
+        ../../source/Engine/SoundSources/AndroSynth.h
+        ../../source/Engine/SoundSources/DrumKit.h
         ../../source/Engine/SoundSources/Metronome.h
         ../../source/Project/SetSerializer.h
         ../../source/Sequencer/Arrangement.h
@@ -46,6 +50,7 @@ target_sources(Androtone
         ../../source/Ui/ArrangeTab.h
         ../../source/Ui/ClipPropertiesPanel.h
         ../../source/Ui/ClipTab.h
+        ../../source/Ui/DeviceTab.h
         ../../source/Ui/NoteGrid.h
         # Projucer-generated embedded resources (the kick sample). BinaryData is
         # checked in (see .gitignore) even though the rest of JuceLibraryCode is
