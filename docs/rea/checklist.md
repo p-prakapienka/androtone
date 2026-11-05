@@ -59,7 +59,7 @@ one window. Status is updated as milestones land.
 | C2  | Tempo field with hundredths of a BPM                                                             | §9.1.1          | S      | done   |
 | C3  | Tap tempo: each tap updates tempo, more taps average better                                      | §9.1.2          | T      | done   |
 | C4  | Metronome on/off, ticks while playing, accented downbeat                                         | §19.4           | T      | done   |
-| C5  | Count-in (None/1/2/4 bars) before recording, shown as negative position                          | §19.6           | T      | open   |
+| C5  | Count-in (None/1/2/4 bars) before recording, shown as negative position                          | §19.6           | T      | done   |
 | C6  | Groove: global swing on off-beat 16ths with timing and velocity amounts                          | §14.1.1         | T      | done   |
 | C7  | Follow host tempo and transport when running as a plugin                                         | (design)        | T      | done   |
 | C8  | Stop twice returns to 1.1.1                                                                      | §7.1            | T      | open   |
@@ -79,11 +79,11 @@ one window. Status is updated as milestones land.
 
 | ID  | Must-have                                                                                       | Evidence        | Verify | Status |
 | --- | ----------------------------------------------------------------------------------------------- | --------------- | ------ | ------ |
-| E1  | Armed tracks show record buttons in empty slots; recording creates a clip there                  | §19.3.2         | T, S   | open   |
-| E2  | Session record button records into armed tracks; pressing again switches to playback             | §19.3.2         | T      | open   |
-| E3  | Overdub: notes layer on each loop pass of a playing clip                                         | §19.3.3         | T      | open   |
-| E4  | Record quantization snaps incoming notes                                                         | §19.5           | T      | open   |
-| E5  | Live input monitoring through armed track's instrument                                           | §18.1 (arm)     | T      | open   |
+| E1  | Armed tracks show record buttons in empty slots; recording creates a clip there                  | §19.3.2         | T, S   | done   |
+| E2  | Session record button records into armed tracks; pressing again switches to playback             | §19.3.2         | T      | done   |
+| E3  | Overdub: notes layer on each loop pass of a playing clip                                         | §19.3.3         | T      | done   |
+| E4  | Record quantization snaps incoming notes                                                         | §19.5           | T      | done   |
+| E5  | Live input monitoring through armed track's instrument                                           | §18.1 (arm)     | T      | done   |
 
 ## F. Arrangement
 

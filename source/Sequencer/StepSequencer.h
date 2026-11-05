@@ -3,6 +3,7 @@
 #include "Clip.h"
 #include "Track.h"
 #include "SceneManager.h"
+#include "RecordEvents.h"
 #include "../Constants.h"
 #include "../Project/Projects.h"
 
@@ -124,18 +125,24 @@ public:
         hostActive = false;
     }
 
-    void processBlock(juce::MidiBuffer& midi, int numSamples) {
+    // `input` is the MIDI arriving from the host / devices: it is routed to armed tracks (live
+    // monitoring) and recorded into clips while recording. Output goes to `midi`.
+    void processBlock(juce::MidiBuffer& midi, int numSamples, const juce::MidiBuffer* input = nullptr) {
         numClicks = 0;
+        collectInput(input, numSamples);
         const bool followHost = hostActive && hostPlaying;
         const bool shouldPlay = playing.load() || followHost;
 
         if (!shouldPlay) {
             if (wasPlaying) {
-                for (auto& track : tracks) {
-                    track.onTransportStop(midi, 0);
+                for (int t = 0; t < NUM_TRACKS; t++) {
+                    finishRecording(t, songBeat, false, midi, 0);
+                    tracks[static_cast<size_t>(t)].onTransportStop(midi, 0);
                 }
                 wasPlaying = false;
             }
+            // Stopped: input still reaches armed tracks so they can be played live.
+            routeInput(midi, 0, numSamples, 0.0, 0.0);
             return;
         }
 
@@ -144,8 +151,8 @@ public:
 
         if (!wasPlaying) {
             // Transport start: song position 0 (or the host's position) begins the grids.
-            songBeat = followHost ? hostPosition : 0.0;
-            nextQuantizationBeat = songBeat;
+            songBeat = followHost ? hostPosition : -countInBeats.exchange(0.0);
+            nextQuantizationBeat = juce::jmax(songBeat, 0.0);
             nextClickBeat = std::ceil(songBeat - halfSample);
             for (auto& track : tracks) {
                 track.restart(0.0);
@@ -163,13 +170,16 @@ public:
 
         int position = 0;
         while (position < numSamples) {
+            const bool countingIn = songBeat < -halfSample;
+            startPendingOverdubs(position);
+
             // Launches waiting for this moment. With quantization off they apply immediately and
             // Repeat-mode clips retrigger every 16th.
             const double grid = quantization > 0.0 ? quantization : Clip::STEP_LENGTH;
-            if (quantization <= 0.0) {
+            if (quantization <= 0.0 && !countingIn) {
                 applyPendingLaunches(midi, position, 0.0);
             }
-            if (songBeat >= nextQuantizationBeat - halfSample) {
+            if (!countingIn && songBeat >= nextQuantizationBeat - halfSample) {
                 const double lateBy = juce::jmax(0.0, songBeat - nextQuantizationBeat);
                 if (quantization > 0.0) {
                     applyPendingLaunches(midi, position, lateBy);
@@ -181,24 +191,36 @@ public:
             chainSongIfDue(midi, position);
 
             if (songBeat >= nextClickBeat - halfSample) {
-                if (clickOn && numClicks < MAX_CLICKS) {
+                if ((clickOn || countingIn) && numClicks < MAX_CLICKS) {
                     const auto beatIndex = static_cast<juce::int64>(std::llround(nextClickBeat));
-                    clicks[static_cast<size_t>(numClicks++)] = { position, beatIndex % static_cast<juce::int64>(Clip::BEATS_PER_BAR) == 0 };
+                    const auto beatsPerBar = static_cast<juce::int64>(Clip::BEATS_PER_BAR);
+                    clicks[static_cast<size_t>(numClicks++)] = { position, ((beatIndex % beatsPerBar) + beatsPerBar) % beatsPerBar == 0 };
                 }
                 nextClickBeat = std::floor(songBeat + halfSample) + 1.0;
             }
 
             // Split the block at the next thing any track or the grid needs to react to.
             double untilEvent = juce::jmin(nextQuantizationBeat, nextClickBeat) - songBeat;
-            for (auto& track : tracks) {
-                untilEvent = juce::jmin(untilEvent, track.beatsToNextEvent());
+            if (countingIn) {
+                untilEvent = juce::jmin(untilEvent, -songBeat);
+            } else {
+                for (auto& track : tracks) {
+                    untilEvent = juce::jmin(untilEvent, track.beatsToNextEvent());
+                }
             }
             const int chunk = juce::jlimit(1, numSamples - position,
                                            static_cast<int>(std::ceil(juce::jmax(untilEvent, 0.0) * samplesPerBeat - 1e-6)));
 
-            for (auto& track : tracks) {
-                track.process(midi, position, chunk, samplesPerBeat, groove, random);
+            // Clip positions at the start of this chunk, for timing overdubbed notes.
+            for (int t = 0; t < NUM_TRACKS; t++) {
+                chunkClipPosition[static_cast<size_t>(t)] = tracks[static_cast<size_t>(t)].clipPositionAfter(0.0);
             }
+            if (!countingIn) {
+                for (auto& track : tracks) {
+                    track.process(midi, position, chunk, samplesPerBeat, groove, random);
+                }
+            }
+            routeInput(midi, position, chunk, songBeat, samplesPerBeat);
 
             songBeat += chunk / samplesPerBeat;
             position += chunk;
@@ -413,6 +435,50 @@ public:
         return QUANTIZATION_STEPS[static_cast<size_t>(quantizationIndex.load())];
     }
 
+    // ---- recording (UI thread) ---------------------------------------------------------------------
+
+    static constexpr int NOT_RECORDING = -1;
+
+    // Records into `slot` on `track`. Overdub (`slot` is the clip playing there) starts right away;
+    // a new clip starts on the next launch-quantization boundary. The slot must already hold a
+    // (placeholder) clip — the Recorder creates it.
+    void requestRecord(int trackIndex, int slot, bool overdub) {
+        if (trackIndex < 0 || trackIndex >= NUM_TRACKS) {
+            return;
+        }
+        auto& state = recordState[static_cast<size_t>(trackIndex)];
+        state.pendingOverdub.store(overdub);
+        state.pendingStop.store(false);
+        state.pendingSlot.store(slot);
+        if (!playing.load()) {
+            countInBeats.store(overdub ? 0.0 : countInBars.load() * Clip::BEATS_PER_BAR);
+            playing.store(true);
+        }
+    }
+
+    // Ends a recording: overdubs stop at once; a new clip ends on the next quantization boundary and
+    // starts looping there.
+    void requestStopRecord(int trackIndex) {
+        if (trackIndex >= 0 && trackIndex < NUM_TRACKS) {
+            recordState[static_cast<size_t>(trackIndex)].pendingStop.store(true);
+        }
+    }
+
+    int getRecordingSlot(int trackIndex) const {
+        const auto& state = recordState[static_cast<size_t>(trackIndex)];
+        const int pending = state.pendingSlot.load();
+        return pending >= 0 ? pending : state.activeSlot.load();
+    }
+
+    bool isRecordingOrPending(int trackIndex) const {
+        return getRecordingSlot(trackIndex) >= 0;
+    }
+
+    void setCountInBars(int bars) { countInBars.store(juce::jlimit(0, 4, bars)); }
+    int getCountInBars() const { return countInBars.load(); }
+
+    RecordEventQueue& getRecordEvents() { return recordEvents; }
+
     // Record-arm state per track (used by MIDI recording and live input monitoring).
     void setArmed(int trackIndex, bool armed) {
         if (trackIndex >= 0 && trackIndex < NUM_TRACKS) {
@@ -459,6 +525,28 @@ private:
     double nextQuantizationBeat = 0.0; // next launch-quantization boundary
     std::atomic<double> songBeatForUi { 0.0 };
     std::array<std::atomic<bool>, NUM_TRACKS> trackArmed {};
+
+    struct RecordState {
+        std::atomic<int> pendingSlot { NOT_RECORDING };
+        std::atomic<bool> pendingOverdub { false };
+        std::atomic<bool> pendingStop { false };
+        std::atomic<int> activeSlot { NOT_RECORDING };
+        bool overdub = false;
+        double startBeat = 0.0; // song beat where a new clip's recording began
+    };
+    std::array<RecordState, NUM_TRACKS> recordState;
+    std::array<double, NUM_TRACKS> chunkClipPosition {};
+    RecordEventQueue recordEvents;
+    std::atomic<int> countInBars { 0 };
+    std::atomic<double> countInBeats { 0.0 };
+
+    struct InputEvent {
+        int sample = 0;
+        juce::MidiMessage message;
+    };
+    static constexpr int MAX_INPUT_EVENTS = 256;
+    std::array<InputEvent, MAX_INPUT_EVENTS> inputEvents;
+    int numInputEvents = 0;
     std::atomic<double> swingTiming { 0.0 };
     std::atomic<double> swingVelocity { 0.0 };
 
@@ -478,9 +566,145 @@ private:
         return track.getPlayingClipIndex() == clipIndex && request != Track::STOP_REQUEST;
     }
 
+    // ---- recording / input (audio thread) ----
+
+    void collectInput(const juce::MidiBuffer* input, int numSamples) {
+        numInputEvents = 0;
+        if (input == nullptr) {
+            return;
+        }
+        for (const auto metadata : *input) {
+            if (numInputEvents == MAX_INPUT_EVENTS) {
+                break;
+            }
+            const auto message = metadata.getMessage();
+            if (message.isNoteOnOrOff() || message.isController() || message.isPitchWheel()) {
+                inputEvents[static_cast<size_t>(numInputEvents++)] = { juce::jlimit(0, numSamples - 1, metadata.samplePosition), message };
+            }
+        }
+    }
+
+    // Input in [position, position + numSamples): monitored on every armed track and recorded into
+    // tracks that are recording. `beatAtPosition` is the song beat at `position`.
+    void routeInput(juce::MidiBuffer& midi, int position, int numSamples, double beatAtPosition, double samplesPerBeat) {
+        for (int i = 0; i < numInputEvents; i++) {
+            const auto& event = inputEvents[static_cast<size_t>(i)];
+            if (event.sample < position || event.sample >= position + numSamples) {
+                continue;
+            }
+            const double offsetBeats = samplesPerBeat > 0.0 ? (event.sample - position) / samplesPerBeat : 0.0;
+            for (int t = 0; t < NUM_TRACKS; t++) {
+                if (!trackArmed[static_cast<size_t>(t)].load()) {
+                    continue;
+                }
+                auto routed = event.message;
+                routed.setChannel(tracks[static_cast<size_t>(t)].getChannel());
+                midi.addEvent(routed, event.sample);
+
+                auto& state = recordState[static_cast<size_t>(t)];
+                const int slot = state.activeSlot.load();
+                if (slot < 0 || !event.message.isNoteOnOrOff()) {
+                    continue;
+                }
+                RecordEvent recorded;
+                recorded.type = event.message.isNoteOn() ? RecordEvent::Type::NoteOn : RecordEvent::Type::NoteOff;
+                recorded.track = static_cast<juce::int8>(t);
+                recorded.slot = static_cast<juce::int16>(slot);
+                recorded.pitch = static_cast<juce::uint8>(event.message.getNoteNumber());
+                recorded.velocity = event.message.getVelocity();
+                recorded.overdub = state.overdub;
+                recorded.beat = state.overdub ? overdubBeat(t, offsetBeats)
+                                              : juce::jmax(0.0, beatAtPosition + offsetBeats - state.startBeat);
+                recordEvents.push(recorded);
+            }
+        }
+    }
+
+    // Clip position of an overdubbed event `offset` beats into the current chunk.
+    double overdubBeat(int t, double offset) const {
+        const auto& track = tracks[static_cast<size_t>(t)];
+        const auto data = track.getClip(track.getPlayingClipIndex() >= 0 ? track.getPlayingClipIndex() : 0).getData();
+        double position = chunkClipPosition[static_cast<size_t>(t)] + offset;
+        if (data != nullptr && data->looping && position >= data->getPlayEnd()) {
+            position = data->loopStart + std::fmod(position - data->getPlayEnd(), data->getLoopLength());
+        }
+        return position;
+    }
+
+    // Overdubs start (and stop) immediately — at the current chunk.
+    void startPendingOverdubs(int position) {
+        juce::ignoreUnused(position);
+        for (int t = 0; t < NUM_TRACKS; t++) {
+            auto& state = recordState[static_cast<size_t>(t)];
+            const int pending = state.pendingSlot.load();
+            if (pending >= 0 && state.pendingOverdub.load()) {
+                state.pendingSlot.store(NOT_RECORDING);
+                if (tracks[static_cast<size_t>(t)].getPlayingClipIndex() == pending) {
+                    state.overdub = true;
+                    state.activeSlot.store(pending);
+                    pushMarker(RecordEvent::Type::Started, t, pending, true, 0.0);
+                }
+            }
+            if (state.overdub && state.activeSlot.load() >= 0 && state.pendingStop.exchange(false)) {
+                pushMarker(RecordEvent::Type::Finished, t, state.activeSlot.load(), true, 0.0);
+                state.activeSlot.store(NOT_RECORDING);
+                state.overdub = false;
+            }
+        }
+    }
+
+    // New-clip recordings start and end on quantization boundaries (or immediately without one).
+    void startOrStopNewClipRecordings(juce::MidiBuffer& midi, int position, double lateBy) {
+        for (int t = 0; t < NUM_TRACKS; t++) {
+            auto& state = recordState[static_cast<size_t>(t)];
+            if (!state.overdub && state.activeSlot.load() >= 0 && state.pendingStop.exchange(false)) {
+                finishRecording(t, songBeat - lateBy, true, midi, position);
+            }
+            const int pending = state.pendingSlot.load();
+            if (pending >= 0 && !state.pendingOverdub.load()) {
+                state.pendingSlot.store(NOT_RECORDING);
+                finishRecording(t, songBeat - lateBy, false, midi, position);
+                tracks[static_cast<size_t>(t)].stop(midi, position);
+                state.overdub = false;
+                state.startBeat = songBeat - lateBy;
+                state.activeSlot.store(pending);
+                pushMarker(RecordEvent::Type::Started, t, pending, false, 0.0);
+            }
+        }
+    }
+
+    // Ends an active recording at song beat `endBeat`. A new clip gets its length and, when
+    // `launch` is set, starts looping right away.
+    void finishRecording(int t, double endBeat, bool launch, juce::MidiBuffer& midi, int position) {
+        juce::ignoreUnused(midi, position);
+        auto& state = recordState[static_cast<size_t>(t)];
+        const int slot = state.activeSlot.load();
+        if (slot < 0) {
+            return;
+        }
+        const double length = state.overdub ? 0.0 : juce::jmax(1.0, std::ceil(endBeat - state.startBeat - 1e-6));
+        pushMarker(RecordEvent::Type::Finished, t, slot, state.overdub, length);
+        state.activeSlot.store(NOT_RECORDING);
+        if (launch && !state.overdub) {
+            tracks[static_cast<size_t>(t)].launch(slot, 0.0);
+        }
+        state.overdub = false;
+    }
+
+    void pushMarker(RecordEvent::Type type, int t, int slot, bool overdub, double beat) {
+        RecordEvent event;
+        event.type = type;
+        event.track = static_cast<juce::int8>(t);
+        event.slot = static_cast<juce::int16>(slot);
+        event.overdub = overdub;
+        event.beat = beat;
+        recordEvents.push(event);
+    }
+
     // Applies the queued scene first, then per-track requests (which, being newer or more specific,
     // override that track's slot of the scene).
     void applyPendingLaunches(juce::MidiBuffer& midi, int position, double lateBy) {
+        startOrStopNewClipRecordings(midi, position, lateBy);
         const int scene = sceneManager.takePending();
         if (scene != SceneManager::NO_SCENE) {
             applyScene(scene, midi, position, lateBy);

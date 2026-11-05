@@ -44,6 +44,7 @@ void AndrotoneAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlo
     sequencer.prepareToPlay(sampleRate);
 
     const int numChannels = getTotalNumOutputChannels();
+    inputMidi.ensureSize(4096);
     for (auto& buf : trackBuffers) {
         buf.setSize(numChannels, samplesPerBlock, false, false, true);
     }
@@ -77,7 +78,12 @@ void AndrotoneAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
         }
     }
 
-    sequencer.processBlock(midi, numSamples);
+    // Incoming MIDI is input for the sequencer (monitored on armed tracks, recorded when
+    // recording); the synths only see what the sequencer outputs.
+    inputMidi.clear();
+    inputMidi.addEvents(midi, 0, numSamples, 0);
+    midi.clear();
+    sequencer.processBlock(midi, numSamples, &inputMidi);
 
     for (int t = 0; t < NUM_TRACKS; t++) {
         trackBuffers[t].clear(0, numSamples);

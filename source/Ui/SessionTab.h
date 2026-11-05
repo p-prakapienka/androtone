@@ -76,7 +76,7 @@ public:
         slots = std::vector<ClipSlotButton>(static_cast<size_t>(numTracks * numClips));
         sceneButtons = std::vector<juce::TextButton>(static_cast<size_t>(numClips));
         stopButtons = std::vector<juce::TextButton>(static_cast<size_t>(numTracks));
-        trackLabels = std::vector<juce::Label>(static_cast<size_t>(numTracks));
+        trackLabels = std::vector<juce::TextButton>(static_cast<size_t>(numTracks));
 
         const juce::Colour muted { AndrotoneLookAndFeel::Palette::TEXT_MUTED };
 
@@ -86,10 +86,18 @@ public:
         addAndMakeVisible(editToggle);
 
         for (int trackIdx = 0; trackIdx < numTracks; trackIdx++) {
+            // Track header: tap to arm the track for recording (red when armed).
             auto& label = trackLabels[static_cast<size_t>(trackIdx)];
-            label.setText(juce::String(trackIdx + 1), juce::dontSendNotification);
-            label.setJustificationType(juce::Justification::centred);
-            label.setColour(juce::Label::textColourId, muted);
+            label.setButtonText(juce::String(trackIdx + 1));
+            label.setTooltip("Arm track " + juce::String(trackIdx + 1) + " for recording");
+            label.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+            label.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xFFE57373));
+            label.setColour(juce::TextButton::textColourOffId, muted);
+            label.setColour(juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
+            label.onClick = [this, trackIdx]() {
+                const auto mods = juce::ModifierKeys::getCurrentModifiers();
+                processorRef.setTrackArmed(trackIdx, !processorRef.isTrackArmed(trackIdx), mods.isShiftDown() || mods.isCommandDown());
+            };
             addAndMakeVisible(label);
         }
 
@@ -114,6 +122,14 @@ public:
                         } else if (onOpenClip) {
                             onOpenClip(trackIdx, clipIdx);
                         }
+                        return;
+                    }
+                    if (processorRef.getRecordingSlot(trackIdx) == clipIdx) {
+                        processorRef.stopRecording(trackIdx); // pressing the recording clip plays it
+                        return;
+                    }
+                    if (processorRef.isTrackArmed(trackIdx) && !processorRef.hasClip(trackIdx, clipIdx)) {
+                        processorRef.recordIntoSlot(trackIdx, clipIdx); // clip record button
                         return;
                     }
                     processorRef.pressClip(trackIdx, clipIdx);
@@ -174,7 +190,7 @@ public:
 
         editToggle.setBounds(sceneCell(0).withSizeKeepingCentre(sceneSide, side));
         for (int trackIdx = 0; trackIdx < numTracks; trackIdx++) {
-            trackLabels[static_cast<size_t>(trackIdx)].setBounds(trackCell(0, trackIdx));
+            trackLabels[static_cast<size_t>(trackIdx)].setBounds(trackCell(0, trackIdx).withSizeKeepingCentre(side, side * 2 / 3));
         }
 
         for (int clipIdx = 0; clipIdx < numClips; clipIdx++) {
@@ -207,7 +223,7 @@ private:
     std::vector<ClipSlotButton> slots;
     std::vector<juce::TextButton> sceneButtons;
     std::vector<juce::TextButton> stopButtons;
-    std::vector<juce::Label> trackLabels;
+    std::vector<juce::TextButton> trackLabels;
     juce::TextButton editToggle;
     juce::TextButton stopAllButton;
 
@@ -235,17 +251,17 @@ private:
     }
 
     // Empty slots: outlined "+". Clips: filled with their colour (dim when idle, full when playing).
-    void styleSlot(ClipSlotButton& slot, int trackIdx, int clipIdx) {
+    void styleSlot(ClipSlotButton& slot, int trackIdx, int clipIdx, bool armed, bool recording) {
         const bool has = processorRef.hasClip(trackIdx, clipIdx);
-        const juce::Colour colour = processorRef.getClipColour(trackIdx, clipIdx);
-        const int style = has ? static_cast<int>(colour.getARGB() & 0x7FFFFFFF) : 0;
+        const juce::Colour colour = recording ? juce::Colour(0xFFE57373) : processorRef.getClipColour(trackIdx, clipIdx);
+        const int style = recording ? 1 : (has ? static_cast<int>(colour.getARGB() & 0x7FFFFFFF) : (armed ? 2 : 0));
         if (slot.styledAs == style) {
             return;
         }
         slot.styledAs = style;
-        if (!has) {
-            const juce::Colour muted = juce::Colour(AndrotoneLookAndFeel::Palette::TEXT_MUTED);
-            slot.setButtonText("+");
+        if (!has && !recording) {
+            const juce::Colour muted = juce::Colour(armed ? 0xFFE57373 : AndrotoneLookAndFeel::Palette::TEXT_MUTED);
+            slot.setButtonText(armed ? juce::String::fromUTF8("\xe2\x97\x8f") : juce::String("+"));
             slot.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
             slot.setColour(juce::TextButton::buttonOnColourId, juce::Colours::transparentBlack);
             slot.setColour(juce::TextButton::textColourOffId, muted);
@@ -285,12 +301,19 @@ private:
             const int playingClip = processorRef.getPlayingClip(trackIdx);
             const int queuedClip = processorRef.getQueuedClip(trackIdx);
             const bool stopQueued = processorRef.isTrackStopQueued(trackIdx);
+            const bool armed = processorRef.isTrackArmed(trackIdx);
+            const int recordingSlot = processorRef.getRecordingSlot(trackIdx);
+            trackLabels[static_cast<size_t>(trackIdx)].setToggleState(armed, juce::dontSendNotification);
 
             for (int clipIdx = 0; clipIdx < numClips; clipIdx++) {
                 auto& slot = slotAt(trackIdx, clipIdx);
-                styleSlot(slot, trackIdx, clipIdx);
+                styleSlot(slot, trackIdx, clipIdx, armed, clipIdx == recordingSlot);
+                if (clipIdx == recordingSlot) {
+                    slot.setToggleState(blinkOn, juce::dontSendNotification);
+                    continue;
+                }
                 if (!processorRef.hasClip(trackIdx, clipIdx)) {
-                    // Empty slots never fill or blink — they stay an outlined "+".
+                    // Empty slots never fill or blink — an outlined "+" (or a record button when armed).
                     slot.setToggleState(false, juce::dontSendNotification);
                     continue;
                 }

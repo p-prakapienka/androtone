@@ -183,6 +183,19 @@ public:
         return completedPass;
     }
 
+    // Clip position `offset` beats after the current one, wrapped into the loop (for overdubs).
+    double clipPositionAfter(double offset) const {
+        if (playingData == nullptr) {
+            return 0.0;
+        }
+        double position = clipPos + offset;
+        const double end = playingData->getPlayEnd();
+        if (position >= end && playingData->looping) {
+            position = playingData->loopStart + std::fmod(position - end, playingData->getLoopLength());
+        }
+        return position;
+    }
+
     double getPassLength() const {
         return playingData == nullptr ? 0.0 : playingData->getLoopLength();
     }

@@ -43,6 +43,12 @@ public:
         };
         addAndMakeVisible(tempoSlider);
 
+        recordButton.setButtonText(juce::String::fromUTF8("\xe2\x97\x8f")); // ●
+        recordButton.setTooltip("Session record: record / overdub on armed tracks; press again to play");
+        recordButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xFFE57373));
+        recordButton.onClick = [this]() { processorRef.toggleSessionRecord(); };
+        addAndMakeVisible(recordButton);
+
         tapButton.setButtonText("Tap");
         tapButton.setTooltip("Tap tempo: tap once per beat");
         tapButton.onClick = [this]() {
@@ -83,7 +89,7 @@ public:
         refreshUndo();
 
         // Flat transport controls: no button outlines.
-        for (auto* button : { &playButton, &loopButton, &undoButton, &redoButton, &tapButton }) {
+        for (auto* button : { &playButton, &loopButton, &undoButton, &redoButton, &tapButton, &recordButton }) {
             button->setColour(juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
         }
 
@@ -93,10 +99,10 @@ public:
 
     void resized() override {
         auto bounds = getLocalBounds().reduced(10);
-        const int columnWidth = bounds.getWidth() / 9;
+        const int columnWidth = bounds.getWidth() / 10;
 
         // Each control sits centred in its own column:
-        // undo redo position tempo tap metronome quantization loop play.
+        // undo redo position tempo tap metronome quantization loop record play.
         auto placeInColumn = [&bounds, columnWidth](juce::Component& control, int width, int height) {
             control.setBounds(bounds.removeFromLeft(columnWidth).withSizeKeepingCentre(width, height));
         };
@@ -109,6 +115,7 @@ public:
         placeInColumn(metronomeButton, 44, 36);
         placeInColumn(quantization, juce::jmin(columnWidth - 4, 80), 26);
         placeInColumn(loopButton, 44, 40);
+        placeInColumn(recordButton, 44, 40);
         placeInColumn(playButton, 44, 40);
     }
 
@@ -117,6 +124,11 @@ private:
         refreshPlayGlyph();
         refreshUndo();
         position.setText(formatPosition(processorRef.getSongPosition()), juce::dontSendNotification);
+        // Count-in shows as a negative position.
+        position.setColour(juce::Label::textColourId, processorRef.getSongPosition() < 0.0
+                                                          ? juce::Colour(0xFF4FC3F7)
+                                                          : juce::Colour(AndrotoneLookAndFeel::Palette::TEXT));
+        recordButton.setToggleState(processorRef.isRecording(), juce::dontSendNotification);
         // The host may drive the tempo (plugin builds).
         if (!tempoSlider.isMouseButtonDown() && std::abs(tempoSlider.getValue() - processorRef.getTempo()) > 0.001) {
             tempoSlider.setValue(processorRef.getTempo(), juce::dontSendNotification);
@@ -163,6 +175,7 @@ private:
     juce::Slider tempoSlider;
     juce::ComboBox quantization;
     juce::TextButton tapButton;
+    juce::TextButton recordButton;
     juce::TextButton metronomeButton;
     juce::Label position;
 

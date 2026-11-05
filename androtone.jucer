@@ -13,6 +13,8 @@
       <FILE id="ClipH01" name="Clip.h" compile="0" resource="0" file="Source/Sequencer/Clip.h"/>
       <FILE id="ClipDt1" name="ClipData.h" compile="0" resource="0" file="Source/Sequencer/ClipData.h"/>
       <FILE id="TapTmp1" name="TapTempo.h" compile="0" resource="0" file="Source/Sequencer/TapTempo.h"/>
+      <FILE id="RecEvt1" name="RecordEvents.h" compile="0" resource="0" file="Source/Sequencer/RecordEvents.h"/>
+      <FILE id="Rcrdr01" name="Recorder.h" compile="0" resource="0" file="Source/Sequencer/Recorder.h"/>
     </GROUP>
     <GROUP id="{6A0E14F2-8C2F-4F0C-9A3B-5D7E91B22F11}" name="Mixer">
       <FILE id="MixrH1" name="Mixer.h" compile="0" resource="0" file="Source/Mixer/Mixer.h"/>

@@ -2,6 +2,7 @@
 #include "Sequencer/StepSequencer.h"
 #include "Sequencer/TapTempo.h"
 #include "Mixer/Mixer.h"
+#include "Sequencer/Recorder.h"
 
 // Headless timing tests for the sequencer. Each CHECK names the behaviour it pins down; see
 // docs/rea/checklist.md for the checklist IDs they verify.
@@ -21,11 +22,16 @@ struct Harness {
     long long now = 0;
     std::vector<Ev> evs;
     Harness() { seq.prepareToPlay(SR); seq.setTempo(120.0); }
+    // Input MIDI to inject: absolute sample time -> message.
+    std::vector<std::pair<long long, juce::MidiMessage>> input;
+
     void run(long long samples) {
         while (samples > 0) {
             int n = (int) std::min<long long>(BLOCK, samples);
-            juce::MidiBuffer m;
-            seq.processBlock(m, n);
+            juce::MidiBuffer m, in;
+            for (auto& [time, message] : input)
+                if (time >= now && time < now + n) in.addEvent(message, (int) (time - now));
+            seq.processBlock(m, n, &in);
             for (const auto md : m) {
                 auto msg = md.getMessage();
                 if (msg.isNoteOnOrOff()) evs.push_back({ now + md.samplePosition, msg.isNoteOn(), msg.getChannel(), msg.getNoteNumber() });
@@ -471,6 +477,71 @@ int main() {
         };
         CHECK(energyWithMute(false) < 1e-3, "muted track: post send silent");
         CHECK(energyWithMute(true) > 1.0, "muted track: pre send still feeds the return");
+    }
+
+    // E1/E2/E5: record a new clip into an armed track's empty slot; stop -> it loops
+    {
+        Harness h;
+        Recorder rec(h.seq, [&](int t, int slot, ClipData::Ptr, ClipData::Ptr after) { h.seq.setClipData(t, slot, after); });
+        h.seq.setArmed(4, true);
+        rec.recordIntoSlot(4, 0);                         // starts transport; records from 1.1.1
+        h.input.push_back({ 6000, juce::MidiMessage::noteOn(1, 64, (juce::uint8) 90) });  // beat 0.25
+        h.input.push_back({ 18000, juce::MidiMessage::noteOff(1, 64) });                 // beat 0.75
+        h.run(48000);
+        rec.drain();
+        CHECK(h.seq.getRecordingSlot(4) == 0, "recording");
+        bool monitored = false; for (auto& e : h.ons(5)) if (e.note == 64 && e.t == 6000) monitored = true;
+        CHECK(monitored, "input monitored on the armed track (channel 5)");
+        h.seq.requestStopRecord(4);
+        h.run(96000 + 6500 - 48000 + 100);                  // past the bar line + the first note again
+        rec.drain();
+        auto d = h.seq.getClipData(4, 0);
+        CHECK(d != nullptr && d->notes.size() == 1, "one note recorded");
+        if (d != nullptr && d->notes.size() == 1) {
+            CHECK(std::abs(d->notes[0].start - 0.25) < 1e-3 && std::abs(d->notes[0].length - 0.5) < 1e-3, "note timing %f %f", d->notes[0].start, d->notes[0].length);
+            CHECK(std::abs(d->loopEnd - 4.0) < 1e-9, "clip length = 1 bar (stopped at the bar line): %f", d->loopEnd);
+        }
+        CHECK(h.seq.getPlayingClip(4) == 0 && h.seq.getRecordingSlot(4) == -1, "recorded clip now looping");
+        int played = 0; for (auto& e : h.ons(5)) if (e.note == 64 && e.t > 96000) played++;
+        CHECK(played == 1, "recorded note plays back on the next pass: %d", played);
+    }
+    // E3/E4: overdub into a playing clip with record quantization
+    {
+        Harness h;
+        Recorder rec(h.seq, [&](int t, int slot, ClipData::Ptr, ClipData::Ptr after) { h.seq.setClipData(t, slot, after); });
+        rec.setQuantization(0.25);
+        h.seq.setArmed(0, true);
+        h.seq.pressClip(0, 1);                            // kick, 1 bar
+        h.run(1000);
+        rec.toggleSessionRecord(0);                       // playing clip -> overdub
+        h.input.push_back({ 13000, juce::MidiMessage::noteOn(1, 50, (juce::uint8) 100) });  // beat ~0.54 -> 0.5
+        h.input.push_back({ 16000, juce::MidiMessage::noteOff(1, 50) });
+        h.run(30000);
+        rec.toggleSessionRecord(0);                       // stop overdub
+        h.run(1000);
+        rec.drain();
+        auto d = h.seq.getClipData(0, 1);
+        bool found = false; for (auto& n : d->notes) if (n.pitch == 50 && std::abs(n.start - 0.5) < 1e-9) found = true;
+        CHECK(found, "overdubbed note quantized to 0.5");
+        CHECK(d->notes.size() == 5, "kick notes kept + 1: %zu", d->notes.size());
+        CHECK(h.seq.getRecordingSlot(0) == -1, "overdub stopped");
+    }
+    // C5: count-in delays recording and shows a negative position
+    {
+        Harness h;
+        Recorder rec(h.seq, [&](int t, int slot, ClipData::Ptr, ClipData::Ptr after) { h.seq.setClipData(t, slot, after); });
+        h.seq.setCountInBars(1);
+        h.seq.setArmed(4, true);
+        rec.recordIntoSlot(4, 0);
+        h.run(512);
+        CHECK(h.seq.getSongPosition() < 0.0, "negative position during count-in: %f", h.seq.getSongPosition());
+        int clicks = 0;
+        for (int b = 0; b < 100; b++) { juce::MidiBuffer m; h.seq.processBlock(m, 512); clicks += h.seq.getNumClicks(); h.now += 512; }
+        CHECK(clicks >= 2, "count-in clicks even with the metronome off: %d", clicks);
+        h.run(96000);
+        CHECK(h.seq.getSongPosition() > 0.0 && h.seq.getRecordingSlot(4) == 0, "recording after count-in");
+        bool early = false; for (auto& e : h.ons(3)) if (e.t < 96000) early = true;
+        CHECK(!early && !h.ons(3).empty(), "clips start at 1.1.1 after the 1-bar count-in");
     }
 
     std::printf(failures == 0 ? "ALL PASSED\n" : "%d FAILURES\n", failures);

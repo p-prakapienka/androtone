@@ -6,6 +6,7 @@
 #include "Mixer/Mixer.h"
 #include "Engine/SoundSources/Metronome.h"
 #include "Sequencer/TapTempo.h"
+#include "Sequencer/Recorder.h"
 #include <array>
 
 class AndrotoneAudioProcessor : public juce::AudioProcessor {
@@ -44,6 +45,24 @@ public:
     void setSwing(double timing, double velocity) { sequencer.setSwing(timing, velocity); }
     double getSwingTiming() const { return sequencer.getSwingTiming(); }
     double getSwingVelocity() const { return sequencer.getSwingVelocity(); }
+
+    // ---- recording (UI thread) ----
+    void toggleSessionRecord() { recorder.toggleSessionRecord(getCurrentScene()); }
+    void recordIntoSlot(int t, int slot) { recorder.recordIntoSlot(t, slot); }
+    void stopRecording(int t) { sequencer.requestStopRecord(t); }
+    bool isRecording() const {
+        for (int t = 0; t < NUM_TRACKS; t++) {
+            if (sequencer.isRecordingOrPending(t)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    int getRecordingSlot(int t) const { return sequencer.getRecordingSlot(t); }
+    void setRecordQuantization(double beats) { recorder.setQuantization(beats); }
+    double getRecordQuantization() const { return recorder.getQuantization(); }
+    void setCountInBars(int bars) { sequencer.setCountInBars(bars); }
+    int getCountInBars() const { return sequencer.getCountInBars(); }
 
     // Tap tempo (UI thread): returns the new tempo, or 0 on the first tap of a sequence.
     double tapTempo() {
@@ -164,11 +183,19 @@ private:
         ClipData::Ptr before, after;
     };
 
-    // Frees clip snapshots replaced by the editor once the audio thread has let go of them.
-    struct ReleasePoolCollector : juce::Timer {
-        ReleasePoolCollector() { startTimer(1000); }
-        ~ReleasePoolCollector() override { stopTimer(); }
-        void timerCallback() override { ReleasePool::get().collect(); }
+    // Message-thread housekeeping: drains recorded notes into clips (30 Hz) and frees clip
+    // snapshots the audio thread has let go of (about once a second).
+    struct Housekeeping : juce::Timer {
+        explicit Housekeeping(Recorder& r) : recorder(r) { startTimerHz(30); }
+        ~Housekeeping() override { stopTimer(); }
+        void timerCallback() override {
+            recorder.drain();
+            if (++ticks % 30 == 0) {
+                ReleasePool::get().collect();
+            }
+        }
+        Recorder& recorder;
+        int ticks = 0;
     };
 
     std::array<juce::Synthesiser, NUM_TRACKS> synths;
@@ -176,7 +203,11 @@ private:
     StepSequencer sequencer;
     Mixer mixer;
     double currentSampleRate = 44100.0;
-    ReleasePoolCollector releasePoolCollector;
+    Recorder recorder { sequencer, [this](int t, int slot, ClipData::Ptr before, ClipData::Ptr after) {
+        performClipEdit(t, slot, before, after, "Record");
+    } };
+    Housekeeping housekeeping { recorder };
+    juce::MidiBuffer inputMidi;
     Metronome metronome;
     std::atomic<bool> exclusiveSolo { true };
     std::atomic<bool> exclusiveArm { true };

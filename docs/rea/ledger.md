@@ -53,4 +53,6 @@ app. "Unknown" = not settled by the pages read; resolved here by a design choice
 | Back to Arrangement| Resumes at the current song position (mid-clip, chasing notes)                                   | manual silent                             |
 | Count-in           | Applies to session recording too                                                                 | manual silent                             |
 | Plugin transport   | When the host is playing, its tempo and position drive Androtone; otherwise the internal clock  | not a manual topic                        |
+| Input routing      | Incoming MIDI plays only on armed tracks (re-channelled to each), not on track 1 by default | arm = monitor, simplest model            |
+| New-clip length    | A recorded clip ends on the quantization boundary after stop; rounded up to whole beats | clean loops                               |
 | Editing gestures   | Touch: tap empty = add, tap note = select, double-tap note = delete, drag = move, drag edge = resize | keyboard/mouse modifiers out of scope |
