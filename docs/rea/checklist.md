@@ -112,3 +112,24 @@ one window. Status is updated as milestones land.
 
 Audio clips, warping, Link / MIDI sync, groove files and extraction, MIDI tools beyond quantize /
 transpose, keyboard shortcut parity, cue outputs, group tracks, MPE, tuning systems, scales.
+
+## Final review (REA step 5)
+
+Every item above was revisited against its evidence: 52 **done**, 1 **partial**, 0 **open**.
+
+- Each "T" item is covered by `tests/SequencerTests.cpp` (headless; build with
+  `-DANDROTONE_BUILD_TESTS=ON`, run `AndrotoneTests`). All checks pass on Linux / GCC.
+- Each "S" item was checked by screenshots of the standalone build under Xvfb.
+- **A8 partial:** scene follow actions are not implemented. Song mode (loop button off) covers
+  chaining scenes in order.
+
+Bounded, not verified here:
+
+- Audio output was never listened to. The test machine has no audio device, so sound checks
+  are numeric: levels, decay and event timing in samples.
+- The Android build was not built or run. Only the desktop VST3 / Standalone targets were
+  compiled. The `.jucer` file list was kept in sync, so re-save it in Projucer before exporting.
+- No plugin-host session was run. Host sync and state save/restore are covered by tests at the
+  sequencer / serializer level, not inside a real DAW.
+- Not implemented (outside the checklist): automation recording, clip envelopes, group tracks,
+  audio clips. See "Out of scope" above.
