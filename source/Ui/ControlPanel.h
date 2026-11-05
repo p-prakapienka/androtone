@@ -10,12 +10,22 @@
 class ControlPanel : public juce::Component, private juce::Timer {
 public:
     explicit ControlPanel(AndrotoneAudioProcessor& p) : processorRef(p) {
+        // Play starts from the insert marker; Stop stops, and a second Stop returns to 1.1.1.
         playButton.setButtonText(playGlyph());
+        playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
         playButton.onClick = [this]() {
-            processorRef.setPlaying(!processorRef.isPlaying());
+            processorRef.setPlaying(true);
             refreshPlayGlyph();
         };
         addAndMakeVisible(playButton);
+
+        stopButton.setButtonText(stopGlyph());
+        stopButton.setTooltip("Stop (twice: back to 1.1.1)");
+        stopButton.onClick = [this]() {
+            processorRef.pressStop();
+            refreshPlayGlyph();
+        };
+        addAndMakeVisible(stopButton);
 
         // Loop on (default) means song mode off: each track just loops its current clip.
         loopButton.setButtonText(juce::String::fromUTF8("\xe2\x88\x9e"));  // ∞
@@ -89,7 +99,7 @@ public:
         refreshUndo();
 
         // Flat transport controls: no button outlines.
-        for (auto* button : { &playButton, &loopButton, &undoButton, &redoButton, &tapButton, &recordButton }) {
+        for (auto* button : { &playButton, &stopButton, &loopButton, &undoButton, &redoButton, &tapButton, &recordButton }) {
             button->setColour(juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
         }
 
@@ -99,10 +109,10 @@ public:
 
     void resized() override {
         auto bounds = getLocalBounds().reduced(10);
-        const int columnWidth = bounds.getWidth() / 10;
+        const int columnWidth = bounds.getWidth() / 11;
 
         // Each control sits centred in its own column:
-        // undo redo position tempo tap metronome quantization loop record play.
+        // undo redo position tempo tap metronome quantization loop record play stop.
         auto placeInColumn = [&bounds, columnWidth](juce::Component& control, int width, int height) {
             control.setBounds(bounds.removeFromLeft(columnWidth).withSizeKeepingCentre(width, height));
         };
@@ -117,13 +127,16 @@ public:
         placeInColumn(loopButton, 44, 40);
         placeInColumn(recordButton, 44, 40);
         placeInColumn(playButton, 44, 40);
+        placeInColumn(stopButton, 44, 40);
     }
 
 private:
     void timerCallback() override {
         refreshPlayGlyph();
         refreshUndo();
-        position.setText(formatPosition(processorRef.getSongPosition()), juce::dontSendNotification);
+        position.setText(formatPosition(processorRef.isPlaying() || processorRef.getSongPosition() != 0.0
+                                            ? processorRef.getSongPosition() : processorRef.getStartPosition()),
+                         juce::dontSendNotification);
         // Count-in shows as a negative position.
         position.setColour(juce::Label::textColourId, processorRef.getSongPosition() < 0.0
                                                           ? juce::Colour(0xFF4FC3F7)
@@ -158,10 +171,7 @@ private:
     }
 
     void refreshPlayGlyph() {
-        const auto glyph = processorRef.isPlaying() ? stopGlyph() : playGlyph();
-        if (playButton.getButtonText() != glyph) {
-            playButton.setButtonText(glyph);
-        }
+        playButton.setToggleState(processorRef.isPlaying(), juce::dontSendNotification);
     }
 
     static juce::String playGlyph() { return juce::String::fromUTF8("\xe2\x96\xb6"); }  // ▶
@@ -169,6 +179,7 @@ private:
 
     AndrotoneAudioProcessor& processorRef;
     juce::TextButton playButton;
+    juce::TextButton stopButton;
     juce::TextButton loopButton;
     juce::TextButton undoButton;
     juce::TextButton redoButton;

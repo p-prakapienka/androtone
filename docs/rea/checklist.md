@@ -62,7 +62,7 @@ one window. Status is updated as milestones land.
 | C5  | Count-in (None/1/2/4 bars) before recording, shown as negative position                          | §19.6           | T      | done   |
 | C6  | Groove: global swing on off-beat 16ths with timing and velocity amounts                          | §14.1.1         | T      | done   |
 | C7  | Follow host tempo and transport when running as a plugin                                         | (design)        | T      | done   |
-| C8  | Stop twice returns to 1.1.1                                                                      | §7.1            | T      | open   |
+| C8  | Stop twice returns to 1.1.1                                                                      | §7.1            | T      | done   |
 
 ## D. Mixer
 
@@ -89,12 +89,12 @@ one window. Status is updated as milestones land.
 
 | ID  | Must-have                                                                                       | Evidence        | Verify | Status |
 | --- | ----------------------------------------------------------------------------------------------- | --------------- | ------ | ------ |
-| F1  | Timeline of clip instances per track; plays from the insert marker                              | §6.3            | T      | open   |
-| F2  | Loop brace on/off with start/length                                                              | §6.6            | T      | open   |
-| F3  | Arrangement record logs session launches as arrangement clips at their song positions           | §7.5, §19.3.1   | T      | open   |
-| F4  | Launching a session clip on a track overrides its arrangement; Back to Arrangement restores      | §7.5            | T      | open   |
-| F5  | Edit arrangement clips: move, resize, delete, duplicate                                          | §6.9            | S      | open   |
-| F6  | Chase MIDI notes when starting mid-note                                                          | §6.3            | T      | open   |
+| F1  | Timeline of clip instances per track; plays from the insert marker                              | §6.3            | T      | done   |
+| F2  | Loop brace on/off with start/length                                                              | §6.6            | T      | done   |
+| F3  | Arrangement record logs session launches as arrangement clips at their song positions           | §7.5, §19.3.1   | T      | done   |
+| F4  | Launching a session clip on a track overrides its arrangement; Back to Arrangement restores      | §7.5            | T      | done   |
+| F5  | Edit arrangement clips: move, resize, delete, duplicate                                          | §6.9            | S      | done   |
+| F6  | Chase MIDI notes when starting mid-note                                                          | §6.3            | T      | done   |
 
 ## G. Sets, undo and devices
 

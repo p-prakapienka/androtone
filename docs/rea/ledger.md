@@ -55,4 +55,6 @@ app. "Unknown" = not settled by the pages read; resolved here by a design choice
 | Plugin transport   | When the host is playing, its tempo and position drive Androtone; otherwise the internal clock  | not a manual topic                        |
 | Input routing      | Incoming MIDI plays only on armed tracks (re-channelled to each), not on track 1 by default | arm = monitor, simplest model            |
 | New-clip length    | A recorded clip ends on the quantization boundary after stop; rounded up to whole beats | clean loops                               |
+| Arrangement clips  | Placing a clip trims/splits what it covers; looping content fills the clip, notes cut at its end | mirrors note overlap rule            |
+| Override release   | Arrangement notes are released when a session launch/stop takes the track over           | §7.5 "stops arrangement playback"  |
 | Editing gestures   | Touch: tap empty = add, tap note = select, double-tap note = delete, drag = move, drag edge = resize | keyboard/mouse modifiers out of scope |

@@ -150,6 +150,44 @@ public:
 
     juce::UndoManager& getUndoManager() { return undoManager; }
 
+    // ---- arrangement (UI thread) ----
+    ArrangementData::Ptr getArrangement() const { return sequencer.getArrangement(); }
+
+    // One undoable arrangement change; `after` must be fresh and rendered.
+    void performArrangementEdit(ArrangementData::Ptr before, ArrangementData::Ptr after, const juce::String& name) {
+        undoManager.beginNewTransaction(name);
+        undoManager.perform(new ArrangementEditAction(sequencer, before, after));
+    }
+
+    // Live preview during a drag (not undoable; the gesture commits with performArrangementEdit).
+    void setArrangementPreview(ArrangementData::Ptr data) { sequencer.setArrangement(data); }
+
+    // Puts a session clip on the arrangement at the insert marker (one pass long).
+    void placeClipInArrangement(int t, int slot) {
+        const auto content = getClipData(t, slot);
+        if (content == nullptr) {
+            return;
+        }
+        const auto before = getArrangement();
+        auto after = before->copy();
+        after->place(t, { getStartPosition(), content->getFirstPassLength(), content, 0.0, slot });
+        after->render();
+        performArrangementEdit(before, after, "Add clip to arrangement");
+    }
+
+    void setStartPosition(double beats) { sequencer.setStartPosition(beats); }
+    double getStartPosition() const { return sequencer.getStartPosition(); }
+    void pressStop() { sequencer.pressStop(); }
+    void setLoop(bool on, double start, double end) { sequencer.setLoop(on, start, end); }
+    bool isLoopEnabled() const { return sequencer.isLoopEnabled(); }
+    double getLoopStart() const { return sequencer.getLoopStart(); }
+    double getLoopEnd() const { return sequencer.getLoopEnd(); }
+    void backToArrangement() { sequencer.requestBackToArrangement(); }
+    bool isArrangementOverridden() const { return sequencer.isArrangementOverridden(); }
+    bool followsArrangement(int t) const { return sequencer.followsArrangement(t); }
+    void setArrangementRecord(bool on) { sequencer.setArrangementRecord(on); }
+    bool isArrangementRecording() const { return sequencer.isArrangementRecording(); }
+
     // Colour of a track (used for its clips unless a clip has its own).
     static juce::Colour getTrackColour(int trackIndex) {
         static const juce::uint32 colours[] { 0xFF26A69A, 0xFFFFB74D, 0xFFBA68C8, 0xFF9CCC65,
@@ -172,6 +210,16 @@ public:
     int getNumActiveClips() const { return sequencer.getNumActiveClips(); }
 
 private:
+    struct ArrangementEditAction : juce::UndoableAction {
+        ArrangementEditAction(StepSequencer& s, ArrangementData::Ptr b, ArrangementData::Ptr a) :
+            sequencer(s), before(std::move(b)), after(std::move(a)) {}
+        bool perform() override { sequencer.setArrangement(after); return true; }
+        bool undo() override { sequencer.setArrangement(before); return true; }
+        int getSizeInUnits() override { return 1; }
+        StepSequencer& sequencer;
+        ArrangementData::Ptr before, after;
+    };
+
     struct ClipEditAction : juce::UndoableAction {
         ClipEditAction(StepSequencer& s, int t, int c, ClipData::Ptr b, ClipData::Ptr a) :
             sequencer(s), track(t), clip(c), before(std::move(b)), after(std::move(a)) {}
@@ -186,15 +234,17 @@ private:
     // Message-thread housekeeping: drains recorded notes into clips (30 Hz) and frees clip
     // snapshots the audio thread has let go of (about once a second).
     struct Housekeeping : juce::Timer {
-        explicit Housekeeping(Recorder& r) : recorder(r) { startTimerHz(30); }
+        Housekeeping(Recorder& r, ArrangementLogger& l) : recorder(r), logger(l) { startTimerHz(30); }
         ~Housekeeping() override { stopTimer(); }
         void timerCallback() override {
             recorder.drain();
+            logger.drain();
             if (++ticks % 30 == 0) {
                 ReleasePool::get().collect();
             }
         }
         Recorder& recorder;
+        ArrangementLogger& logger;
         int ticks = 0;
     };
 
@@ -206,7 +256,10 @@ private:
     Recorder recorder { sequencer, [this](int t, int slot, ClipData::Ptr before, ClipData::Ptr after) {
         performClipEdit(t, slot, before, after, "Record");
     } };
-    Housekeeping housekeeping { recorder };
+    ArrangementLogger arrangementLogger { sequencer, [this](ArrangementData::Ptr before, ArrangementData::Ptr after) {
+        performArrangementEdit(before, after, "Record arrangement");
+    } };
+    Housekeeping housekeeping { recorder, arrangementLogger };
     juce::MidiBuffer inputMidi;
     Metronome metronome;
     std::atomic<bool> exclusiveSolo { true };

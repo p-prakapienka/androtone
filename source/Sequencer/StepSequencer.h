@@ -4,6 +4,7 @@
 #include "Track.h"
 #include "SceneManager.h"
 #include "RecordEvents.h"
+#include "Arrangement.h"
 #include "../Constants.h"
 #include "../Project/Projects.h"
 
@@ -139,6 +140,11 @@ public:
                     finishRecording(t, songBeat, false, midi, 0);
                     tracks[static_cast<size_t>(t)].onTransportStop(midi, 0);
                 }
+                if (loggingArrangement) {
+                    pushArrangementEvent(RecordEvent::Type::LogEnded, 0, -1, 0.0);
+                    loggingArrangement = false;
+                    arrangementRecord.store(false);
+                }
                 wasPlaying = false;
             }
             // Stopped: input still reaches armed tracks so they can be played live.
@@ -151,8 +157,12 @@ public:
 
         if (!wasPlaying) {
             // Transport start: song position 0 (or the host's position) begins the grids.
-            songBeat = followHost ? hostPosition : -countInBeats.exchange(0.0);
+            const double countIn = countInBeats.exchange(0.0);
+            songBeat = followHost ? hostPosition : (countIn > 0.0 ? -countIn : startPosition.load());
             nextQuantizationBeat = juce::jmax(songBeat, 0.0);
+            for (auto& track : tracks) {
+                track.requestChase();
+            }
             nextClickBeat = std::ceil(songBeat - halfSample);
             for (auto& track : tracks) {
                 track.restart(0.0);
@@ -165,11 +175,33 @@ public:
             nextClickBeat = std::ceil(songBeat - halfSample);
         }
         const bool clickOn = metronome.load();
+        arrangementNow = arrangement.get();
+        const bool loopOn = loopEnabled.load() && loopEnd.load() > loopStart.load() + Clip::STEP_LENGTH;
+        const double loopFrom = loopStart.load();
+        const double loopTo = loopEnd.load();
+        if (backToArrangement.exchange(false)) {
+            for (auto& track : tracks) {
+                track.returnToArrangement(midi, 0);
+            }
+        }
+        updateArrangementLog(0, true);
         const double quantization = getQuantizationSteps() * Clip::STEP_LENGTH;
         const Groove groove { swingTiming.load(), swingVelocity.load() };
 
         int position = 0;
         while (position < numSamples) {
+            // Arrangement loop: jump back when the song position reaches the loop end.
+            if (loopOn && !followHost && songBeat >= loopTo - halfSample && songBeat < loopTo + 1.0) {
+                songBeat = loopFrom + juce::jmax(0.0, songBeat - loopTo);
+                nextQuantizationBeat = std::ceil(songBeat / Clip::STEP_LENGTH - 1e-9) * Clip::STEP_LENGTH;
+                nextClickBeat = std::ceil(songBeat - halfSample);
+                for (auto& track : tracks) {
+                    if (track.followsArrangement()) {
+                        track.releaseAllNotes(midi, position);
+                    }
+                    track.requestChase();
+                }
+            }
             const bool countingIn = songBeat < -halfSample;
             startPendingOverdubs(position);
 
@@ -201,6 +233,9 @@ public:
 
             // Split the block at the next thing any track or the grid needs to react to.
             double untilEvent = juce::jmin(nextQuantizationBeat, nextClickBeat) - songBeat;
+            if (loopOn && !followHost && songBeat < loopTo) {
+                untilEvent = juce::jmin(untilEvent, loopTo - songBeat);
+            }
             if (countingIn) {
                 untilEvent = juce::jmin(untilEvent, -songBeat);
             } else {
@@ -216,9 +251,11 @@ public:
                 chunkClipPosition[static_cast<size_t>(t)] = tracks[static_cast<size_t>(t)].clipPositionAfter(0.0);
             }
             if (!countingIn) {
-                for (auto& track : tracks) {
-                    track.process(midi, position, chunk, samplesPerBeat, groove, random);
+                for (int t = 0; t < NUM_TRACKS; t++) {
+                    const auto* lane = arrangementNow != nullptr ? &arrangementNow->rendered[static_cast<size_t>(t)] : nullptr;
+                    tracks[static_cast<size_t>(t)].process(midi, position, chunk, samplesPerBeat, groove, random, songBeat, lane);
                 }
+                updateArrangementLog(position, false);
             }
             routeInput(midi, position, chunk, songBeat, samplesPerBeat);
 
@@ -226,6 +263,7 @@ public:
             position += chunk;
         }
         songBeatForUi.store(songBeat);
+        arrangementNow = nullptr;
     }
 
     // ---- UI thread: launching ----------------------------------------------------------------------
@@ -479,6 +517,77 @@ public:
 
     RecordEventQueue& getRecordEvents() { return recordEvents; }
 
+    // ---- arrangement (UI thread) ----------------------------------------------------------------
+
+    ArrangementData::Ptr getArrangement() const {
+        const juce::SpinLock::ScopedLockType lock(arrangementLock);
+        return arrangement;
+    }
+
+    // `data` must be fresh and already rendered; it is never modified after this call.
+    void setArrangement(ArrangementData::Ptr data) {
+        ArrangementData::Ptr old;
+        {
+            const juce::SpinLock::ScopedLockType lock(arrangementLock);
+            old = arrangement;
+            arrangement = data;
+        }
+        ReleasePool::get().retain(old.get());
+    }
+
+    // Where playback starts (the insert marker), in beats.
+    void setStartPosition(double beats) { startPosition.store(juce::jmax(0.0, beats)); }
+    double getStartPosition() const { return startPosition.load(); }
+
+    // Control-bar stop: stops the transport; stopping while already stopped returns the start
+    // position to 1.1.1 (§7.1).
+    void pressStop() {
+        if (!playing.load()) {
+            startPosition.store(0.0);
+            songBeatForUi.store(0.0);
+        }
+        playing.store(false);
+    }
+
+    void setLoop(bool enabled, double start, double end) {
+        loopStart.store(juce::jmax(0.0, start));
+        loopEnd.store(juce::jmax(start + Clip::STEP_LENGTH, end));
+        loopEnabled.store(enabled);
+    }
+    bool isLoopEnabled() const { return loopEnabled.load(); }
+    double getLoopStart() const { return loopStart.load(); }
+    double getLoopEnd() const { return loopEnd.load(); }
+
+    // §7.5 Back to Arrangement: every overridden track drops its session clip and follows the
+    // arrangement again from the current position.
+    void requestBackToArrangement() { backToArrangement.store(true); }
+
+    // Lit while some track's output differs from its arrangement.
+    bool isArrangementOverridden() const {
+        const auto data = getArrangement();
+        for (int t = 0; t < NUM_TRACKS; t++) {
+            if (tracks[static_cast<size_t>(t)].isOverridden() && data != nullptr && data->hasContent(t)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool followsArrangement(int trackIndex) const {
+        return tracks[static_cast<size_t>(trackIndex)].followsArrangement();
+    }
+
+    // Arrangement record: while on (and playing), session launches and stops are logged so the
+    // Recorder can write them into the arrangement. Turning it on starts the transport.
+    void setArrangementRecord(bool enabled) {
+        arrangementRecord.store(enabled);
+        if (enabled && !playing.load()) {
+            playing.store(true);
+        }
+    }
+    bool isArrangementRecording() const { return arrangementRecord.load(); }
+    RecordEventQueue& getArrangementEvents() { return arrangementEvents; }
+
     // Record-arm state per track (used by MIDI recording and live input monitoring).
     void setArmed(int trackIndex, bool armed) {
         if (trackIndex >= 0 && trackIndex < NUM_TRACKS) {
@@ -526,6 +635,20 @@ private:
     std::atomic<double> songBeatForUi { 0.0 };
     std::array<std::atomic<bool>, NUM_TRACKS> trackArmed {};
 
+    mutable juce::SpinLock arrangementLock;
+    ArrangementData::Ptr arrangement { new ArrangementData() };
+    ArrangementData* arrangementNow = nullptr; // snapshot pinned for the current block
+    std::atomic<double> startPosition { 0.0 };
+    std::atomic<bool> loopEnabled { false };
+    std::atomic<double> loopStart { 0.0 };
+    std::atomic<double> loopEnd { 16.0 };
+    std::atomic<bool> backToArrangement { false };
+    std::atomic<bool> arrangementRecord { false };
+    bool loggingArrangement = false;
+    std::array<int, NUM_TRACKS> loggedLaunchCount {};
+    std::array<int, NUM_TRACKS> loggedClip {};
+    RecordEventQueue arrangementEvents;
+
     struct RecordState {
         std::atomic<int> pendingSlot { NOT_RECORDING };
         std::atomic<bool> pendingOverdub { false };
@@ -564,6 +687,62 @@ private:
             return true;
         }
         return track.getPlayingClipIndex() == clipIndex && request != Track::STOP_REQUEST;
+    }
+
+    // ---- arrangement record (audio thread) ----
+
+    // Compares each track's session state with what was last logged and reports changes.
+    // `starting` is the block start: logging begins / ends there.
+    void updateArrangementLog(int position, bool starting) {
+        juce::ignoreUnused(position);
+        const bool want = arrangementRecord.load() && wasPlaying;
+        if (starting && want != loggingArrangement) {
+            if (!want) {
+                pushArrangementEvent(RecordEvent::Type::LogEnded, 0, -1, 0.0);
+                loggingArrangement = false;
+                return;
+            }
+            loggingArrangement = true;
+            // Clips already playing enter the log mid-way.
+            for (int t = 0; t < NUM_TRACKS; t++) {
+                const auto& track = tracks[static_cast<size_t>(t)];
+                loggedLaunchCount[static_cast<size_t>(t)] = track.getLaunchCount();
+                loggedClip[static_cast<size_t>(t)] = track.getPlayingClipIndex();
+                if (track.getPlayingClipIndex() >= 0) {
+                    pushArrangementEvent(RecordEvent::Type::ClipLaunched, t, track.getPlayingClipIndex(),
+                                         track.getElapsedSinceLaunch());
+                }
+            }
+            return;
+        }
+        if (!loggingArrangement) {
+            return;
+        }
+        for (int t = 0; t < NUM_TRACKS; t++) {
+            const auto& track = tracks[static_cast<size_t>(t)];
+            const int clip = track.getPlayingClipIndex();
+            const bool relaunched = track.getLaunchCount() != loggedLaunchCount[static_cast<size_t>(t)];
+            if (clip == loggedClip[static_cast<size_t>(t)] && !relaunched) {
+                continue;
+            }
+            if (clip >= 0) {
+                pushArrangementEvent(RecordEvent::Type::ClipLaunched, t, clip, track.getElapsedSinceLaunch());
+            } else {
+                pushArrangementEvent(RecordEvent::Type::ClipStopped, t, -1, 0.0);
+            }
+            loggedLaunchCount[static_cast<size_t>(t)] = track.getLaunchCount();
+            loggedClip[static_cast<size_t>(t)] = clip;
+        }
+    }
+
+    void pushArrangementEvent(RecordEvent::Type type, int t, int slot, double offset) {
+        RecordEvent event;
+        event.type = type;
+        event.track = static_cast<juce::int8>(t);
+        event.slot = static_cast<juce::int16>(slot);
+        event.beat = songBeat;
+        event.offset = offset;
+        arrangementEvents.push(event);
     }
 
     // ---- recording / input (audio thread) ----

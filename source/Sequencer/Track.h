@@ -6,7 +6,9 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <array>
 #include <atomic>
+#include <algorithm>
 #include <cmath>
+#include <vector>
 
 // Global groove applied at playback: off-beat 16ths are delayed by `timing` (0..1, where 1 puts
 // them on the triplet position) and their velocity scaled down by up to 30 % × `velocity` (0..1).
@@ -107,6 +109,7 @@ public:
     void armClip(int clipIndex) {
         const bool valid = clipIndex >= 0 && clipIndex < MAX_CLIPS && clips[clipIndex].hasClip();
         playingClip.store(valid ? clipIndex : NOT_PLAYING);
+        overridden.store(valid);
         pendingRequest.store(NO_REQUEST);
         restart(0.0);
     }
@@ -124,6 +127,14 @@ public:
     // Applies a launch target: a clip index launches it (an empty slot stops), STOP_REQUEST stops,
     // NO_REQUEST does nothing. `lateBy` is how far (beats) past the launch point we already are.
     void apply(int request, juce::MidiBuffer& midi, int samplePosition, double lateBy) {
+        if (request == STOP_REQUEST || (request >= 0 && request < MAX_CLIPS)) {
+            // A session launch or stop takes the track away from the arrangement until
+            // Back to Arrangement; arrangement notes still sounding are released.
+            if (followsArrangement()) {
+                releaseAllNotes(midi, samplePosition);
+            }
+            overridden.store(true);
+        }
         if (request == STOP_REQUEST) {
             stop(midi, samplePosition);
         } else if (request >= 0 && request < MAX_CLIPS) {
@@ -140,7 +151,36 @@ public:
     void launch(int clipIndex, double lateBy) {
         playingClip.store(clipIndex);
         restart(lateBy);
+        launchCount++;
     }
+
+    // ---- arrangement ----
+
+    // True while the track plays its arrangement (no session clip, not overridden by a stop).
+    bool followsArrangement() const {
+        return !overridden.load() && playingClip.load() == NOT_PLAYING;
+    }
+
+    bool isOverridden() const {
+        return overridden.load();
+    }
+
+    // Back to Arrangement: drop the session clip and pick the arrangement up at the current spot.
+    void returnToArrangement(juce::MidiBuffer& midi, int samplePosition) {
+        if (overridden.load()) {
+            stop(midi, samplePosition);
+            overridden.store(false);
+            chaseArrangement = true;
+        }
+    }
+
+    // The song position jumped (start, loop, locate): sound notes that span the new position.
+    void requestChase() {
+        chaseArrangement = true;
+    }
+
+    int getLaunchCount() const { return launchCount; }
+    double getElapsedSinceLaunch() const { return elapsed; }
 
     void stop(juce::MidiBuffer& midi, int samplePosition) {
         releaseAllNotes(midi, samplePosition);
@@ -203,7 +243,8 @@ public:
     // Renders `numSamples` from `samplePosition`: follow action (if due now), noteOns of the clip
     // window, noteOffs of sounding notes, loop wraps and one-shot ends.
     void process(juce::MidiBuffer& midi, int samplePosition, int numSamples, double samplesPerBeat,
-                 const Groove& groove, juce::Random& random) {
+                 const Groove& groove, juce::Random& random, double songBeat = 0.0,
+                 const std::vector<MidiNote>* arrangement = nullptr) {
         const double halfSample = 0.5 / samplesPerBeat;
         const double chunkBeats = numSamples / samplesPerBeat;
         completedPass = false;
@@ -247,6 +288,14 @@ public:
             }
         }
 
+        // 2b. The arrangement, when the track follows it.
+        if (arrangement != nullptr && followsArrangement()) {
+            emitArrangement(midi, samplePosition, numSamples, samplesPerBeat, halfSample, chunkBeats, songBeat,
+                            *arrangement, groove);
+        } else {
+            chaseArrangement = true; // when it does follow again, start by chasing
+        }
+
         // 3. noteOffs of notes started in this chunk that also end inside it.
         emitNoteOffs(midi, samplePosition, numSamples, samplesPerBeat, halfSample, chunkBeats);
 
@@ -280,6 +329,9 @@ private:
     std::atomic<int> pendingRequest { NO_REQUEST };
     std::atomic<int> repeatClip { NO_REQUEST };
     std::atomic<double> clipPositionForUi { 0.0 };
+    std::atomic<bool> overridden { false };
+    bool chaseArrangement = true;
+    int launchCount = 0;
 
     ClipData::Ptr playingData; // snapshot of the playing clip; refreshed every chunk
     double clipPos = 0.0;      // position inside the clip (beats)
@@ -360,6 +412,42 @@ private:
             const int offset = juce::jlimit(0, numSamples - 1, static_cast<int>(std::lround(beatInChunk * samplesPerBeat)));
             noteOn(midi, samplePosition + offset, note.pitch, groove.velocityFor(note.start, note.velocity),
                    timeline + beatInChunk + juce::jmax(note.length, 2.0 * halfSample));
+        }
+    }
+
+    void emitArrangement(juce::MidiBuffer& midi, int samplePosition, int numSamples, double samplesPerBeat,
+                         double halfSample, double chunkBeats, double songBeat,
+                         const std::vector<MidiNote>& notes, const Groove& groove) {
+        const double lo = songBeat - halfSample;
+        const double hi = songBeat + chunkBeats - halfSample;
+
+        if (chaseArrangement) {
+            // §6.3 chase: notes already under way at the start point sound for their remainder.
+            for (const auto& note : notes) {
+                if (note.start >= lo) {
+                    break;
+                }
+                if (note.end() > songBeat + 2.0 * halfSample && note.velocity > 0 && !note.muted) {
+                    noteOn(midi, samplePosition, note.pitch, note.velocity, timeline + (note.end() - songBeat));
+                }
+            }
+            chaseArrangement = false;
+        }
+
+        auto it = std::lower_bound(notes.begin(), notes.end(), lo - Groove::MAX_DELAY,
+                                   [](const MidiNote& note, double beat) { return note.start < beat; });
+        for (; it != notes.end() && it->start < hi; ++it) {
+            if (it->muted || it->velocity <= 0) {
+                continue;
+            }
+            const double start = it->start + groove.delayFor(it->start);
+            if (start < lo || start >= hi) {
+                continue;
+            }
+            const double beatInChunk = start - songBeat;
+            const int offset = juce::jlimit(0, numSamples - 1, static_cast<int>(std::lround(beatInChunk * samplesPerBeat)));
+            noteOn(midi, samplePosition + offset, it->pitch, groove.velocityFor(it->start, it->velocity),
+                   timeline + beatInChunk + juce::jmax(it->length, 2.0 * halfSample));
         }
     }
 

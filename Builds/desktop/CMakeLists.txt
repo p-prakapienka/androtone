@@ -37,10 +37,12 @@ target_sources(Androtone
         ../../source/PluginEditor.cpp
         ../../source/PluginProcessor.cpp
         ../../source/Engine/SoundSources/Metronome.h
+        ../../source/Sequencer/Arrangement.h
         ../../source/Sequencer/ClipData.h
         ../../source/Sequencer/RecordEvents.h
         ../../source/Sequencer/Recorder.h
         ../../source/Sequencer/TapTempo.h
+        ../../source/Ui/ArrangeTab.h
         ../../source/Ui/ClipPropertiesPanel.h
         ../../source/Ui/ClipTab.h
         ../../source/Ui/NoteGrid.h

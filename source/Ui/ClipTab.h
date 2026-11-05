@@ -80,6 +80,9 @@ public:
         setUpButton(zoomOut, juce::String::fromUTF8("\xe2\x88\x92"), "Zoom out", [this]() { grid.zoomBy(1.6, 0.0); });
         setUpButton(zoomIn, "+", "Zoom in", [this]() { grid.zoomBy(0.625, 0.0); });
         setUpButton(launchButton, "Launch...", "Launch mode and follow actions", [this]() { showLaunchSettings(); });
+        setUpButton(toArrangementButton, "To Arr.", "Place this clip on the arrangement at the insert marker", [this]() {
+            processorRef.placeClipInArrangement(grid.getTrack(), grid.getClipIndex());
+        });
         setUpButton(removeClipButton, "Remove", "Delete this clip from its slot", [this]() {
             const auto data = processorRef.getClipData(grid.getTrack(), grid.getClipIndex());
             if (data != nullptr) {
@@ -134,6 +137,7 @@ public:
         place(row1, zoomOut, 30);
         place(row1, zoomIn, 30);
         row1.removeFromLeft(8);
+        place(row1, toArrangementButton, 70);
         place(row1, removeClipButton, 70);
 
         place(row2, gridChooser, 74);
@@ -162,7 +166,7 @@ private:
     juce::Label title;
     juce::TextButton lengthDown, lengthUp, loopButton, snapButton, foldButton, quantizeButton;
     juce::TextButton octaveDown, semiDown, semiUp, octaveUp, duplicateButton, muteButton, selectAllButton, deleteButton;
-    juce::TextButton zoomOut, zoomIn, launchButton, removeClipButton;
+    juce::TextButton zoomOut, zoomIn, launchButton, removeClipButton, toArrangementButton;
     juce::Label lengthLabel;
     juce::ComboBox gridChooser;
     juce::Slider quantizeAmount;
@@ -193,7 +197,7 @@ private:
         const bool has = grid.hasClip();
         for (auto* c : std::initializer_list<juce::Component*> {
                  &lengthDown, &lengthUp, &loopButton, &quantizeButton, &quantizeAmount, &octaveDown, &semiDown,
-                 &semiUp, &octaveUp, &duplicateButton, &muteButton, &selectAllButton, &launchButton, &removeClipButton }) {
+                 &semiUp, &octaveUp, &duplicateButton, &muteButton, &selectAllButton, &launchButton, &removeClipButton, &toArrangementButton }) {
             c->setEnabled(has);
         }
         deleteButton.setEnabled(has && !grid.getSelection().empty());

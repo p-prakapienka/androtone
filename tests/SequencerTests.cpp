@@ -544,6 +544,110 @@ int main() {
         CHECK(!early && !h.ons(3).empty(), "clips start at 1.1.1 after the 1-bar count-in");
     }
 
+    // F1: arrangement playback on a track with no session clip; render loops content, cuts at end
+    {
+        auto content = ClipData::createEmpty(1.0);
+        content->notes = { { 0.0, 0.25, 60, 100 }, { 0.5, 0.25, 62, 100 } };
+        auto arr = ArrangementData::Ptr(new ArrangementData());
+        arr->place(4, { 4.0, 2.25, content, 0.0, 0 });
+        arr->render();
+        CHECK(arr->rendered[4].size() == 5, "looped 1-beat clip over 2.25 beats -> 5 notes, got %zu", arr->rendered[4].size());
+        CHECK(std::abs(arr->rendered[4].back().start - 6.0) < 1e-9 && std::abs(arr->rendered[4].back().length - 0.25) < 1e-9, "last note cut at clip end");
+
+        Harness h;
+        h.seq.setArrangement(arr);
+        h.seq.setPlaying(true);
+        h.run(24000 * 7);
+        auto o = h.ons(5);
+        CHECK(o.size() == 5 && o[0].t == 96000, "arrangement notes from beat 4: %zu, first %lld", o.size(), o.empty() ? -1 : o[0].t);
+    }
+    // F4: session launch overrides the arrangement; Back to Arrangement resumes with chase
+    {
+        auto content = ClipData::createEmpty(8.0);
+        content->notes = { { 0.0, 8.0, 48, 100 } };                // one long note
+        auto arr = ArrangementData::Ptr(new ArrangementData());
+        arr->place(0, { 0.0, 8.0, content, 0.0, 0 });
+        arr->render();
+        Harness h;
+        h.seq.setArrangement(arr);
+        h.seq.setQuantizationIndex(0);
+        h.seq.setPlaying(true);
+        h.run(1000);
+        CHECK(!h.ons(1).empty() && h.ons(1)[0].note == 48, "arrangement plays");
+        h.seq.pressClip(0, 1);                                    // session kick
+        h.run(2000);
+        CHECK(!h.seq.followsArrangement(0) && h.seq.isArrangementOverridden(), "track overridden");
+        bool off48 = false; for (auto& e : h.offs(1)) if (e.note == 48) off48 = true;
+        CHECK(off48, "arrangement note released when the session takes over");
+        h.seq.requestBackToArrangement();
+        h.run(1000);
+        CHECK(h.seq.followsArrangement(0) && !h.seq.isArrangementOverridden(), "back to arrangement");
+        int ons48 = 0; for (auto& e : h.ons(1)) if (e.note == 48) ons48++;
+        CHECK(ons48 == 2, "long note chased on return: %d", ons48);
+    }
+    // F2: arrangement loop brace
+    {
+        auto content = ClipData::createEmpty(4.0);
+        content->notes = { { 1.0, 0.25, 70, 100 } };
+        auto arr = ArrangementData::Ptr(new ArrangementData());
+        arr->place(4, { 0.0, 16.0, content, 0.0, 0 });
+        arr->render();
+        Harness h;
+        h.seq.setArrangement(arr);
+        h.seq.setLoop(true, 0.0, 2.0);
+        h.seq.setPlaying(true);
+        h.run(24000 * 8);
+        auto o = h.ons(5);
+        CHECK(o.size() == 4, "beat 1 note every 2-beat loop: %zu", o.size());
+        CHECK(h.seq.getSongPosition() <= 2.0 + 1e-9, "position stays inside the loop: %f", h.seq.getSongPosition());
+    }
+    // F3: arrangement record logs session launches
+    {
+        Harness h;
+        ArrangementData::Ptr committed;
+        ArrangementLogger logger(h.seq, [&](ArrangementData::Ptr, ArrangementData::Ptr after) { committed = after; h.seq.setArrangement(after); });
+        h.seq.setArrangementRecord(true);                         // starts the transport; scene 1 arp playing
+        h.run(96000);                                             // 4 beats
+        h.seq.pressClip(0, 1);                                    // kick from bar 2 (1 bar quantization)
+        h.run(96000 + 48000);
+        h.seq.setPlaying(false);
+        h.run(512);
+        logger.drain();
+        CHECK(committed != nullptr, "pass committed");
+        if (committed != nullptr) {
+            CHECK(committed->clips[2].size() == 1 && committed->clips[2][0].start == 0.0, "arp logged from 1.1.1");
+            CHECK(committed->clips[0].size() == 1 && std::abs(committed->clips[0][0].start - 4.0) < 1e-6, "kick logged at bar 2: %f",
+                  committed->clips[0].empty() ? -1.0 : committed->clips[0][0].start);
+            CHECK(!committed->clips[0].empty() && std::abs(committed->clips[0][0].length - 6.0) < 0.05, "kick length up to stop: %f",
+                  committed->clips[0].empty() ? -1.0 : committed->clips[0][0].length);
+        }
+        CHECK(!h.seq.isArrangementRecording(), "arrangement record ends with the transport");
+    }
+    // F1 / C8: playback from the insert marker; stop twice returns to 1.1.1
+    {
+        Harness h;
+        h.seq.setStartPosition(8.0);
+        h.seq.setPlaying(true);
+        h.run(512);
+        CHECK(h.seq.getSongPosition() > 8.0 && h.seq.getSongPosition() < 8.1, "starts at the insert marker");
+        h.seq.pressStop();
+        h.run(512);
+        CHECK(h.seq.getStartPosition() == 8.0, "first stop keeps the start position");
+        h.seq.pressStop();
+        CHECK(h.seq.getStartPosition() == 0.0, "second stop -> 1.1.1");
+    }
+    // Arrangement placement trims what it covers
+    {
+        auto content = ClipData::createEmpty(4.0);
+        ArrangementData arr;
+        arr.place(0, { 0.0, 8.0, content, 0.0, 0 });
+        arr.place(0, { 2.0, 2.0, content, 0.0, 0 });
+        CHECK(arr.clips[0].size() == 3, "split around the new clip: %zu", arr.clips[0].size());
+        if (arr.clips[0].size() == 3) {
+            CHECK(arr.clips[0][0].length == 2.0 && arr.clips[0][2].start == 4.0 && arr.clips[0][2].offset == 4.0, "head / tail trimmed with offset");
+        }
+    }
+
     std::printf(failures == 0 ? "ALL PASSED\n" : "%d FAILURES\n", failures);
     return failures == 0 ? 0 : 1;
 }

@@ -21,6 +21,7 @@ private:
     std::unique_ptr<juce::Component> projectTab;
     std::unique_ptr<juce::Component> sessionTab;
     std::unique_ptr<juce::Component> clipTab;
+    std::unique_ptr<juce::Component> arrangeTab;
     std::unique_ptr<juce::Component> mixerTab;
     std::unique_ptr<juce::Component> settingsTab;
     juce::TabbedComponent tabs { juce::TabbedButtonBar::TabsAtTop };

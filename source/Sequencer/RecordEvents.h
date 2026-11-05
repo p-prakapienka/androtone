@@ -5,7 +5,10 @@
 
 // What the audio thread reports about a recording. Positions are in clip beats.
 struct RecordEvent {
-    enum class Type : juce::uint8 { Started, NoteOn, NoteOff, Finished };
+    enum class Type : juce::uint8 {
+        Started, NoteOn, NoteOff, Finished,     // MIDI recording into a clip
+        ClipLaunched, ClipStopped, LogEnded     // arrangement record: session activity at song beats
+    };
 
     Type type = Type::NoteOn;
     juce::int8 track = 0;
@@ -13,7 +16,8 @@ struct RecordEvent {
     juce::uint8 pitch = 0;
     juce::uint8 velocity = 0;
     bool overdub = false;
-    double beat = 0.0; // note time; for Finished on a new clip: the recorded length
+    double beat = 0.0;   // note time; Finished on a new clip: recorded length; arrangement events: song beat
+    double offset = 0.0; // ClipLaunched: how far into the clip's playback it already is
 };
 
 // Single-producer (audio thread) / single-consumer (message thread) queue of RecordEvents.

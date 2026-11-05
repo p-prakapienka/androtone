@@ -150,6 +150,10 @@ private:
                 commit(t, take.slot, take.before, take.working);
                 take = Take {};
                 break;
+            case RecordEvent::Type::ClipLaunched:
+            case RecordEvent::Type::ClipStopped:
+            case RecordEvent::Type::LogEnded:
+                break; // arrangement events go through ArrangementLogger
         }
     }
 
@@ -182,5 +186,83 @@ private:
 
     void publish(int track, Take& take) {
         sequencer.setClipData(track, take.slot, take.working);
+    }
+};
+
+// Message-thread side of Arrangement Record: turns the session activity the sequencer logs
+// (launch / stop at song beats) into arrangement clips. Clips appear as they close; the whole pass
+// is committed as one undo step when logging ends.
+class ArrangementLogger {
+public:
+    using Commit = std::function<void(ArrangementData::Ptr before, ArrangementData::Ptr after)>;
+
+    ArrangementLogger(StepSequencer& s, Commit commitPass) : sequencer(s), commit(std::move(commitPass)) {}
+
+    void drain() {
+        RecordEvent event;
+        while (sequencer.getArrangementEvents().pop(event)) {
+            handle(event);
+        }
+    }
+
+private:
+    struct Open {
+        bool active = false;
+        int slot = -1;
+        double start = 0.0;
+        double offset = 0.0;
+        ClipData::Ptr content;
+    };
+
+    StepSequencer& sequencer;
+    Commit commit;
+    ArrangementData::Ptr before;
+    ArrangementData::Ptr working;
+    std::array<Open, NUM_TRACKS> open;
+
+    void handle(const RecordEvent& event) {
+        if (working == nullptr) {
+            before = sequencer.getArrangement();
+            working = before != nullptr ? before : ArrangementData::Ptr(new ArrangementData());
+        }
+        const int t = event.track;
+        switch (event.type) {
+            case RecordEvent::Type::ClipLaunched:
+                close(t, event.beat);
+                open[static_cast<size_t>(t)] = { true, event.slot, event.beat, event.offset,
+                                                 sequencer.getClipData(t, event.slot) };
+                break;
+            case RecordEvent::Type::ClipStopped:
+                close(t, event.beat);
+                break;
+            case RecordEvent::Type::LogEnded:
+                for (int track = 0; track < NUM_TRACKS; track++) {
+                    close(track, event.beat);
+                }
+                if (working != before) {
+                    commit(before, working);
+                }
+                before = nullptr;
+                working = nullptr;
+                break;
+            default:
+                break;
+        }
+    }
+
+    void close(int t, double endBeat) {
+        auto& entry = open[static_cast<size_t>(t)];
+        if (!entry.active) {
+            return;
+        }
+        entry.active = false;
+        if (entry.content == nullptr || endBeat - entry.start < 1e-6) {
+            return;
+        }
+        auto next = working->copy();
+        next->place(t, { entry.start, endBeat - entry.start, entry.content, entry.offset, entry.slot });
+        next->render();
+        sequencer.setArrangement(next); // shows up while recording; heard after Back to Arrangement
+        working = next;
     }
 };
