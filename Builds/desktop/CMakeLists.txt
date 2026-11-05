@@ -36,7 +36,10 @@ target_sources(Androtone
     PRIVATE
         ../../source/PluginEditor.cpp
         ../../source/PluginProcessor.cpp
+        ../../source/Sequencer/ClipData.h
         ../../source/Ui/ClipPropertiesPanel.h
+        ../../source/Ui/ClipTab.h
+        ../../source/Ui/NoteGrid.h
         # Projucer-generated embedded resources (the kick sample). BinaryData is
         # checked in (see .gitignore) even though the rest of JuceLibraryCode is
         # not; re-save the .jucer in Projucer to regenerate it when resources change.
@@ -59,3 +62,15 @@ target_link_libraries(Androtone
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+# Headless sequencer tests: cmake -DANDROTONE_BUILD_TESTS=ON, then run AndrotoneTests.
+option(ANDROTONE_BUILD_TESTS "Build the headless sequencer tests" OFF)
+if(ANDROTONE_BUILD_TESTS)
+    juce_add_console_app(AndrotoneTests PRODUCT_NAME "AndrotoneTests")
+    target_sources(AndrotoneTests PRIVATE ../../tests/SequencerTests.cpp)
+    target_include_directories(AndrotoneTests PRIVATE ../../source)
+    target_compile_definitions(AndrotoneTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries(AndrotoneTests PRIVATE juce::juce_audio_processors juce::juce_recommended_config_flags)
+    enable_testing()
+    add_test(NAME AndrotoneTests COMMAND AndrotoneTests)
+endif()

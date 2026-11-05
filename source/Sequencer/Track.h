@@ -3,16 +3,42 @@
 #include "Clip.h"
 #include "../Constants.h"
 
-#include <juce_audio_processors/juce_audio_processors.h>
+#include <juce_audio_basics/juce_audio_basics.h>
 #include <array>
 #include <atomic>
 #include <cmath>
 
+// Global groove applied at playback: off-beat 16ths are delayed by `timing` (0..1, where 1 puts
+// them on the triplet position) and their velocity scaled down by up to 30 % × `velocity` (0..1).
+// Notes on the 8th-note grid are never moved.
+struct Groove {
+    double timing = 0.0;
+    double velocity = 0.0;
+
+    static constexpr double MAX_DELAY = Clip::STEP_LENGTH / 3.0;
+
+    static bool isOffBeat16th(double start) {
+        const double phase = std::fmod(start, 2.0 * Clip::STEP_LENGTH);
+        return std::abs(phase - Clip::STEP_LENGTH) < 1.0 / 128.0;
+    }
+
+    double delayFor(double start) const {
+        return isOffBeat16th(start) ? timing * MAX_DELAY : 0.0;
+    }
+
+    int velocityFor(double start, int velocity) const {
+        if (!isOffBeat16th(start) || this->velocity <= 0.0) {
+            return velocity;
+        }
+        return juce::jlimit(1, 127, static_cast<int>(std::round(velocity * (1.0 - 0.3 * this->velocity))));
+    }
+};
+
 // One sequencer lane: a column of clip slots, at most one of which plays at a time.
 //
-// Threading: the request* / setRepeat* calls come from the UI thread and only write atomics. Every
-// other mutating call runs on the audio thread, driven by StepSequencer::processBlock, which owns
-// the timing (global grid, launch quantization) and tells the track when to launch, stop and step.
+// Threading: request* / setRepeat* come from the UI thread and only write atomics. Every other
+// mutating call runs on the audio thread, driven by StepSequencer::processBlock, which owns the
+// timing (song position, launch quantization) and splits blocks at the events tracks report.
 class Track {
 public:
     static constexpr int NO_REQUEST = -1;
@@ -21,20 +47,18 @@ public:
 
     // ---- UI thread -------------------------------------------------------------------------------
 
-    // Queue a launch of `clipIndex`. Launching an empty slot queues a stop instead, like an empty
-    // slot's stop button.
+    // Queue a launch of `clipIndex`. Launching an empty slot queues a stop instead.
     void requestLaunch(int clipIndex) {
         if (clipIndex < 0 || clipIndex >= MAX_CLIPS) {
             return;
         }
-        pendingRequest.store(clips[clipIndex].isEmpty() ? STOP_REQUEST : clipIndex);
+        pendingRequest.store(clips[clipIndex].hasClip() ? clipIndex : STOP_REQUEST);
     }
 
     void requestStop() {
         pendingRequest.store(STOP_REQUEST);
     }
 
-    // Repeat launch mode: while set, the sequencer relaunches this clip on every quantization boundary.
     void setRepeatClip(int clipIndex) {
         repeatClip.store(clipIndex);
     }
@@ -56,6 +80,11 @@ public:
         return playingClip.load() != NOT_PLAYING;
     }
 
+    // Playback position inside the playing clip, in beats (for the UI playhead).
+    double getClipPosition() const {
+        return clipPositionForUi.load();
+    }
+
     Clip& getClip(int index) {
         return clips[static_cast<size_t>(index)];
     }
@@ -70,17 +99,13 @@ public:
         channel = newChannel;
     }
 
-    template<typename Container>
-    void updateClip(const Container& notes, int clipIndex) {
-        if (clipIndex < 0 || clipIndex >= MAX_CLIPS) {
-            return;
-        }
-        clips[clipIndex].setNotes(notes);
+    int getChannel() const {
+        return channel;
     }
 
-    // Selects the clip that plays when the transport starts, without any quantization.
+    // Selects the clip that plays when the transport starts, without quantization.
     void armClip(int clipIndex) {
-        const bool valid = clipIndex >= 0 && clipIndex < MAX_CLIPS && !clips[clipIndex].isEmpty();
+        const bool valid = clipIndex >= 0 && clipIndex < MAX_CLIPS && clips[clipIndex].hasClip();
         playingClip.store(valid ? clipIndex : NOT_PLAYING);
         pendingRequest.store(NO_REQUEST);
         restart(0.0);
@@ -96,148 +121,144 @@ public:
         return repeatClip.load();
     }
 
-    // Applies a request taken from takePendingRequest() (or a scene / follow-action target):
-    // a clip index launches that clip, STOP_REQUEST stops the track, NO_REQUEST does nothing.
-    void apply(int request, juce::MidiBuffer& midi, int samplePosition, double phase) {
+    // Applies a launch target: a clip index launches it (an empty slot stops), STOP_REQUEST stops,
+    // NO_REQUEST does nothing. `lateBy` is how far (beats) past the launch point we already are.
+    void apply(int request, juce::MidiBuffer& midi, int samplePosition, double lateBy) {
         if (request == STOP_REQUEST) {
             stop(midi, samplePosition);
         } else if (request >= 0 && request < MAX_CLIPS) {
-            if (clips[request].isEmpty()) {
-                stop(midi, samplePosition);
+            if (clips[request].hasClip()) {
+                launch(request, lateBy);
             } else {
-                launch(request, phase);
+                stop(midi, samplePosition);
             }
         }
     }
 
-    // Starts `clipIndex` from its first step. `phase` is the number of samples until that first
-    // step fires: 0 (or a small negative fraction carried over from the global grid) means now.
-    // Notes still sounding from the previous clip ring out to their natural length.
-    void launch(int clipIndex, double phase) {
+    // Starts `clipIndex` from its start marker. Notes still sounding from the previous clip ring
+    // out to their own length.
+    void launch(int clipIndex, double lateBy) {
         playingClip.store(clipIndex);
-        restart(phase);
+        restart(lateBy);
     }
 
     void stop(juce::MidiBuffer& midi, int samplePosition) {
         releaseAllNotes(midi, samplePosition);
         playingClip.store(NOT_PLAYING);
+        playingData = nullptr;
     }
 
-    // Transport stopped: silence everything and rewind, but keep the clip selected so it starts
-    // again with the transport.
+    // Transport stopped: silence and rewind, but keep the clip selected so it starts again with
+    // the transport.
     void onTransportStop(juce::MidiBuffer& midi, int samplePosition) {
         releaseAllNotes(midi, samplePosition);
         restart(0.0);
     }
 
-    void restart(double phase) {
-        stepIndex = 0;
-        stepsSinceLaunch = 0;
+    void restart(double lateBy) {
+        elapsed = juce::jmax(0.0, lateBy);
         followFired = false;
-        samplesToNextStep = phase;
+        needsStart = true;
     }
 
-    bool isStepDue() const {
-        return isPlayingClip() && samplesToNextStep <= 0.0;
+    // Beats from now until this track needs the block split: its follow action or the end of
+    // its current pass. Large when there's nothing pending.
+    double beatsToNextEvent() {
+        refreshData();
+        if (playingData == nullptr) {
+            return NO_EVENT;
+        }
+        ensureStarted();
+        double until = playingData->getPlayEnd() - clipPos;
+        const ClipSettings& settings = clips[playingClip.load()].settings;
+        if (settings.followEnabled.load() && !followFired) {
+            until = juce::jmin(until, Clip::getFollowBeats(*playingData, settings) - elapsed);
+        }
+        return juce::jmax(0.0, until);
     }
 
-    double getSamplesToNextStep() const {
-        return samplesToNextStep;
+    // True right after a looping clip wrapped (or a one-shot clip ended) at the end of the
+    // previous chunk — used by song mode to chain scenes on the longest clip's pass.
+    bool justCompletedPass() const {
+        return completedPass;
     }
 
-    // True when the next step to fire wraps the clip back to its start (one full pass completed).
-    bool isAboutToLoop() const {
-        const int clipIndex = playingClip.load();
-        return clipIndex != NOT_PLAYING && stepsSinceLaunch > 0 && stepIndex >= clips[clipIndex].getNumSteps();
+    double getPassLength() const {
+        return playingData == nullptr ? 0.0 : playingData->getLoopLength();
     }
 
-    int getPlayingClipLength() const {
-        const int clipIndex = playingClip.load();
-        return clipIndex == NOT_PLAYING ? 0 : clips[clipIndex].getNumSteps();
-    }
+    // Renders `numSamples` from `samplePosition`: follow action (if due now), noteOns of the clip
+    // window, noteOffs of sounding notes, loop wraps and one-shot ends.
+    void process(juce::MidiBuffer& midi, int samplePosition, int numSamples, double samplesPerBeat,
+                 const Groove& groove, juce::Random& random) {
+        const double halfSample = 0.5 / samplesPerBeat;
+        const double chunkBeats = numSamples / samplesPerBeat;
+        completedPass = false;
 
-    // Fires the step that is due at `samplePosition`: runs the follow action if its time has come,
-    // then plays the current step of whatever clip is now playing.
-    void fireStep(juce::MidiBuffer& midi, int samplePosition, double samplesPerBeat, double samplesPerStep,
-                  juce::Random& random) {
-        flushDueNoteOffs(midi, samplePosition, samplesPerBeat);
-
-        int clipIndex = playingClip.load();
-        if (clipIndex == NOT_PLAYING) {
-            return;
+        refreshData();
+        if (playingData != nullptr) {
+            ensureStarted();
+            runFollowActionIfDue(midi, samplePosition, halfSample, random);
         }
 
-        const ClipSettings& settings = clips[clipIndex].settings;
-        if (settings.followEnabled.load() && !followFired && stepsSinceLaunch >= clips[clipIndex].getFollowSteps()) {
-            followFired = true;
-            const int target = resolveFollowAction(clipIndex, random);
+        // 1. noteOffs of notes already sounding that end inside this chunk.
+        emitNoteOffs(midi, samplePosition, numSamples, samplesPerBeat, halfSample, chunkBeats);
 
-            if (target == STOP_REQUEST) {
-                stop(midi, samplePosition);
-                return;
-            }
-            if (target >= 0) {
-                // Follow actions fire exactly on their time, bypassing launch quantization.
-                launch(target, samplesToNextStep);
-                clipIndex = target;
-            }
-        }
+        // 2. noteOns from the clip, walking the window and wrapping at the loop end.
+        if (playingData != nullptr) {
+            double offset = 0.0;
+            double remaining = chunkBeats;
+            int guard = 0;
 
-        const Clip& clip = clips[clipIndex];
-        if (clip.getNumSteps() == 0) {
-            stop(midi, samplePosition);
-            return;
-        }
-        if (stepIndex >= clip.getNumSteps()) {
-            stepIndex = 0;
-        }
+            while (playingData != nullptr && remaining > 1e-12 && guard++ < 64) {
+                const double segmentEnd = playingData->getPlayEnd();
+                const double segment = juce::jmax(0.0, juce::jmin(remaining, segmentEnd - clipPos));
 
-        const Note& note = clip.getStep(stepIndex);
-        if (note.velocity > 0) {
-            noteOn(midi, samplePosition, note, samplesPerBeat);
-        }
+                emitNoteOns(midi, samplePosition, numSamples, samplesPerBeat, halfSample, offset,
+                            clipPos, clipPos + segment, groove);
 
-        stepIndex++;
-        stepsSinceLaunch++;
-        samplesToNextStep += samplesPerStep;
-    }
+                clipPos += segment;
+                offset += segment;
+                remaining -= segment;
 
-    // Moves time forward by `numSamples` from `samplePosition`, emitting the noteOffs that fall
-    // inside that span (rounded to the nearest sample). A noteOff landing on the span's end is left
-    // for the next span, so that at a step boundary it is flushed before that step's noteOn.
-    void advance(juce::MidiBuffer& midi, int samplePosition, int numSamples, double samplesPerBeat) {
-        for (int i = 0; i < numSounding;) {
-            const double remainingSamples = sounding[i].remainingBeats * samplesPerBeat;
-
-            if (remainingSamples + 0.5 < static_cast<double>(numSamples)) {
-                const int offset = juce::jlimit(0, numSamples - 1, static_cast<int>(remainingSamples + 0.5));
-                midi.addEvent(juce::MidiMessage::noteOff(channel, sounding[i].number), samplePosition + offset);
-                removeSounding(i);
-            } else {
-                sounding[i].remainingBeats -= numSamples / samplesPerBeat;
-                i++;
+                if (clipPos >= segmentEnd - 1e-9) {
+                    completedPass = remaining <= 1e-9;
+                    if (playingData->looping) {
+                        clipPos = playingData->loopStart;
+                    } else {
+                        // One-shot clip finished: stop, but let its notes ring to their own end.
+                        playingClip.store(NOT_PLAYING);
+                        playingData = nullptr;
+                    }
+                }
             }
         }
 
-        if (isPlayingClip()) {
-            samplesToNextStep -= numSamples;
-        }
+        // 3. noteOffs of notes started in this chunk that also end inside it.
+        emitNoteOffs(midi, samplePosition, numSamples, samplesPerBeat, halfSample, chunkBeats);
+
+        elapsed += chunkBeats;
+        timeline += chunkBeats;
+        clipPositionForUi.store(clipPos);
     }
 
     void releaseAllNotes(juce::MidiBuffer& midi, int samplePosition) {
         for (int i = 0; i < numSounding; i++) {
-            midi.addEvent(juce::MidiMessage::noteOff(channel, sounding[i].number), samplePosition);
+            midi.addEvent(juce::MidiMessage::noteOff(channel, sounding[static_cast<size_t>(i)].pitch), samplePosition);
         }
         numSounding = 0;
+        timeline = 0.0;
     }
+
+    static constexpr double NO_EVENT = 1.0e9;
 
 private:
     struct SoundingNote {
-        int number = 0;
-        double remainingBeats = 0.0;
+        int pitch = 0;
+        double endBeat = 0.0; // on this track's `timeline`
     };
 
-    static constexpr int MAX_SOUNDING = 32;
+    static constexpr int MAX_SOUNDING = 64;
 
     int channel = 1;
     std::array<Clip, MAX_CLIPS> clips;
@@ -245,42 +266,99 @@ private:
     std::atomic<int> playingClip { NOT_PLAYING };
     std::atomic<int> pendingRequest { NO_REQUEST };
     std::atomic<int> repeatClip { NO_REQUEST };
+    std::atomic<double> clipPositionForUi { 0.0 };
 
-    int stepIndex = 0;        // next step of the playing clip to fire
-    int stepsSinceLaunch = 0; // steps fired since the clip was (re)launched; drives follow actions
+    ClipData::Ptr playingData; // snapshot of the playing clip; refreshed every chunk
+    double clipPos = 0.0;      // position inside the clip (beats)
+    double elapsed = 0.0;      // beats since the clip was launched (drives follow actions)
+    double timeline = 0.0;     // monotonic beats while the transport runs (drives noteOffs)
     bool followFired = false;
-    double samplesToNextStep = 0.0;
+    bool needsStart = true;
+    bool completedPass = false;
 
     std::array<SoundingNote, MAX_SOUNDING> sounding;
     int numSounding = 0;
 
-    void noteOn(juce::MidiBuffer& midi, int samplePosition, const Note& note, double samplesPerBeat) {
-        // Retriggering a pitch that is still held: end the old note first so the noteOff doesn't
-        // land after (and cut) the new one.
-        for (int i = 0; i < numSounding; i++) {
-            if (sounding[i].number == note.number) {
-                midi.addEvent(juce::MidiMessage::noteOff(channel, note.number), samplePosition);
-                removeSounding(i);
-                break;
-            }
+    void refreshData() {
+        const int index = playingClip.load();
+        if (index == NOT_PLAYING) {
+            playingData = nullptr;
+            return;
         }
-        if (numSounding == MAX_SOUNDING) {
-            midi.addEvent(juce::MidiMessage::noteOff(channel, sounding[0].number), samplePosition);
-            removeSounding(0);
+        playingData = clips[static_cast<size_t>(index)].getData();
+        if (playingData == nullptr) {
+            playingClip.store(NOT_PLAYING); // the clip was deleted while playing
         }
-
-        midi.addEvent(
-            juce::MidiMessage::noteOn(channel, note.number, static_cast<juce::uint8>(note.velocity)),
-            samplePosition
-        );
-        sounding[numSounding++] = { note.number, juce::jmax(note.length, 1.0 / samplesPerBeat) };
     }
 
-    // NoteOffs whose time rounds to now, emitted before a step's noteOns.
-    void flushDueNoteOffs(juce::MidiBuffer& midi, int samplePosition, double samplesPerBeat) {
+    void ensureStarted() {
+        if (needsStart && playingData != nullptr) {
+            clipPos = playingData->startMarker + elapsed;
+            needsStart = false;
+            // A launch that's late by more than one pass is not expected; keep inside the clip.
+            if (clipPos >= playingData->getPlayEnd()) {
+                clipPos = playingData->looping ? playingData->loopStart : playingData->startMarker;
+            }
+        }
+        if (playingData != nullptr && clipPos > playingData->getPlayEnd()) {
+            // The clip was shortened under the playhead.
+            clipPos = playingData->looping ? playingData->loopStart : playingData->getPlayEnd();
+        }
+    }
+
+    void runFollowActionIfDue(juce::MidiBuffer& midi, int samplePosition, double halfSample, juce::Random& random) {
+        const int index = playingClip.load();
+        const ClipSettings& settings = clips[static_cast<size_t>(index)].settings;
+        if (!settings.followEnabled.load() || followFired) {
+            return;
+        }
+        if (elapsed < Clip::getFollowBeats(*playingData, settings) - halfSample) {
+            return;
+        }
+
+        followFired = true;
+        const int target = resolveFollowAction(index, random);
+        if (target == STOP_REQUEST) {
+            stop(midi, samplePosition);
+        } else if (target >= 0) {
+            // Follow actions fire exactly on time, bypassing launch quantization.
+            launch(target, 0.0);
+            refreshData();
+            ensureStarted();
+        }
+    }
+
+    void emitNoteOns(juce::MidiBuffer& midi, int samplePosition, int numSamples, double samplesPerBeat,
+                     double halfSample, double chunkOffset, double from, double to, const Groove& groove) {
+        // Window shifted by half a sample so an event lands in exactly one chunk (rounding).
+        const double lo = from - halfSample;
+        const double hi = to - halfSample;
+        const double regionEnd = playingData->getPlayEnd();
+
+        for (const auto& note : playingData->notes) {
+            if (note.muted || note.velocity <= 0 || note.start >= regionEnd) {
+                continue;
+            }
+            const double start = note.start + groove.delayFor(note.start);
+            if (start < lo || start >= hi) {
+                continue;
+            }
+            const double beatInChunk = chunkOffset + (start - from);
+            const int offset = juce::jlimit(0, numSamples - 1, static_cast<int>(std::lround(beatInChunk * samplesPerBeat)));
+            noteOn(midi, samplePosition + offset, note.pitch, groove.velocityFor(note.start, note.velocity),
+                   timeline + beatInChunk + juce::jmax(note.length, 2.0 * halfSample));
+        }
+    }
+
+    void emitNoteOffs(juce::MidiBuffer& midi, int samplePosition, int numSamples, double samplesPerBeat,
+                      double halfSample, double chunkBeats) {
         for (int i = 0; i < numSounding;) {
-            if (sounding[i].remainingBeats * samplesPerBeat < 0.5) {
-                midi.addEvent(juce::MidiMessage::noteOff(channel, sounding[i].number), samplePosition);
+            auto& note = sounding[static_cast<size_t>(i)];
+            const double fromChunkStart = note.endBeat - timeline;
+            if (fromChunkStart < chunkBeats - halfSample) {
+                const int offset = juce::jlimit(0, numSamples - 1,
+                                                static_cast<int>(std::lround(juce::jmax(0.0, fromChunkStart) * samplesPerBeat)));
+                midi.addEvent(juce::MidiMessage::noteOff(channel, note.pitch), samplePosition + offset);
                 removeSounding(i);
             } else {
                 i++;
@@ -288,15 +366,33 @@ private:
         }
     }
 
+    void noteOn(juce::MidiBuffer& midi, int samplePosition, int pitch, int velocity, double endBeat) {
+        // Retriggering a pitch that is still held: end the old note first.
+        for (int i = 0; i < numSounding; i++) {
+            if (sounding[static_cast<size_t>(i)].pitch == pitch) {
+                midi.addEvent(juce::MidiMessage::noteOff(channel, pitch), samplePosition);
+                removeSounding(i);
+                break;
+            }
+        }
+        if (numSounding == MAX_SOUNDING) {
+            midi.addEvent(juce::MidiMessage::noteOff(channel, sounding[0].pitch), samplePosition);
+            removeSounding(0);
+        }
+        midi.addEvent(juce::MidiMessage::noteOn(channel, pitch, static_cast<juce::uint8>(juce::jlimit(1, 127, velocity))),
+                      samplePosition);
+        sounding[static_cast<size_t>(numSounding++)] = { pitch, endBeat };
+    }
+
     void removeSounding(int index) {
-        sounding[index] = sounding[numSounding - 1];
+        sounding[static_cast<size_t>(index)] = sounding[static_cast<size_t>(numSounding - 1)];
         numSounding--;
     }
 
     // Picks action A or B by their relative chances and turns it into a launch target: a clip
     // index, STOP_REQUEST, or NO_REQUEST for "keep playing".
     int resolveFollowAction(int current, juce::Random& random) const {
-        const ClipSettings& settings = clips[current].settings;
+        const ClipSettings& settings = clips[static_cast<size_t>(current)].settings;
         const int chanceA = juce::jmax(0, settings.chanceA.load());
         const int chanceB = juce::jmax(0, settings.chanceB.load());
         const int total = chanceA + chanceB;
@@ -307,42 +403,32 @@ private:
         const FollowAction action = random.nextInt(total) < chanceA ? settings.followActionA.load()
                                                                     : settings.followActionB.load();
 
-        // The group is the run of non-empty slots around the current clip.
         int first = current;
-        while (first > 0 && !clips[first - 1].isEmpty()) {
+        while (first > 0 && clips[static_cast<size_t>(first - 1)].hasClip()) {
             first--;
         }
         int last = current;
-        while (last < MAX_CLIPS - 1 && !clips[last + 1].isEmpty()) {
+        while (last < MAX_CLIPS - 1 && clips[static_cast<size_t>(last + 1)].hasClip()) {
             last++;
         }
         const int size = last - first + 1;
 
         switch (action) {
-            case FollowAction::None:
-                return NO_REQUEST;
-            case FollowAction::Stop:
-                return STOP_REQUEST;
-            case FollowAction::Again:
-                return current;
-            case FollowAction::Previous:
-                return current == first ? last : current - 1;
-            case FollowAction::Next:
-                return current == last ? first : current + 1;
-            case FollowAction::First:
-                return first;
-            case FollowAction::Last:
-                return last;
-            case FollowAction::Any:
-                return first + random.nextInt(size);
-            case FollowAction::Other:
+            case FollowAction::None: return NO_REQUEST;
+            case FollowAction::Stop: return STOP_REQUEST;
+            case FollowAction::Again: return current;
+            case FollowAction::Previous: return current == first ? last : current - 1;
+            case FollowAction::Next: return current == last ? first : current + 1;
+            case FollowAction::First: return first;
+            case FollowAction::Last: return last;
+            case FollowAction::Any: return first + random.nextInt(size);
+            case FollowAction::Other: {
                 if (size == 1) {
                     return current;
                 }
-                {
-                    const int pick = first + random.nextInt(size - 1);
-                    return pick >= current ? pick + 1 : pick;
-                }
+                const int pick = first + random.nextInt(size - 1);
+                return pick >= current ? pick + 1 : pick;
+            }
         }
         return NO_REQUEST;
     }

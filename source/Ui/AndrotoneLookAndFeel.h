@@ -65,7 +65,8 @@ public:
     }
 
     int getTabButtonBestWidth(juce::TabBarButton& button, int /*tabDepth*/) override {
-        return button.getTabbedButtonBar().getWidth() / 4;  // 4 equal-width tabs
+        auto& bar = button.getTabbedButtonBar();
+        return bar.getWidth() / juce::jmax(1, bar.getNumTabs());  // equal-width tabs
     }
 
     // Tabs are always on top: fill every tab with the same background and draw the text,

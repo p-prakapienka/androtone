@@ -1,14 +1,10 @@
 #pragma once
 
+#include "ClipData.h"
+
+#include <juce_core/juce_core.h>
 #include <algorithm>
 #include <atomic>
-#include <vector>
-
-struct Note {
-    int number;
-    double length; // note duration in beats: from the step start it sounds this long, then noteOff
-    int velocity;
-};
 
 // How a clip slot reacts to press / release (from the touch screen, mouse or a controller).
 enum class LaunchMode {
@@ -18,12 +14,12 @@ enum class LaunchMode {
     Repeat   // while held, the clip restarts on every launch-quantization boundary
 };
 
-// What a clip does once its follow time has elapsed. "Group" means the run of consecutive non-empty
-// clips on the same track that contains the playing clip (empty slots split groups).
+// What a clip does once its follow time has elapsed. "Group" means the run of consecutive filled
+// slots on the same track that contains the playing clip (empty slots split groups).
 enum class FollowAction {
     None,     // keep playing as if nothing happened
     Stop,     // stop the track
-    Again,    // restart this clip from its first step
+    Again,    // restart this clip from its start marker
     Previous, // launch the clip above (wraps from the top of the group to the bottom)
     Next,     // launch the clip below (wraps from the bottom of the group to the top)
     First,    // launch the top clip of the group
@@ -44,61 +40,79 @@ struct ClipSettings {
     std::atomic<int> chanceB { 0 };
 
     // Linked: the follow action fires after the clip has played through `followMultiplier` times.
-    // Unlinked: it fires `followTimeSteps` steps after launch, regardless of the clip's length.
+    // Unlinked: it fires `followTimeSteps` 16th steps after launch, regardless of the clip's length.
     std::atomic<bool> followLinked { true };
     std::atomic<int> followMultiplier { 1 };
     std::atomic<int> followTimeSteps { 16 };
+
+    void copyFrom(const ClipSettings& other) {
+        launchMode.store(other.launchMode.load());
+        followEnabled.store(other.followEnabled.load());
+        followActionA.store(other.followActionA.load());
+        followActionB.store(other.followActionB.load());
+        chanceA.store(other.chanceA.load());
+        chanceB.store(other.chanceB.load());
+        followLinked.store(other.followLinked.load());
+        followMultiplier.store(other.followMultiplier.load());
+        followTimeSteps.store(other.followTimeSteps.load());
+    }
+
+    void reset() {
+        copyFrom(ClipSettings {});
+    }
 };
 
-// A clip is a looped row of steps. Playback position lives in the owning Track; the clip only holds
-// its content and settings.
+// A clip slot. It is empty (no data) or holds an immutable ClipData snapshot, plus the slot's
+// launch settings. The UI replaces the snapshot with setData(); the audio thread picks up the new
+// one on its next block via getData().
 class Clip {
 public:
-    // A bar is a fixed 16 steps. Launch quantization is expressed in steps on the global grid.
+    // A bar is a fixed 16 steps of a 16th note each (4/4).
     static constexpr int STEPS_PER_BAR = 16;
+    static constexpr double STEP_LENGTH = 0.25;          // beats
+    static constexpr double BEATS_PER_BAR = 4.0;
 
-    // The fixed grid resolution: every step lasts this many beats (a 16th note), independent of the
-    // notes on it. A bar is STEPS_PER_BAR of these (16 × 0.25 = 4 beats). A note's own duration comes
-    // from Note.length and may span several steps.
-    static constexpr double STEP_LENGTH = 0.25;
+    ClipData::Ptr getData() const {
+        const juce::SpinLock::ScopedLockType lock(dataLock);
+        return data;
+    }
 
-    template<typename Container>
-    void setNotes(const Container& newNotes) {
-        notes.assign(newNotes.begin(), newNotes.end());
-        empty = true;
-        for (const auto& note : notes) {
-            if (note.velocity > 0) {
-                empty = false;
-                break;
+    // UI thread. The old snapshot is parked in the ReleasePool so it is never freed on the audio
+    // thread.
+    void setData(ClipData::Ptr newData) {
+        ClipData::Ptr old;
+        {
+            const juce::SpinLock::ScopedLockType lock(dataLock);
+            old = data;
+            data = newData;
+        }
+        ReleasePool::get().retain(old.get());
+    }
+
+    void clear() {
+        setData(nullptr);
+    }
+
+    // True when the slot holds a clip (even one without notes).
+    bool hasClip() const {
+        return getData() != nullptr;
+    }
+
+    // Beats after launch at which the follow action fires.
+    static double getFollowBeats(const ClipData& clipData, const ClipSettings& clipSettings) {
+        if (clipSettings.followLinked.load()) {
+            const int passes = std::max(1, clipSettings.followMultiplier.load());
+            if (!clipData.looping) {
+                return clipData.getFirstPassLength();
             }
+            return clipData.getFirstPassLength() + (passes - 1) * clipData.getLoopLength();
         }
-    }
-
-    const Note& getStep(int step) const {
-        return notes[static_cast<size_t>(step)];
-    }
-
-    int getNumSteps() const {
-        return static_cast<int>(notes.size());
-    }
-
-    // True when the clip produces no audible output — no notes, or every step a zero-velocity rest.
-    // Launching an empty slot stops its track, and the UI renders empty slots distinctly.
-    bool isEmpty() const {
-        return empty;
-    }
-
-    // Number of steps after launch at which the follow action fires.
-    int getFollowSteps() const {
-        if (settings.followLinked.load()) {
-            return getNumSteps() * std::max(1, settings.followMultiplier.load());
-        }
-        return std::max(1, settings.followTimeSteps.load());
+        return std::max(1, clipSettings.followTimeSteps.load()) * STEP_LENGTH;
     }
 
     ClipSettings settings;
 
 private:
-    std::vector<Note> notes;
-    std::atomic<bool> empty { true };
+    mutable juce::SpinLock dataLock;
+    ClipData::Ptr data;
 };

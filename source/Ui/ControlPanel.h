@@ -50,12 +50,13 @@ public:
         addAndMakeVisible(quantization);
 
         undoButton.setButtonText(juce::String::fromUTF8("\xe2\x86\xba"));  // ↺
-        undoButton.setEnabled(false);
+        undoButton.onClick = [this]() { processorRef.getUndoManager().undo(); refreshUndo(); };
         addAndMakeVisible(undoButton);
 
         redoButton.setButtonText(juce::String::fromUTF8("\xe2\x86\xbb"));  // ↻
-        redoButton.setEnabled(false);
+        redoButton.onClick = [this]() { processorRef.getUndoManager().redo(); refreshUndo(); };
         addAndMakeVisible(redoButton);
+        refreshUndo();
 
         // Flat transport controls: no button outlines.
         for (auto* button : { &playButton, &loopButton, &undoButton, &redoButton }) {
@@ -86,6 +87,15 @@ public:
 private:
     void timerCallback() override {
         refreshPlayGlyph();
+        refreshUndo();
+    }
+
+    void refreshUndo() {
+        auto& undo = processorRef.getUndoManager();
+        undoButton.setEnabled(undo.canUndo());
+        redoButton.setEnabled(undo.canRedo());
+        undoButton.setTooltip(undo.canUndo() ? "Undo " + undo.getUndoDescription() : "Undo");
+        redoButton.setTooltip(undo.canRedo() ? "Redo " + undo.getRedoDescription() : "Redo");
     }
 
     void refreshPlayGlyph() {

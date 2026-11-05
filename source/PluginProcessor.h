@@ -62,7 +62,33 @@ public:
     int getPlayingClip(int trackIndex) const { return sequencer.getPlayingClip(trackIndex); }
     int getQueuedClip(int trackIndex) const { return sequencer.getQueuedClip(trackIndex); }
     bool isTrackStopQueued(int trackIndex) const { return sequencer.isTrackStopQueued(trackIndex); }
-    bool isClipEmpty(int trackIndex, int clipIndex) const { return sequencer.isClipEmpty(trackIndex, clipIndex); }
+    bool hasClip(int trackIndex, int clipIndex) const { return sequencer.hasClip(trackIndex, clipIndex); }
+    ClipData::Ptr getClipData(int trackIndex, int clipIndex) const { return sequencer.getClipData(trackIndex, clipIndex); }
+    void setClipData(int trackIndex, int clipIndex, ClipData::Ptr data) { sequencer.setClipData(trackIndex, clipIndex, data); }
+    // An undoable change of a slot's content (one undo step). `before` is what the slot held when
+    // the gesture started; the slot already shows `after` if the UI previewed it live.
+    void performClipEdit(int trackIndex, int clipIndex, ClipData::Ptr before, ClipData::Ptr after,
+                         const juce::String& name) {
+        undoManager.beginNewTransaction(name);
+        undoManager.perform(new ClipEditAction(sequencer, trackIndex, clipIndex, before, after));
+    }
+
+    juce::UndoManager& getUndoManager() { return undoManager; }
+
+    // Colour of a track (used for its clips unless a clip has its own).
+    static juce::Colour getTrackColour(int trackIndex) {
+        static const juce::uint32 colours[] { 0xFF26A69A, 0xFFFFB74D, 0xFFBA68C8, 0xFF9CCC65,
+                                              0xFF4FC3F7, 0xFFFF8A65, 0xFF9575CD, 0xFFF06292 };
+        return juce::Colour(colours[static_cast<size_t>(trackIndex) % 8]);
+    }
+
+    juce::Colour getClipColour(int trackIndex, int clipIndex) const {
+        const auto data = getClipData(trackIndex, clipIndex);
+        return data != nullptr && data->colour != 0 ? juce::Colour(data->colour) : getTrackColour(trackIndex);
+    }
+
+    double getClipPlayPosition(int trackIndex) const { return sequencer.getClipPlayPosition(trackIndex); }
+    double getSongPosition() const { return sequencer.getSongPosition(); }
     int getCurrentScene() const { return sequencer.getCurrentScene(); }
     int getQueuedScene() const { return sequencer.getQueuedScene(); }
     bool isStopAllQueued() const { return sequencer.isStopAllQueued(); }
@@ -71,11 +97,31 @@ public:
     int getNumActiveClips() const { return sequencer.getNumActiveClips(); }
 
 private:
+    struct ClipEditAction : juce::UndoableAction {
+        ClipEditAction(StepSequencer& s, int t, int c, ClipData::Ptr b, ClipData::Ptr a) :
+            sequencer(s), track(t), clip(c), before(std::move(b)), after(std::move(a)) {}
+        bool perform() override { sequencer.setClipData(track, clip, after); return true; }
+        bool undo() override { sequencer.setClipData(track, clip, before); return true; }
+        int getSizeInUnits() override { return 1; }
+        StepSequencer& sequencer;
+        int track, clip;
+        ClipData::Ptr before, after;
+    };
+
+    // Frees clip snapshots replaced by the editor once the audio thread has let go of them.
+    struct ReleasePoolCollector : juce::Timer {
+        ReleasePoolCollector() { startTimer(1000); }
+        ~ReleasePoolCollector() override { stopTimer(); }
+        void timerCallback() override { ReleasePool::get().collect(); }
+    };
+
     std::array<juce::Synthesiser, NUM_TRACKS> synths;
     std::array<juce::AudioBuffer<float>, NUM_TRACKS> trackBuffers;
     StepSequencer sequencer;
     Mixer mixer;
     double currentSampleRate = 44100.0;
+    ReleasePoolCollector releasePoolCollector;
+    juce::UndoManager undoManager;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AndrotoneAudioProcessor)
 };

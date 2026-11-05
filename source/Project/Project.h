@@ -2,6 +2,8 @@
 
 #include "../Sequencer/Clip.h"
 
+#include <algorithm>
+#include <cmath>
 #include <vector>
 
 struct ProjectNote {
@@ -11,9 +13,12 @@ struct ProjectNote {
     int velocity = 0;
 };
 
-// A clip with no notes (or only zero-velocity rests) is an empty slot: launching it stops the track.
+// A clip in a project file. An entry with no notes and no length is an empty slot.
 struct ProjectClip {
-    std::vector<ProjectNote> notes;
+    std::vector<ProjectNote> notes; // start / length in beats
+    juce::String name;
+    double length = 0.0;            // beats; 0 = derive from the notes (rounded up to whole bars)
+    bool looping = true;
 
     LaunchMode launchMode = LaunchMode::Trigger;
 
@@ -26,6 +31,21 @@ struct ProjectClip {
     bool followLinked = true;  // fire after followMultiplier passes through the clip...
     int followMultiplier = 1;
     int followTimeSteps = 16;  // ...or, when unlinked, this many 16th steps after launch
+
+    bool isEmptySlot() const {
+        return notes.empty() && length <= 0.0;
+    }
+
+    double getLength() const {
+        if (length > 0.0) {
+            return length;
+        }
+        double end = 0.0;
+        for (const auto& note : notes) {
+            end = std::max(end, note.start + note.length);
+        }
+        return std::max(4.0, std::ceil(end / 4.0) * 4.0);
+    }
 };
 
 struct ProjectTrack {

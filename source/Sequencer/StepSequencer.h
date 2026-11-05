@@ -12,6 +12,7 @@
 #include <cmath>
 #include <vector>
 
+
 // Drives all tracks from one global step grid (16th notes, counted from transport start).
 //
 // Launches and stops requested from the UI are queued and take effect on the next launch
@@ -23,6 +24,7 @@ public:
     // at the start of the next audio block.
     static constexpr std::array<int, 9> QUANTIZATION_STEPS { 0, 1, 2, 4, 8, 16, 32, 64, 128 };
     static constexpr int DEFAULT_QUANTIZATION_INDEX = 5; // 1 bar
+    static constexpr int MIN_SCENES = 8;                 // rows shown even if the project has fewer
 
     StepSequencer() {
         for (int trackIndex = 0; trackIndex < NUM_TRACKS; trackIndex++) {
@@ -44,22 +46,37 @@ public:
         numActiveTracks = juce::jmin(static_cast<int>(project.tracks.size()), NUM_TRACKS);
         numActiveClips = 0;
 
+        for (int trackIndex = 0; trackIndex < NUM_TRACKS; trackIndex++) {
+            Track& track = tracks[static_cast<size_t>(trackIndex)];
+            for (int clipIndex = 0; clipIndex < MAX_CLIPS; clipIndex++) {
+                track.getClip(clipIndex).clear();
+                track.getClip(clipIndex).settings.reset();
+            }
+        }
+
         for (int trackIndex = 0; trackIndex < numActiveTracks; trackIndex++) {
-            const auto& projectTrack = project.tracks[trackIndex];
+            const auto& projectTrack = project.tracks[static_cast<size_t>(trackIndex)];
             const int numClips = juce::jmin(static_cast<int>(projectTrack.clips.size()), MAX_CLIPS);
             numActiveClips = juce::jmax(numActiveClips, numClips);
+            Track& track = tracks[static_cast<size_t>(trackIndex)];
 
             for (int clipIndex = 0; clipIndex < numClips; clipIndex++) {
-                const auto& projectClip = projectTrack.clips[clipIndex];
-                std::vector<Note> notes;
-                notes.reserve(projectClip.notes.size());
-
-                for (const auto& projectNote : projectClip.notes) {
-                    notes.push_back({ projectNote.noteNumber, projectNote.length, projectNote.velocity });
+                const auto& projectClip = projectTrack.clips[static_cast<size_t>(clipIndex)];
+                if (projectClip.isEmptySlot()) {
+                    continue;
                 }
 
-                Track& track = tracks[trackIndex];
-                track.updateClip(notes, clipIndex);
+                ClipData::Ptr data = ClipData::createEmpty(projectClip.getLength());
+                data->name = projectClip.name;
+                data->looping = projectClip.looping;
+                for (const auto& projectNote : projectClip.notes) {
+                    if (projectNote.velocity > 0) {
+                        data->notes.push_back({ projectNote.start, projectNote.length, projectNote.noteNumber,
+                                                projectNote.velocity, false });
+                    }
+                }
+                data->sanitise();
+                track.getClip(clipIndex).setData(data);
 
                 ClipSettings& settings = track.getClip(clipIndex).settings;
                 settings.launchMode.store(projectClip.launchMode);
@@ -74,6 +91,7 @@ public:
             }
         }
 
+        numActiveClips = juce::jmax(numActiveClips, MIN_SCENES);
         sceneManager.setNumScenes(numActiveClips);
         sceneManager.cancelPending();
         sceneManager.setCurrentScene(0);
@@ -98,9 +116,9 @@ public:
         }
 
         if (!wasPlaying) {
-            // Transport start: the grid restarts at step 0 and armed clips play from their top.
-            nextGlobalStep = 0;
-            samplesToGlobalStep = 0.0;
+            // Transport start: song position 0 is a boundary of every quantization grid.
+            songBeat = 0.0;
+            nextQuantizationBeat = 0.0;
             for (auto& track : tracks) {
                 track.restart(0.0);
             }
@@ -108,50 +126,45 @@ public:
         }
 
         const double samplesPerBeat = currentSampleRate * 60.0 / bpm.load();
-        const double samplesPerStep = samplesPerBeat * Clip::STEP_LENGTH;
-        const int quantization = getQuantizationSteps();
+        const double halfSample = 0.5 / samplesPerBeat;
+        const double quantization = getQuantizationSteps() * Clip::STEP_LENGTH;
+        const Groove groove { swingTiming.load(), swingVelocity.load() };
 
         int position = 0;
         while (position < numSamples) {
-            if (quantization == 0) {
+            // Launches waiting for this moment. With quantization off they apply immediately and
+            // Repeat-mode clips retrigger every 16th.
+            const double grid = quantization > 0.0 ? quantization : Clip::STEP_LENGTH;
+            if (quantization <= 0.0) {
                 applyPendingLaunches(midi, position, 0.0);
             }
-
-            if (samplesToGlobalStep <= 0.0) {
-                const auto globalStep = nextGlobalStep++;
-                const int repeatRate = quantization == 0 ? 1 : quantization;
-
-                if (globalStep % repeatRate == 0) {
-                    if (quantization > 0) {
-                        applyPendingLaunches(midi, position, samplesToGlobalStep);
-                    }
-                    applyRepeats(midi, position, samplesToGlobalStep);
+            if (songBeat >= nextQuantizationBeat - halfSample) {
+                const double lateBy = juce::jmax(0.0, songBeat - nextQuantizationBeat);
+                if (quantization > 0.0) {
+                    applyPendingLaunches(midi, position, lateBy);
                 }
-                samplesToGlobalStep += samplesPerStep;
+                applyRepeats(midi, position, lateBy);
+                nextQuantizationBeat = (std::floor((songBeat + halfSample) / grid) + 1.0) * grid;
             }
 
             chainSongIfDue(midi, position);
 
+            // Split the block at the next thing any track or the grid needs to react to.
+            double untilEvent = nextQuantizationBeat - songBeat;
             for (auto& track : tracks) {
-                if (track.isStepDue()) {
-                    track.fireStep(midi, position, samplesPerBeat, samplesPerStep, random);
-                }
+                untilEvent = juce::jmin(untilEvent, track.beatsToNextEvent());
             }
-
-            double untilNextEvent = samplesToGlobalStep;
-            for (const auto& track : tracks) {
-                if (track.isPlayingClip()) {
-                    untilNextEvent = juce::jmin(untilNextEvent, track.getSamplesToNextStep());
-                }
-            }
-            const int chunk = juce::jlimit(1, numSamples - position, static_cast<int>(std::ceil(untilNextEvent)));
+            const int chunk = juce::jlimit(1, numSamples - position,
+                                           static_cast<int>(std::ceil(juce::jmax(untilEvent, 0.0) * samplesPerBeat - 1e-6)));
 
             for (auto& track : tracks) {
-                track.advance(midi, position, chunk, samplesPerBeat);
+                track.process(midi, position, chunk, samplesPerBeat, groove, random);
             }
-            samplesToGlobalStep -= chunk;
+
+            songBeat += chunk / samplesPerBeat;
             position += chunk;
         }
+        songBeatForUi.store(songBeat);
     }
 
     // ---- UI thread: launching ----------------------------------------------------------------------
@@ -164,7 +177,7 @@ public:
         Track& track = tracks[trackIndex];
         const Clip& clip = track.getClip(clipIndex);
 
-        if (clip.isEmpty()) {
+        if (!clip.hasClip()) {
             track.requestStop();
             return;
         }
@@ -241,7 +254,7 @@ public:
         }
         if (request == Track::NO_REQUEST) {
             const int scene = sceneManager.getPendingScene();
-            if (scene >= 0 && !tracks[trackIndex].getClip(scene).isEmpty()) {
+            if (scene >= 0 && tracks[trackIndex].getClip(scene).hasClip()) {
                 return scene;
             }
         }
@@ -262,12 +275,43 @@ public:
             return false;
         }
         const int scene = sceneManager.getPendingScene();
-        return scene == SceneManager::STOP_ALL || (scene >= 0 && track.getClip(scene).isEmpty());
+        return scene == SceneManager::STOP_ALL || (scene >= 0 && !track.getClip(scene).hasClip());
     }
 
-    bool isClipEmpty(int trackIndex, int clipIndex) const {
-        return tracks[trackIndex].getClip(clipIndex).isEmpty();
+    bool hasClip(int trackIndex, int clipIndex) const {
+        return isValid(trackIndex, clipIndex) && tracks[static_cast<size_t>(trackIndex)].getClip(clipIndex).hasClip();
     }
+
+    // ---- UI thread: clip content ---------------------------------------------------------------
+
+    ClipData::Ptr getClipData(int trackIndex, int clipIndex) const {
+        return isValid(trackIndex, clipIndex) ? tracks[static_cast<size_t>(trackIndex)].getClip(clipIndex).getData() : nullptr;
+    }
+
+    // Replaces a slot's content (nullptr empties it). The audio thread picks it up on its next block.
+    // `data` must be a fresh, already sanitised snapshot: once handed over it is never modified.
+    void setClipData(int trackIndex, int clipIndex, ClipData::Ptr data) {
+        if (isValid(trackIndex, clipIndex)) {
+            tracks[static_cast<size_t>(trackIndex)].getClip(clipIndex).setData(data);
+        }
+    }
+
+    // Position of the playhead inside the clip a track is playing, in beats.
+    double getClipPlayPosition(int trackIndex) const {
+        return tracks[static_cast<size_t>(trackIndex)].getClipPosition();
+    }
+
+    double getSongPosition() const {
+        return songBeatForUi.load();
+    }
+
+    void setSwing(double timing, double velocity) {
+        swingTiming.store(juce::jlimit(0.0, 1.0, timing));
+        swingVelocity.store(juce::jlimit(0.0, 1.0, velocity));
+    }
+
+    double getSwingTiming() const { return swingTiming.load(); }
+    double getSwingVelocity() const { return swingVelocity.load(); }
 
     ClipSettings& getClipSettings(int trackIndex, int clipIndex) {
         return tracks[trackIndex].getClip(clipIndex).settings;
@@ -348,8 +392,11 @@ private:
     double currentSampleRate = 44100.0;
     bool wasPlaying = false;
 
-    juce::int64 nextGlobalStep = 0;    // index of the next global grid step
-    double samplesToGlobalStep = 0.0; // samples until it starts
+    double songBeat = 0.0;             // beats since the transport started
+    double nextQuantizationBeat = 0.0; // next launch-quantization boundary
+    std::atomic<double> songBeatForUi { 0.0 };
+    std::atomic<double> swingTiming { 0.0 };
+    std::atomic<double> swingVelocity { 0.0 };
 
     int numActiveTracks = 0;
     int numActiveClips = 0;
@@ -369,29 +416,30 @@ private:
 
     // Applies the queued scene first, then per-track requests (which, being newer or more specific,
     // override that track's slot of the scene).
-    void applyPendingLaunches(juce::MidiBuffer& midi, int position, double phase) {
+    void applyPendingLaunches(juce::MidiBuffer& midi, int position, double lateBy) {
         const int scene = sceneManager.takePending();
         if (scene != SceneManager::NO_SCENE) {
-            applyScene(scene, midi, position, phase);
+            applyScene(scene, midi, position, lateBy);
         }
 
         for (auto& track : tracks) {
-            track.apply(track.takePendingRequest(), midi, position, phase);
+            track.apply(track.takePendingRequest(), midi, position, lateBy);
         }
     }
 
-    void applyScene(int scene, juce::MidiBuffer& midi, int position, double phase) {
+    void applyScene(int scene, juce::MidiBuffer& midi, int position, double lateBy) {
         for (auto& track : tracks) {
-            track.apply(scene == SceneManager::STOP_ALL ? Track::STOP_REQUEST : scene, midi, position, phase);
+            track.apply(scene == SceneManager::STOP_ALL ? Track::STOP_REQUEST : scene, midi, position, lateBy);
         }
         sceneManager.setCurrentScene(scene == SceneManager::STOP_ALL ? SceneManager::NO_SCENE : scene);
     }
 
-    void applyRepeats(juce::MidiBuffer& midi, int position, double phase) {
+    // Repeat launch mode: relaunch held clips (called on every repeat-grid boundary).
+    void applyRepeats(juce::MidiBuffer& midi, int position, double lateBy) {
         for (auto& track : tracks) {
             const int repeat = track.getRepeatClip();
             if (repeat >= 0 && track.getPendingRequest() == Track::NO_REQUEST) {
-                track.apply(repeat, midi, position, phase);
+                track.apply(repeat, midi, position, lateBy);
             }
         }
     }
@@ -405,15 +453,15 @@ private:
 
         const Track* longest = nullptr;
         for (const auto& track : tracks) {
-            if (track.isPlayingClip() && (longest == nullptr || track.getPlayingClipLength() > longest->getPlayingClipLength())) {
+            if (track.isPlayingClip() && (longest == nullptr || track.getPassLength() > longest->getPassLength())) {
                 longest = &track;
             }
         }
 
-        if (longest != nullptr && longest->isStepDue() && longest->isAboutToLoop()) {
+        if (longest != nullptr && longest->justCompletedPass()) {
             const int next = sceneManager.getNextSceneInSong();
             if (next != SceneManager::NO_SCENE) {
-                applyScene(next, midi, position, longest->getSamplesToNextStep());
+                applyScene(next, midi, position, 0.0);
             }
         }
     }

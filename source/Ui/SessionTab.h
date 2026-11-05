@@ -16,6 +16,16 @@ public:
     std::function<void()> onPress;
     std::function<void()> onRelease;
     std::function<void()> onEdit;
+    std::function<void()> onDoubleTap;
+
+    void mouseDoubleClick(const juce::MouseEvent&) override {
+        if (onDoubleTap) {
+            onDoubleTap();
+        }
+    }
+
+    // Visual state cache so refreshes only restyle on change.
+    int styledAs = -1;
 
     void mouseDown(const juce::MouseEvent& e) override {
         if (e.mods.isPopupMenu()) {
@@ -51,10 +61,14 @@ private:
 // and the bottom row holds per-track stop buttons plus stop-all.
 //
 // Clips launch on the global launch-quantization grid chosen in the control panel; queued launches
-// and stops blink until they take effect. With the ✎ toggle on, tapping a clip opens its launch /
-// follow-action settings instead (right-click does the same on desktop).
+// and stops blink until they take effect. Double-tap an empty slot to create a one-bar clip. With
+// the ✎ toggle on, tapping a clip opens it in the Clip tab (tapping an empty slot creates one);
+// right-click opens its launch / follow-action settings.
 class SessionTab : public juce::Component, private juce::Timer {
 public:
+    // Asks the editor to show a clip in the Clip tab.
+    std::function<void(int, int)> onOpenClip;
+
     explicit SessionTab(AndrotoneAudioProcessor& p) : processorRef(p) {
         numTracks = processorRef.getNumActiveTracks();
         numClips = processorRef.getNumActiveClips();
@@ -68,7 +82,7 @@ public:
 
         editToggle.setButtonText(juce::String::fromUTF8("\xe2\x9c\x8e")); // ✎
         editToggle.setClickingTogglesState(true);
-        editToggle.setTooltip("Edit clip launch & follow settings");
+        editToggle.setTooltip("Edit mode: tap a clip to open it, tap an empty slot to create one");
         addAndMakeVisible(editToggle);
 
         for (int trackIdx = 0; trackIdx < numTracks; trackIdx++) {
@@ -83,23 +97,22 @@ public:
             for (int trackIdx = 0; trackIdx < numTracks; trackIdx++) {
                 auto& slot = slotAt(trackIdx, clipIdx);
 
-                if (processorRef.isClipEmpty(trackIdx, clipIdx)) {
-                    // Empty slots read as an outlined "+" with no fill, distinct from real clips.
-                    // Launching one stops its track.
-                    slot.setButtonText("+");
-                    slot.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
-                    slot.setColour(juce::TextButton::buttonOnColourId, juce::Colours::transparentBlack);
-                    slot.setColour(juce::TextButton::textColourOffId, muted);
-                    slot.setColour(juce::TextButton::textColourOnId, muted);
-                    slot.setColour(juce::ComboBox::outlineColourId, muted);
-                } else {
-                    slot.onEdit = [this, trackIdx, clipIdx]() { showClipProperties(trackIdx, clipIdx); };
-                }
-
+                slot.onEdit = [this, trackIdx, clipIdx]() {
+                    if (processorRef.hasClip(trackIdx, clipIdx)) {
+                        showClipProperties(trackIdx, clipIdx);
+                    }
+                };
+                slot.onDoubleTap = [this, trackIdx, clipIdx]() {
+                    if (!editToggle.getToggleState() && !processorRef.hasClip(trackIdx, clipIdx)) {
+                        createClip(trackIdx, clipIdx);
+                    }
+                };
                 slot.onPress = [this, trackIdx, clipIdx]() {
                     if (editToggle.getToggleState()) {
-                        if (!processorRef.isClipEmpty(trackIdx, clipIdx)) {
-                            showClipProperties(trackIdx, clipIdx);
+                        if (!processorRef.hasClip(trackIdx, clipIdx)) {
+                            createClip(trackIdx, clipIdx);
+                        } else if (onOpenClip) {
+                            onOpenClip(trackIdx, clipIdx);
                         }
                         return;
                     }
@@ -213,6 +226,40 @@ private:
         );
     }
 
+    void createClip(int trackIdx, int clipIdx) {
+        processorRef.getClipSettings(trackIdx, clipIdx).reset();
+        processorRef.performClipEdit(trackIdx, clipIdx, nullptr, ClipData::createEmpty(), "Create clip");
+        if (onOpenClip) {
+            onOpenClip(trackIdx, clipIdx);
+        }
+    }
+
+    // Empty slots: outlined "+". Clips: filled with their colour (dim when idle, full when playing).
+    void styleSlot(ClipSlotButton& slot, int trackIdx, int clipIdx) {
+        const bool has = processorRef.hasClip(trackIdx, clipIdx);
+        const juce::Colour colour = processorRef.getClipColour(trackIdx, clipIdx);
+        const int style = has ? static_cast<int>(colour.getARGB() & 0x7FFFFFFF) : 0;
+        if (slot.styledAs == style) {
+            return;
+        }
+        slot.styledAs = style;
+        if (!has) {
+            const juce::Colour muted = juce::Colour(AndrotoneLookAndFeel::Palette::TEXT_MUTED);
+            slot.setButtonText("+");
+            slot.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
+            slot.setColour(juce::TextButton::buttonOnColourId, juce::Colours::transparentBlack);
+            slot.setColour(juce::TextButton::textColourOffId, muted);
+            slot.setColour(juce::TextButton::textColourOnId, muted);
+            slot.setColour(juce::ComboBox::outlineColourId, muted);
+        } else {
+            slot.setColour(juce::TextButton::buttonColourId, colour.withAlpha(0.28f));
+            slot.setColour(juce::TextButton::buttonOnColourId, colour);
+            slot.setColour(juce::TextButton::textColourOffId, juce::Colour(AndrotoneLookAndFeel::Palette::TEXT));
+            slot.setColour(juce::TextButton::textColourOnId, juce::Colour(AndrotoneLookAndFeel::Palette::BACKGROUND));
+            slot.setColour(juce::ComboBox::outlineColourId, colour.withAlpha(0.6f));
+        }
+    }
+
     // Clip label: its number, plus a marker for a non-default launch mode and for follow actions.
     juce::String slotText(int trackIdx, int clipIdx) {
         auto& settings = processorRef.getClipSettings(trackIdx, clipIdx);
@@ -241,7 +288,8 @@ private:
 
             for (int clipIdx = 0; clipIdx < numClips; clipIdx++) {
                 auto& slot = slotAt(trackIdx, clipIdx);
-                if (processorRef.isClipEmpty(trackIdx, clipIdx)) {
+                styleSlot(slot, trackIdx, clipIdx);
+                if (!processorRef.hasClip(trackIdx, clipIdx)) {
                     // Empty slots never fill or blink — they stay an outlined "+".
                     slot.setToggleState(false, juce::dontSendNotification);
                     continue;
