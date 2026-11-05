@@ -22,6 +22,15 @@ struct ArrangementClip {
     double end() const { return start + length; }
 };
 
+// A point on an automation envelope: the parameter's value at a song beat.
+struct Breakpoint {
+    double beat = 0.0;
+    float value = 0.0f;
+};
+
+// Mixer parameters that can be automated in the arrangement (§25).
+enum AutomatedParam { AUTOMATE_VOLUME = 0, AUTOMATE_PAN = 1, NUM_AUTOMATED = 2 };
+
 // Immutable snapshot of the whole arrangement, swapped in like ClipData. `rendered` holds every
 // track's notes flattened to song time, sorted by start, so playback is a simple window lookup.
 struct ArrangementData : juce::ReferenceCountedObject {
@@ -29,10 +38,41 @@ struct ArrangementData : juce::ReferenceCountedObject {
 
     std::array<std::vector<ArrangementClip>, NUM_TRACKS> clips;
     std::array<std::vector<MidiNote>, NUM_TRACKS> rendered;
+    // Automation envelopes per track and parameter, sorted by beat. Values are the parameter's own
+    // units (volume gain 0..1.25, pan -1..1).
+    std::array<std::array<std::vector<Breakpoint>, NUM_AUTOMATED>, NUM_TRACKS> automation;
 
     ArrangementData() = default;
     ArrangementData(const ArrangementData& other) :
-        juce::ReferenceCountedObject(), clips(other.clips), rendered(other.rendered) {}
+        juce::ReferenceCountedObject(), clips(other.clips), rendered(other.rendered), automation(other.automation) {}
+
+    bool hasAutomation(int track, int param) const {
+        return !automation[static_cast<size_t>(track)][static_cast<size_t>(param)].empty();
+    }
+
+    // Envelope value at `beat`: linear between breakpoints, held before the first / after the last.
+    static float valueAt(const std::vector<Breakpoint>& points, double beat) {
+        if (points.empty()) {
+            return 0.0f;
+        }
+        if (beat <= points.front().beat) {
+            return points.front().value;
+        }
+        if (beat >= points.back().beat) {
+            return points.back().value;
+        }
+        const auto next = std::upper_bound(points.begin(), points.end(), beat,
+                                           [](double b, const Breakpoint& p) { return b < p.beat; });
+        const auto previous = next - 1;
+        const double span = next->beat - previous->beat;
+        const double t = span > 0.0 ? (beat - previous->beat) / span : 1.0;
+        return static_cast<float>(previous->value + (next->value - previous->value) * t);
+    }
+
+    void sortAutomation(int track, int param) {
+        auto& points = automation[static_cast<size_t>(track)][static_cast<size_t>(param)];
+        std::stable_sort(points.begin(), points.end(), [](const Breakpoint& a, const Breakpoint& b) { return a.beat < b.beat; });
+    }
 
     Ptr copy() const { return new ArrangementData(*this); }
 

@@ -4,6 +4,7 @@
 #include "Constants.h"
 #include "Sequencer/StepSequencer.h"
 #include "Mixer/Mixer.h"
+#include "Mixer/Automation.h"
 #include "Engine/SoundSources/Metronome.h"
 #include "Engine/Devices.h"
 #include "Engine/Processors/TrackEffects.h"
@@ -80,8 +81,20 @@ public:
     void setVolume(float vol) { mixer.setMasterVolume(vol); }
     void setPlaying(bool shouldPlay) { sequencer.setPlaying(shouldPlay); }
     // ---- mixer (UI thread) ----
-    void setTrackVolume(int t, float vol) { mixer.setTrackVolume(t, vol); }
-    void setTrackPan(int t, float p) { mixer.setTrackPan(t, p); }
+    void setTrackVolume(int t, float vol) {
+        automation.touched(sequencer.getArrangement().get(), t, AUTOMATE_VOLUME);
+        mixer.setTrackVolume(t, vol);
+    }
+    void setTrackPan(int t, float p) {
+        automation.touched(sequencer.getArrangement().get(), t, AUTOMATE_PAN);
+        mixer.setTrackPan(t, p);
+    }
+    bool isAutomationOverridden() const { return automation.anyOverridden(); }
+    void reenableAutomation() { automation.reenableAll(); }
+    bool isAutomated(int t, int param) const {
+        const auto arrangement = sequencer.getArrangement();
+        return arrangement != nullptr && arrangement->hasAutomation(t, param);
+    }
     void setTrackReverbSend(int t, float amount) { mixer.setTrackReverbSend(t, amount); }
     void setTrackDelaySend(int t, float amount) { mixer.setTrackDelaySend(t, amount); }
     void setTrackActive(int t, bool on) { mixer.setTrackActive(t, on); }
@@ -280,6 +293,7 @@ private:
     std::array<juce::Synthesiser, NUM_TRACKS> synths;
     std::array<TrackDevices, NUM_TRACKS> devices;
     std::array<TrackEffects, NUM_TRACKS> trackEffects;
+    AutomationPlayer automation;
     std::array<juce::AudioBuffer<float>, NUM_TRACKS> trackBuffers;
     StepSequencer sequencer;
     Mixer mixer;

@@ -58,4 +58,5 @@ app. "Unknown" = not settled by the pages read; resolved here by a design choice
 | Arrangement clips  | Placing a clip trims/splits what it covers; looping content fills the clip, notes cut at its end | mirrors note overlap rule            |
 | Override release   | Arrangement notes are released when a session launch/stop takes the track over           | §7.5 "stops arrangement playback"  |
 | Devices            | Three original instruments (Sampler, Synth, Drums on GM drum notes) and a filter + compressor insert per track | manual describes devices generically |
+| Automation scope   | Arrangement envelopes for track volume and pan; applied every block while playing, also while a session clip plays; no automation recording | manual §25 broader; scoped for touch |
 | Editing gestures   | Touch: tap empty = add, tap note = select, double-tap note = delete, drag = move, drag edge = resize | keyboard/mouse modifiers out of scope |

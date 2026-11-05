@@ -7,6 +7,7 @@
 #include "Engine/SoundSources/AndroSynth.h"
 #include "Engine/SoundSources/DrumKit.h"
 #include "Engine/Processors/TrackEffects.h"
+#include "Mixer/Automation.h"
 
 // Headless timing tests for the sequencer. Each CHECK names the behaviour it pins down; see
 // docs/rea/checklist.md for the checklist IDs they verify.
@@ -814,6 +815,40 @@ int main() {
         CHECK(loaded.devices[1].present && loaded.devices[1].instrument == (int) InstrumentType::Drums
               && loaded.devices[1].instrumentValues[DrumParam::Tune] == 1.5f && loaded.devices[1].effectValues[EffectParam::FilterMode] == 2.0f,
               "devices round-trip");
+    }
+
+    // G7: automation envelopes drive the mixer; a manual move overrides until re-enabled
+    {
+        ArrangementData arr;
+        arr.automation[0][AUTOMATE_VOLUME] = { { 0.0, 0.0f }, { 4.0, 1.0f } };
+        arr.automation[1][AUTOMATE_PAN] = { { 2.0, -1.0f } };
+        CHECK(std::abs(ArrangementData::valueAt(arr.automation[0][AUTOMATE_VOLUME], 1.0) - 0.25f) < 1e-6, "linear ramp");
+        CHECK(ArrangementData::valueAt(arr.automation[0][AUTOMATE_VOLUME], 9.0) == 1.0f, "held after last point");
+        CHECK(ArrangementData::valueAt(arr.automation[1][AUTOMATE_PAN], 0.0) == -1.0f, "held before first point");
+
+        Mixer mixer;
+        AutomationPlayer player;
+        player.apply(arr, 2.0, mixer);
+        CHECK(std::abs(mixer.getTrackVolume(0) - 0.5f) < 1e-6 && mixer.getTrackPan(1) == -1.0f, "applied to the mixer");
+        CHECK(mixer.getTrackVolume(2) == 1.0f, "unautomated tracks untouched");
+        player.touched(&arr, 0, AUTOMATE_VOLUME);
+        mixer.setTrackVolume(0, 0.9f);
+        player.apply(arr, 3.0, mixer);
+        CHECK(mixer.getTrackVolume(0) == 0.9f && player.anyOverridden(), "manual move overrides automation");
+        player.touched(&arr, 2, AUTOMATE_VOLUME);
+        CHECK(!player.isOverridden(2, AUTOMATE_VOLUME), "touching an unautomated control is no override");
+        player.reenableAll();
+        player.apply(arr, 3.0, mixer);
+        CHECK(std::abs(mixer.getTrackVolume(0) - 0.75f) < 1e-6, "re-enabled automation applies again");
+
+        StepSequencer a; Mixer m; SetSerializer::Extras extras;
+        auto data = ArrangementData::Ptr(new ArrangementData(arr));
+        a.setArrangement(data);
+        auto tree = SetSerializer::save(a, m, extras);
+        StepSequencer b; Mixer mb; SetSerializer::Extras loaded;
+        SetSerializer::load(tree, b, mb, loaded);
+        const auto& points = b.getArrangement()->automation[0][AUTOMATE_VOLUME];
+        CHECK(points.size() == 2 && points[1].beat == 4.0 && points[1].value == 1.0f, "automation saved with the set");
     }
 
     std::printf(failures == 0 ? "ALL PASSED\n" : "%d FAILURES\n", failures);

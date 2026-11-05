@@ -18,6 +18,13 @@ public:
 
     std::function<void()> onSelectionChanged;
 
+    // Which envelope the lanes show and edit: -1 = none (clip editing), else an AutomatedParam.
+    void setAutomationParam(int param) {
+        automationParam = param;
+        clearSelection();
+        repaint();
+    }
+
     bool hasSelection() const { return selectedTrack >= 0 && selectedIndex >= 0; }
 
     void deleteSelection() {
@@ -133,6 +140,34 @@ public:
             }
         }
 
+        // Automation envelopes over the lanes.
+        if (automationParam >= 0 && data != nullptr) {
+            for (int t = 0; t < numTracks(); t++) {
+                const auto lane = laneBounds(t).reduced(0.0f, 4.0f).withLeft(static_cast<float>(HEADER_WIDTH));
+                const auto& points = data->automation[static_cast<size_t>(t)][static_cast<size_t>(automationParam)];
+                g.setColour(juce::Colours::black.withAlpha(0.35f));
+                g.fillRect(lane);
+                const auto colour = juce::Colour(0xFFE57373);
+                if (points.empty()) {
+                    g.setColour(muted);
+                    g.setFont(juce::FontOptions(11.0f));
+                    g.drawText("Tap to add a breakpoint", lane.reduced(8.0f, 2.0f), juce::Justification::topLeft);
+                    continue;
+                }
+                juce::Path path;
+                path.startNewSubPath(lane.getX(), valueToY(points.front().value, lane));
+                for (const auto& point : points) {
+                    path.lineTo(beatToX(point.beat), valueToY(point.value, lane));
+                }
+                path.lineTo(lane.getRight(), valueToY(points.back().value, lane));
+                g.setColour(colour);
+                g.strokePath(path, juce::PathStrokeType(2.0f));
+                for (const auto& point : points) {
+                    g.fillEllipse(beatToX(point.beat) - 4.0f, valueToY(point.value, lane) - 4.0f, 8.0f, 8.0f);
+                }
+            }
+        }
+
         // Insert marker and playhead.
         g.setColour(juce::Colour(0xFFFFB74D));
         const float insertX = beatToX(processorRef.getStartPosition());
@@ -176,6 +211,10 @@ public:
         if (t < 0 || e.position.x < HEADER_WIDTH) {
             return;
         }
+        if (automationParam >= 0) {
+            beginAutomationDrag(t, e.position);
+            return;
+        }
         const int index = clipAt(t, e.position);
         if (index < 0) {
             clearSelection();
@@ -210,6 +249,9 @@ public:
                 processorRef.setLoop(processorRef.isLoopEnabled(), start, start + (loopEndAtDown - loopStartAtDown));
                 break;
             }
+            case Mode::Automation:
+                dragAutomation(e.position);
+                break;
             case Mode::Move:
             case Mode::Resize: {
                 ArrangementClip edited = draggedClip;
@@ -238,6 +280,11 @@ public:
     }
 
     void mouseUp(const juce::MouseEvent&) override {
+        if (mode == Mode::Automation && moved) {
+            const auto after = processorRef.getArrangement();
+            processorRef.setArrangementPreview(dragStart);
+            processorRef.performArrangementEdit(dragStart, after, "Edit automation");
+        }
         if ((mode == Mode::Move || mode == Mode::Resize) && moved) {
             const auto after = processorRef.getArrangement();
             processorRef.setArrangementPreview(dragStart); // restore, then commit as one undo step
@@ -249,6 +296,19 @@ public:
 
     void mouseDoubleClick(const juce::MouseEvent& e) override {
         const int t = laneAt(e.position.y);
+        if (automationParam >= 0) {
+            if (t >= 0) {
+                const auto before = processorRef.getArrangement();
+                const int index = pointAt(*before, t, e.position);
+                if (index >= 0) {
+                    auto after = before->copy();
+                    auto& points = after->automation[static_cast<size_t>(t)][static_cast<size_t>(automationParam)];
+                    points.erase(points.begin() + index);
+                    processorRef.performArrangementEdit(before, after, "Delete breakpoint");
+                }
+            }
+            return;
+        }
         if (t >= 0 && clipAt(t, e.position) >= 0) {
             selectedTrack = t;
             selectedIndex = clipAt(t, e.position);
@@ -266,7 +326,7 @@ public:
     }
 
 private:
-    enum class Mode { None, Move, Resize, LoopStart, LoopEnd, LoopMove };
+    enum class Mode { None, Move, Resize, LoopStart, LoopEnd, LoopMove, Automation };
     static constexpr int HEADER_WIDTH = 44;
     static constexpr int RULER_HEIGHT = 28;
 
@@ -282,6 +342,80 @@ private:
     juce::Point<float> downPosition;
     double loopStartAtDown = 0.0, loopEndAtDown = 16.0;
     int previewTrack = -1;
+    int automationParam = -1;
+    int automationTrack = -1;
+    int automationIndex = -1;
+
+    float paramMin() const { return automationParam == AUTOMATE_PAN ? -1.0f : 0.0f; }
+    float paramMax() const { return automationParam == AUTOMATE_PAN ? 1.0f : 1.25f; }
+
+    float valueToY(float value, juce::Rectangle<float> lane) const {
+        const float norm = (value - paramMin()) / (paramMax() - paramMin());
+        return lane.getBottom() - norm * lane.getHeight();
+    }
+
+    float yToValue(float y, juce::Rectangle<float> lane) const {
+        const float norm = juce::jlimit(0.0f, 1.0f, (lane.getBottom() - y) / lane.getHeight());
+        return paramMin() + norm * (paramMax() - paramMin());
+    }
+
+    juce::Rectangle<float> automationLane(int t) const {
+        return laneBounds(t).reduced(0.0f, 4.0f).withLeft(static_cast<float>(HEADER_WIDTH));
+    }
+
+    int pointAt(const ArrangementData& data, int t, juce::Point<float> position) const {
+        const auto lane = automationLane(t);
+        const auto& points = data.automation[static_cast<size_t>(t)][static_cast<size_t>(automationParam)];
+        for (int i = 0; i < static_cast<int>(points.size()); i++) {
+            const auto& point = points[static_cast<size_t>(i)];
+            if (position.getDistanceFrom({ beatToX(point.beat), valueToY(point.value, lane) }) < 10.0f) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    // Tap: grab the breakpoint under the finger, or add one there (snapped to the beat).
+    void beginAutomationDrag(int t, juce::Point<float> position) {
+        mode = Mode::Automation;
+        automationTrack = t;
+        automationIndex = pointAt(*dragStart, t, position);
+        if (automationIndex < 0) {
+            auto added = dragStart->copy();
+            auto& points = added->automation[static_cast<size_t>(t)][static_cast<size_t>(automationParam)];
+            const Breakpoint point { juce::jmax(0.0, std::round(xToBeat(position.x) * 4.0) / 4.0), yToValue(position.y, automationLane(t)) };
+            points.push_back(point);
+            added->sortAutomation(t, automationParam);
+            for (int i = 0; i < static_cast<int>(points.size()); i++) {
+                if (points[static_cast<size_t>(i)].beat == point.beat && points[static_cast<size_t>(i)].value == point.value) {
+                    automationIndex = i;
+                }
+            }
+            processorRef.setArrangementPreview(added);
+            moved = true;
+        }
+        repaint();
+    }
+
+    void dragAutomation(juce::Point<float> position) {
+        const auto current = processorRef.getArrangement();
+        if (automationIndex < 0 || current == nullptr) {
+            return;
+        }
+        auto edited = current->copy();
+        auto& points = edited->automation[static_cast<size_t>(automationTrack)][static_cast<size_t>(automationParam)];
+        if (automationIndex >= static_cast<int>(points.size())) {
+            return;
+        }
+        // Keep the point between its neighbours so the envelope stays ordered.
+        const double lo = automationIndex > 0 ? points[static_cast<size_t>(automationIndex - 1)].beat : 0.0;
+        const double hi = automationIndex + 1 < static_cast<int>(points.size()) ? points[static_cast<size_t>(automationIndex + 1)].beat : 1.0e6;
+        auto& point = points[static_cast<size_t>(automationIndex)];
+        point.beat = juce::jlimit(lo, hi, std::round(xToBeat(position.x) * 4.0) / 4.0);
+        point.value = yToValue(position.y, automationLane(automationTrack));
+        processorRef.setArrangementPreview(edited);
+        moved = true;
+    }
     double previewStart = 0.0;
     bool moved = false;
 
@@ -416,6 +550,18 @@ public:
         };
         addAndMakeVisible(loopButton);
 
+        automationChooser.addItemList({ "Clips", "Volume", "Pan" }, 1);
+        automationChooser.setSelectedItemIndex(0, juce::dontSendNotification);
+        automationChooser.setTooltip("Edit clips, or the volume / pan automation of each track");
+        automationChooser.onChange = [this]() { view.setAutomationParam(automationChooser.getSelectedItemIndex() - 1); };
+        addAndMakeVisible(automationChooser);
+
+        reenableButton.setButtonText("Re-enable Automation");
+        reenableButton.setTooltip("Automated controls you moved by hand follow their envelopes again");
+        reenableButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(0xFFE57373));
+        reenableButton.onClick = [this]() { processorRef.reenableAutomation(); };
+        addAndMakeVisible(reenableButton);
+
         duplicateButton.setButtonText("Duplicate");
         duplicateButton.onClick = [this]() { view.duplicateSelection(); };
         addAndMakeVisible(duplicateButton);
@@ -447,13 +593,17 @@ public:
         bar.removeFromLeft(10);
         place(zoomOut, 32);
         place(zoomIn, 32);
+        bar.removeFromLeft(10);
+        place(automationChooser, 86);
+        place(reenableButton, 150);
         view.setBounds(bounds);
     }
 
 private:
     AndrotoneAudioProcessor& processorRef;
     ArrangementView view;
-    juce::TextButton backButton, recordButton, loopButton, duplicateButton, deleteButton, zoomOut, zoomIn;
+    juce::TextButton backButton, recordButton, loopButton, duplicateButton, deleteButton, zoomOut, zoomIn, reenableButton;
+    juce::ComboBox automationChooser;
 
     void timerCallback() override {
         updateButtons();
@@ -463,6 +613,8 @@ private:
         backButton.setToggleState(processorRef.isArrangementOverridden(), juce::dontSendNotification);
         recordButton.setToggleState(processorRef.isArrangementRecording(), juce::dontSendNotification);
         loopButton.setToggleState(processorRef.isLoopEnabled(), juce::dontSendNotification);
+        reenableButton.setToggleState(processorRef.isAutomationOverridden(), juce::dontSendNotification);
+        reenableButton.setEnabled(processorRef.isAutomationOverridden());
         duplicateButton.setEnabled(view.hasSelection());
         deleteButton.setEnabled(view.hasSelection());
     }

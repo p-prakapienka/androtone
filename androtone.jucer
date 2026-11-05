@@ -18,7 +18,8 @@
       <FILE id="Rcrdr01" name="Recorder.h" compile="0" resource="0" file="Source/Sequencer/Recorder.h"/>
     </GROUP>
     <GROUP id="{6A0E14F2-8C2F-4F0C-9A3B-5D7E91B22F11}" name="Mixer">
-      <FILE id="MixrH1" name="Mixer.h" compile="0" resource="0" file="Source/Mixer/Mixer.h"/>
+<FILE id="AutoH01" name="Automation.h" compile="0" resource="0" file="Source/Mixer/Automation.h"/>
+            <FILE id="MixrH1" name="Mixer.h" compile="0" resource="0" file="Source/Mixer/Mixer.h"/>
     </GROUP>
     <GROUP id="{1A2B3C4D-5E6F-4A1B-8C2D-3E4F5A6B7C8D}" name="Engine">
       <GROUP id="{9D83D883-3F8D-B4C1-A907-B5C482CB7707}" name="SoundSources">

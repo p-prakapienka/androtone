@@ -142,6 +142,12 @@ void AndrotoneAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
         trackEffects[static_cast<size_t>(t)].process(trackBuffers[t], numSamples, devices[static_cast<size_t>(t)].effectParams);
     }
 
+    // Arrangement automation drives the mixer while the transport runs.
+    if (sequencer.isPlaying()) {
+        if (const auto arrangement = sequencer.getArrangement()) {
+            automation.apply(*arrangement, sequencer.getSongPosition(), mixer);
+        }
+    }
     mixer.mix(buffer, trackBuffers);
 
     // Metronome ticks, split at their sample positions.

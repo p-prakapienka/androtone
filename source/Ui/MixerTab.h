@@ -173,6 +173,15 @@ private:
             solo.setToggleState(processorRef.isTrackSoloed(track), juce::dontSendNotification);
             arm.setToggleState(processorRef.isTrackArmed(track), juce::dontSendNotification);
             activator.setToggleState(processorRef.isTrackActive(track), juce::dontSendNotification);
+            // Automated controls move by themselves during playback.
+            if (!fader.isMouseButtonDown()) {
+                fader.setValue(processorRef.getTrackVolume(track), juce::dontSendNotification);
+            }
+            if (!panKnob.isMouseButtonDown()) {
+                panKnob.setValue(processorRef.getTrackPan(track), juce::dontSendNotification);
+            }
+            const bool automated = processorRef.isAutomated(track, AUTOMATE_VOLUME) || processorRef.isAutomated(track, AUTOMATE_PAN);
+            fader.setColour(juce::Slider::thumbColourId, automated ? juce::Colour(0xFFE57373) : juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
         }
 
         void resized() override {

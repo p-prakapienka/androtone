@@ -41,6 +41,7 @@ target_sources(Androtone
         ../../source/Engine/SoundSources/AndroSynth.h
         ../../source/Engine/SoundSources/DrumKit.h
         ../../source/Engine/SoundSources/Metronome.h
+        ../../source/Mixer/Automation.h
         ../../source/Project/SetSerializer.h
         ../../source/Sequencer/Arrangement.h
         ../../source/Sequencer/ClipData.h

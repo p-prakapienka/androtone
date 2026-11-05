@@ -106,7 +106,7 @@ one window. Status is updated as milestones land.
 | G4  | Export a clip as a standard MIDI file                                                            | §5.2            | T      | done   |
 | G5  | Instrument device with editable parameters per track (synth, drum kit)                           | §3 (devices)    | S      | done   |
 | G6  | Track insert effects (filter, compressor)                                                        | §3 (devices)    | T      | done   |
-| G7  | Automation of mixer parameters in the arrangement; manual override + re-enable                   | §25.1, §25.4    | T      | open   |
+| G7  | Automation of mixer parameters in the arrangement; manual override + re-enable                   | §25.1, §25.4    | T      | done   |
 
 ## Out of scope (recorded so the boundary is explicit)
 

@@ -169,6 +169,20 @@ namespace SetSerializer {
             }
 
             if (arrangement != nullptr) {
+                for (int param = 0; param < NUM_AUTOMATED; param++) {
+                    const auto& points = arrangement->automation[static_cast<size_t>(t)][static_cast<size_t>(param)];
+                    if (points.empty()) {
+                        continue;
+                    }
+                    juce::ValueTree lane("AUTOMATION");
+                    lane.setProperty("param", param, nullptr);
+                    juce::String text;
+                    for (const auto& point : points) {
+                        text << juce::String(point.beat, 6) << ' ' << juce::String(point.value, 6) << ';';
+                    }
+                    lane.setProperty("points", text, nullptr);
+                    track.appendChild(lane, nullptr);
+                }
                 for (const auto& placed : arrangement->clips[static_cast<size_t>(t)]) {
                     if (placed.content == nullptr) {
                         continue;
@@ -258,6 +272,18 @@ namespace SetSerializer {
                     if (slot >= 0 && slot < MAX_CLIPS) {
                         sequencer.setClipData(t, slot, clipFromTree(entry));
                         settingsFromTree(entry, sequencer.getClipSettings(t, slot));
+                    }
+                } else if (entry.hasType("AUTOMATION")) {
+                    const int param = entry.getProperty("param", -1);
+                    if (param >= 0 && param < NUM_AUTOMATED) {
+                        auto& points = arrangement->automation[static_cast<size_t>(t)][static_cast<size_t>(param)];
+                        for (const auto& item : juce::StringArray::fromTokens(entry.getProperty("points").toString(), ";", {})) {
+                            const auto fields = juce::StringArray::fromTokens(item, " ", {});
+                            if (fields.size() == 2) {
+                                points.push_back({ fields[0].getDoubleValue(), fields[1].getFloatValue() });
+                            }
+                        }
+                        arrangement->sortAutomation(t, param);
                     }
                 } else if (entry.hasType("ARRANGEMENT_CLIP") && entry.getNumChildren() > 0) {
                     arrangement->place(t, { entry.getProperty("start", 0.0), entry.getProperty("length", 4.0),
