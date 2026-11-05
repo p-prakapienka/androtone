@@ -48,6 +48,16 @@ public:
         setColour(juce::Label::backgroundColourId, juce::Colours::transparentBlack);
         setColour(juce::Label::outlineColourId, juce::Colours::transparentBlack);
 
+        setColour(juce::ComboBox::backgroundColourId, surface);
+        setColour(juce::ComboBox::textColourId, text);
+        setColour(juce::ComboBox::outlineColourId, outline);
+        setColour(juce::ComboBox::arrowColourId, textMuted);
+        setColour(juce::ComboBox::focusedOutlineColourId, accent);
+
+        setColour(juce::ToggleButton::textColourId, text);
+        setColour(juce::ToggleButton::tickColourId, accent);
+        setColour(juce::ToggleButton::tickDisabledColourId, textMuted);
+
         setColour(juce::PopupMenu::backgroundColourId, surface);
         setColour(juce::PopupMenu::textColourId, text);
         setColour(juce::PopupMenu::highlightedBackgroundColourId, accent);

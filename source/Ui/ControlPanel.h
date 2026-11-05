@@ -6,13 +6,13 @@
 #include "AndrotoneLookAndFeel.h"
 
 // Transport controls shown at the bottom of the editor, outside (and shared across) the tabs.
-class ControlPanel : public juce::Component {
+class ControlPanel : public juce::Component, private juce::Timer {
 public:
     explicit ControlPanel(AndrotoneAudioProcessor& p) : processorRef(p) {
         playButton.setButtonText(playGlyph());
         playButton.onClick = [this]() {
             processorRef.setPlaying(!processorRef.isPlaying());
-            playButton.setButtonText(processorRef.isPlaying() ? stopGlyph() : playGlyph());
+            refreshPlayGlyph();
         };
         addAndMakeVisible(playButton);
 
@@ -40,6 +40,15 @@ public:
         };
         addAndMakeVisible(tempoSlider);
 
+        // Global launch quantization: queued clip / scene launches wait for the next boundary of this size.
+        quantization.addItemList({ "None", "1/16", "1/8", "1/4", "1/2", "1 Bar", "2 Bars", "4 Bars", "8 Bars" }, 1);
+        quantization.setSelectedItemIndex(processorRef.getQuantizationIndex(), juce::dontSendNotification);
+        quantization.setTooltip("Launch quantization");
+        quantization.onChange = [this]() {
+            processorRef.setQuantizationIndex(quantization.getSelectedItemIndex());
+        };
+        addAndMakeVisible(quantization);
+
         undoButton.setButtonText(juce::String::fromUTF8("\xe2\x86\xba"));  // ↺
         undoButton.setEnabled(false);
         addAndMakeVisible(undoButton);
@@ -52,13 +61,16 @@ public:
         for (auto* button : { &playButton, &loopButton, &undoButton, &redoButton }) {
             button->setColour(juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
         }
+
+        // Launching a clip or scene also starts the transport, so keep the play glyph in sync.
+        startTimerHz(10);
     }
 
     void resized() override {
         auto bounds = getLocalBounds().reduced(10);
-        const int columnWidth = bounds.getWidth() / 5;
+        const int columnWidth = bounds.getWidth() / 6;
 
-        // Each control sits centred in its own fifth of the panel: undo redo tempo loop play.
+        // Each control sits centred in its own sixth of the panel: undo redo tempo quantization loop play.
         auto placeInColumn = [&bounds, columnWidth](juce::Component& control, int width, int height) {
             control.setBounds(bounds.removeFromLeft(columnWidth).withSizeKeepingCentre(width, height));
         };
@@ -66,11 +78,23 @@ public:
         placeInColumn(undoButton, 44, 40);
         placeInColumn(redoButton, 44, 40);
         placeInColumn(tempoSlider, 70, 24);
+        placeInColumn(quantization, juce::jmin(columnWidth - 4, 80), 26);
         placeInColumn(loopButton, 44, 40);
         placeInColumn(playButton, 44, 40);
     }
 
 private:
+    void timerCallback() override {
+        refreshPlayGlyph();
+    }
+
+    void refreshPlayGlyph() {
+        const auto glyph = processorRef.isPlaying() ? stopGlyph() : playGlyph();
+        if (playButton.getButtonText() != glyph) {
+            playButton.setButtonText(glyph);
+        }
+    }
+
     static juce::String playGlyph() { return juce::String::fromUTF8("\xe2\x96\xb6"); }  // ▶
     static juce::String stopGlyph() { return juce::String::fromUTF8("\xe2\x96\xa0"); }  // ■
 
@@ -80,6 +104,7 @@ private:
     juce::TextButton undoButton;
     juce::TextButton redoButton;
     juce::Slider tempoSlider;
+    juce::ComboBox quantization;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(ControlPanel)
 };

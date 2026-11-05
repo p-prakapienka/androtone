@@ -40,9 +40,16 @@ public:
     void setTrackVolume(int trackIndex, float vol) { mixer.setTrackVolume(trackIndex, vol); }
     void setTrackReverbSend(int trackIndex, float amount) { mixer.setTrackReverbSend(trackIndex, amount); }
     void setTrackDelaySend(int trackIndex, float amount) { mixer.setTrackDelaySend(trackIndex, amount); }
-    void setCurrentClip(int trackIndex, int clipIndex) { sequencer.setCurrentClip(trackIndex, clipIndex); }
-    void setCurrentScene(int sceneIndex) { sequencer.setCurrentScene(sceneIndex); }
     void setSongMode(bool enabled) { sequencer.setSongMode(enabled); }
+    void setQuantizationIndex(int index) { sequencer.setQuantizationIndex(index); }
+
+    // Session launching (UI thread). Launches are queued until the next quantization boundary.
+    void pressClip(int trackIndex, int clipIndex) { sequencer.pressClip(trackIndex, clipIndex); }
+    void releaseClip(int trackIndex, int clipIndex) { sequencer.releaseClip(trackIndex, clipIndex); }
+    void stopTrack(int trackIndex) { sequencer.stopTrack(trackIndex); }
+    void launchScene(int sceneIndex) { sequencer.launchScene(sceneIndex); }
+    void stopAllClips() { sequencer.stopAllClips(); }
+    ClipSettings& getClipSettings(int trackIndex, int clipIndex) { return sequencer.getClipSettings(trackIndex, clipIndex); }
 
     bool isPlaying() const { return sequencer.isPlaying(); }
     bool isSongMode() const { return sequencer.isSongMode(); }
@@ -51,11 +58,14 @@ public:
     float getTrackVolume(int trackIndex) const { return mixer.getTrackVolume(trackIndex); }
     float getTrackReverbSend(int trackIndex) const { return mixer.getTrackReverbSend(trackIndex); }
     float getTrackDelaySend(int trackIndex) const { return mixer.getTrackDelaySend(trackIndex); }
-    int getCurrentClip(int trackIndex) const { return sequencer.getCurrentClip(trackIndex); }
+    int getQuantizationIndex() const { return sequencer.getQuantizationIndex(); }
+    int getPlayingClip(int trackIndex) const { return sequencer.getPlayingClip(trackIndex); }
+    int getQueuedClip(int trackIndex) const { return sequencer.getQueuedClip(trackIndex); }
+    bool isTrackStopQueued(int trackIndex) const { return sequencer.isTrackStopQueued(trackIndex); }
     bool isClipEmpty(int trackIndex, int clipIndex) const { return sequencer.isClipEmpty(trackIndex, clipIndex); }
     int getCurrentScene() const { return sequencer.getCurrentScene(); }
-    int getNextScene() const { return sequencer.getNextScene(); }
-    int getNextClip(int trackIndex) const { return sequencer.getNextClip(trackIndex); }
+    int getQueuedScene() const { return sequencer.getQueuedScene(); }
+    bool isStopAllQueued() const { return sequencer.isStopAllQueued(); }
     static constexpr int getNumTracks() { return NUM_TRACKS; }
     int getNumActiveTracks() const { return sequencer.getNumActiveTracks(); }
     int getNumActiveClips() const { return sequencer.getNumActiveClips(); }
