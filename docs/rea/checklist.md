@@ -100,10 +100,10 @@ one window. Status is updated as milestones land.
 
 | ID  | Must-have                                                                                       | Evidence        | Verify | Status |
 | --- | ----------------------------------------------------------------------------------------------- | --------------- | ------ | ------ |
-| G1  | Save/load the whole set: clips, settings, mixer, arrangement, device params                     | §5.4.1, §3.21   | T      | open   |
-| G2  | Host session state (plugin state) restores the set                                               | (design)        | T      | open   |
-| G3  | Undo/redo of edits; history not saved with the set                                               | §5.4.2          | T      | partial   |
-| G4  | Export a clip as a standard MIDI file                                                            | §5.2            | T      | open   |
+| G1  | Save/load the whole set: clips, settings, mixer, arrangement, device params                     | §5.4.1, §3.21   | T      | done   |
+| G2  | Host session state (plugin state) restores the set                                               | (design)        | T      | done   |
+| G3  | Undo/redo of edits; history not saved with the set                                               | §5.4.2          | T      | done   |
+| G4  | Export a clip as a standard MIDI file                                                            | §5.2            | T      | done   |
 | G5  | Instrument device with editable parameters per track (synth, drum kit)                           | §3 (devices)    | S      | open   |
 | G6  | Track insert effects (filter, compressor)                                                        | §3 (devices)    | T      | open   |
 | G7  | Automation of mixer parameters in the arrangement; manual override + re-enable                   | §25.1, §25.4    | T      | open   |

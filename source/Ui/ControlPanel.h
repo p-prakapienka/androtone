@@ -142,6 +142,12 @@ private:
                                                           ? juce::Colour(0xFF4FC3F7)
                                                           : juce::Colour(AndrotoneLookAndFeel::Palette::TEXT));
         recordButton.setToggleState(processorRef.isRecording(), juce::dontSendNotification);
+        // Reflect state that a loaded set (or the host) may change.
+        if (quantization.getSelectedItemIndex() != processorRef.getQuantizationIndex()) {
+            quantization.setSelectedItemIndex(processorRef.getQuantizationIndex(), juce::dontSendNotification);
+        }
+        metronomeButton.setToggleState(processorRef.isMetronomeOn(), juce::dontSendNotification);
+        loopButton.setToggleState(!processorRef.isSongMode(), juce::dontSendNotification);
         // The host may drive the tempo (plugin builds).
         if (!tempoSlider.isMouseButtonDown() && std::abs(tempoSlider.getValue() - processorRef.getTempo()) > 0.001) {
             tempoSlider.setValue(processorRef.getTempo(), juce::dontSendNotification);

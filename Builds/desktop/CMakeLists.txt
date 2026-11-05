@@ -37,6 +37,7 @@ target_sources(Androtone
         ../../source/PluginEditor.cpp
         ../../source/PluginProcessor.cpp
         ../../source/Engine/SoundSources/Metronome.h
+        ../../source/Project/SetSerializer.h
         ../../source/Sequencer/Arrangement.h
         ../../source/Sequencer/ClipData.h
         ../../source/Sequencer/RecordEvents.h

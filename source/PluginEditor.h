@@ -5,7 +5,7 @@
 #include "PluginProcessor.h"
 #include "Ui/AndrotoneLookAndFeel.h"
 
-class AndrotoneAudioProcessorEditor : public juce::AudioProcessorEditor {
+class AndrotoneAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer {
 public:
     void openClip(int trackIndex, int clipIndex);
 
@@ -16,7 +16,11 @@ public:
     void resized() override;
 
 private:
+    void timerCallback() override;
+    void buildTabs();
+
     AndrotoneAudioProcessor& processorRef;
+    int shownSetVersion = 0;
     AndrotoneLookAndFeel lookAndFeel;
     std::unique_ptr<juce::Component> projectTab;
     std::unique_ptr<juce::Component> sessionTab;

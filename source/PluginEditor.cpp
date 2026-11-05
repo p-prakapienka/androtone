@@ -13,24 +13,9 @@ AndrotoneAudioProcessorEditor::AndrotoneAudioProcessorEditor(AndrotoneAudioProce
 
     setLookAndFeel(&lookAndFeel);
 
-    projectTab = std::make_unique<ProjectTab>(processorRef);
-    auto session = std::make_unique<SessionTab>(processorRef);
-    session->onOpenClip = [this](int trackIndex, int clipIndex) { openClip(trackIndex, clipIndex); };
-    sessionTab = std::move(session);
-    clipTab = std::make_unique<ClipTab>(processorRef);
-    arrangeTab = std::make_unique<ArrangeTab>(processorRef);
-    mixerTab = std::make_unique<MixerTab>(processorRef);
-    settingsTab = std::make_unique<SettingsTab>(processorRef);
-
     addAndMakeVisible(tabs);
-
-    const auto tabColour = lookAndFeel.findColour(juce::ResizableWindow::backgroundColourId);
-    tabs.addTab("Projects", tabColour, projectTab.get(), false);
-    tabs.addTab("Session", tabColour, sessionTab.get(), false);
-    tabs.addTab("Arrange", tabColour, arrangeTab.get(), false);
-    tabs.addTab("Clip", tabColour, clipTab.get(), false);
-    tabs.addTab("Mixer", tabColour, mixerTab.get(), false);
-    tabs.addTab("Settings", tabColour, settingsTab.get(), false);
+    buildTabs();
+    tabs.setCurrentTabIndex(1);
 
     controlPanel = std::make_unique<ControlPanel>(processorRef);
     addAndMakeVisible(*controlPanel);
@@ -38,7 +23,7 @@ AndrotoneAudioProcessorEditor::AndrotoneAudioProcessorEditor(AndrotoneAudioProce
     setResizable(true, true);
     setResizeLimits(480, 420, 2400, 1600);
     setSize(900, 620);
-    tabs.setCurrentTabIndex(1);
+    startTimerHz(4);
 }
 
 AndrotoneAudioProcessorEditor::~AndrotoneAudioProcessorEditor() {
@@ -60,4 +45,36 @@ void AndrotoneAudioProcessorEditor::resized() {
 void AndrotoneAudioProcessorEditor::openClip(int trackIndex, int clipIndex) {
     static_cast<ClipTab*>(clipTab.get())->showClip(trackIndex, clipIndex);
     tabs.setCurrentTabIndex(3);
+}
+
+// (Re)creates every tab — on open, and whenever a different set is loaded (its scene / track
+// counts and content may differ).
+void AndrotoneAudioProcessorEditor::buildTabs() {
+    const int current = tabs.getNumTabs() > 0 ? tabs.getCurrentTabIndex() : 1;
+    tabs.clearTabs();
+
+    projectTab = std::make_unique<ProjectTab>(processorRef);
+    auto session = std::make_unique<SessionTab>(processorRef);
+    session->onOpenClip = [this](int trackIndex, int clipIndex) { openClip(trackIndex, clipIndex); };
+    sessionTab = std::move(session);
+    arrangeTab = std::make_unique<ArrangeTab>(processorRef);
+    clipTab = std::make_unique<ClipTab>(processorRef);
+    mixerTab = std::make_unique<MixerTab>(processorRef);
+    settingsTab = std::make_unique<SettingsTab>(processorRef);
+
+    const auto tabColour = lookAndFeel.findColour(juce::ResizableWindow::backgroundColourId);
+    tabs.addTab("Projects", tabColour, projectTab.get(), false);
+    tabs.addTab("Session", tabColour, sessionTab.get(), false);
+    tabs.addTab("Arrange", tabColour, arrangeTab.get(), false);
+    tabs.addTab("Clip", tabColour, clipTab.get(), false);
+    tabs.addTab("Mixer", tabColour, mixerTab.get(), false);
+    tabs.addTab("Settings", tabColour, settingsTab.get(), false);
+    tabs.setCurrentTabIndex(juce::jlimit(0, tabs.getNumTabs() - 1, current));
+    shownSetVersion = processorRef.getSetVersion();
+}
+
+void AndrotoneAudioProcessorEditor::timerCallback() {
+    if (processorRef.getSetVersion() != shownSetVersion) {
+        buildTabs();
+    }
 }

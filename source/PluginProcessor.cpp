@@ -107,8 +107,72 @@ juce::AudioProcessorEditor* AndrotoneAudioProcessor::createEditor() {
     return new AndrotoneAudioProcessorEditor(*this);
 }
 
-void AndrotoneAudioProcessor::getStateInformation(juce::MemoryBlock&) {}
-void AndrotoneAudioProcessor::setStateInformation(const void*, int) {}
+juce::ValueTree AndrotoneAudioProcessor::createSetState() {
+    SetSerializer::Extras extras { metronome.getVolume(), exclusiveSolo.load(), exclusiveArm.load(), recorder.getQuantization() };
+    return SetSerializer::save(sequencer, mixer, extras);
+}
+
+bool AndrotoneAudioProcessor::restoreSetState(const juce::ValueTree& set) {
+    if (!set.hasType("ANDROTONE_SET")) {
+        return false;
+    }
+    // Swap the whole set with the audio thread held off, then start a fresh undo history.
+    suspendProcessing(true);
+    SetSerializer::Extras extras;
+    const bool ok = SetSerializer::load(set, sequencer, mixer, extras);
+    if (ok) {
+        metronome.setVolume(extras.metronomeVolume);
+        exclusiveSolo.store(extras.exclusiveSolo);
+        exclusiveArm.store(extras.exclusiveArm);
+        recorder.setQuantization(extras.recordQuantization);
+    }
+    suspendProcessing(false);
+    undoManager.clearUndoHistory();
+    setVersion++;
+    return ok;
+}
+
+bool AndrotoneAudioProcessor::saveSet(const juce::File& file) {
+    const auto xml = createSetState().createXml();
+    if (xml == nullptr || !xml->writeTo(file)) {
+        return false;
+    }
+    currentSetFile = file;
+    return true;
+}
+
+bool AndrotoneAudioProcessor::loadSet(const juce::File& file) {
+    const auto xml = juce::XmlDocument::parse(file);
+    if (xml == nullptr || !restoreSetState(juce::ValueTree::fromXml(*xml))) {
+        return false;
+    }
+    currentSetFile = file;
+    return true;
+}
+
+void AndrotoneAudioProcessor::newSet() {
+    suspendProcessing(true);
+    sequencer.setPlaying(false);
+    sequencer.loadProject(ProjectPresets::defaultProject);
+    sequencer.setArrangement(new ArrangementData());
+    suspendProcessing(false);
+    undoManager.clearUndoHistory();
+    currentSetFile = juce::File();
+    setVersion++;
+}
+
+// Plugin state (host session): the whole set.
+void AndrotoneAudioProcessor::getStateInformation(juce::MemoryBlock& destination) {
+    if (const auto xml = createSetState().createXml()) {
+        copyXmlToBinary(*xml, destination);
+    }
+}
+
+void AndrotoneAudioProcessor::setStateInformation(const void* data, int sizeInBytes) {
+    if (const auto xml = getXmlFromBinary(data, sizeInBytes)) {
+        restoreSetState(juce::ValueTree::fromXml(*xml));
+    }
+}
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() {
     return new AndrotoneAudioProcessor();

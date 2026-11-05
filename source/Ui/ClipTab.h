@@ -83,6 +83,7 @@ public:
         setUpButton(toArrangementButton, "To Arr.", "Place this clip on the arrangement at the insert marker", [this]() {
             processorRef.placeClipInArrangement(grid.getTrack(), grid.getClipIndex());
         });
+        setUpButton(exportButton, "MIDI...", "Export this clip as a standard MIDI file", [this]() { exportMidi(); });
         setUpButton(removeClipButton, "Remove", "Delete this clip from its slot", [this]() {
             const auto data = processorRef.getClipData(grid.getTrack(), grid.getClipIndex());
             if (data != nullptr) {
@@ -138,6 +139,7 @@ public:
         place(row1, zoomIn, 30);
         row1.removeFromLeft(8);
         place(row1, toArrangementButton, 70);
+        place(row1, exportButton, 64);
         place(row1, removeClipButton, 70);
 
         place(row2, gridChooser, 74);
@@ -166,7 +168,25 @@ private:
     juce::Label title;
     juce::TextButton lengthDown, lengthUp, loopButton, snapButton, foldButton, quantizeButton;
     juce::TextButton octaveDown, semiDown, semiUp, octaveUp, duplicateButton, muteButton, selectAllButton, deleteButton;
-    juce::TextButton zoomOut, zoomIn, launchButton, removeClipButton, toArrangementButton;
+    juce::TextButton zoomOut, zoomIn, launchButton, removeClipButton, toArrangementButton, exportButton;
+    std::unique_ptr<juce::FileChooser> chooser;
+
+    void exportMidi() {
+        const auto data = processorRef.getClipData(grid.getTrack(), grid.getClipIndex());
+        if (data == nullptr) {
+            return;
+        }
+        const auto name = (data->name.isNotEmpty() ? data->name : juce::String("clip")) + ".mid";
+        chooser = std::make_unique<juce::FileChooser>(
+            "Export MIDI clip", juce::File::getSpecialLocation(juce::File::userDocumentsDirectory).getChildFile(name), "*.mid");
+        chooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::warnAboutOverwriting,
+                             [this](const juce::FileChooser& fc) {
+                                 const auto file = fc.getResult();
+                                 if (file != juce::File()) {
+                                     processorRef.exportClipAsMidi(grid.getTrack(), grid.getClipIndex(), file.withFileExtension(".mid"));
+                                 }
+                             });
+    }
     juce::Label lengthLabel;
     juce::ComboBox gridChooser;
     juce::Slider quantizeAmount;
@@ -197,7 +217,7 @@ private:
         const bool has = grid.hasClip();
         for (auto* c : std::initializer_list<juce::Component*> {
                  &lengthDown, &lengthUp, &loopButton, &quantizeButton, &quantizeAmount, &octaveDown, &semiDown,
-                 &semiUp, &octaveUp, &duplicateButton, &muteButton, &selectAllButton, &launchButton, &removeClipButton, &toArrangementButton }) {
+                 &semiUp, &octaveUp, &duplicateButton, &muteButton, &selectAllButton, &launchButton, &removeClipButton, &toArrangementButton, &exportButton }) {
             c->setEnabled(has);
         }
         deleteButton.setEnabled(has && !grid.getSelection().empty());

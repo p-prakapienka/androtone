@@ -102,6 +102,30 @@ public:
         }
     }
 
+    // Clears everything before a saved set is restored: no clips, nothing playing (tracks follow
+    // the arrangement, as when a set is opened), empty arrangement. Call with processing suspended.
+    void resetForSetLoad(int tracksInSet, int scenesInSet) {
+        playing.store(false);
+        numActiveTracks = juce::jlimit(1, NUM_TRACKS, tracksInSet);
+        numActiveClips = juce::jlimit(MIN_SCENES, MAX_CLIPS, scenesInSet);
+        for (auto& track : tracks) {
+            for (int clipIndex = 0; clipIndex < MAX_CLIPS; clipIndex++) {
+                track.getClip(clipIndex).clear();
+                track.getClip(clipIndex).settings.reset();
+            }
+            track.armClip(-1);
+        }
+        for (auto& armed : trackArmed) {
+            armed.store(false);
+        }
+        sceneManager.setNumScenes(numActiveClips);
+        sceneManager.cancelPending();
+        sceneManager.setCurrentScene(SceneManager::NO_SCENE);
+        setArrangement(new ArrangementData());
+        startPosition.store(0.0);
+        songBeatForUi.store(0.0);
+    }
+
     // ---- audio thread ----------------------------------------------------------------------------
 
     // Metronome ticks produced by the last processBlock (sample offset + downbeat accent).

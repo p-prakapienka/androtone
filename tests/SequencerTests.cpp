@@ -3,6 +3,7 @@
 #include "Sequencer/TapTempo.h"
 #include "Mixer/Mixer.h"
 #include "Sequencer/Recorder.h"
+#include "Project/SetSerializer.h"
 
 // Headless timing tests for the sequencer. Each CHECK names the behaviour it pins down; see
 // docs/rea/checklist.md for the checklist IDs they verify.
@@ -646,6 +647,61 @@ int main() {
         if (arr.clips[0].size() == 3) {
             CHECK(arr.clips[0][0].length == 2.0 && arr.clips[0][2].start == 4.0 && arr.clips[0][2].offset == 4.0, "head / tail trimmed with offset");
         }
+    }
+
+    // G1/G2: a set survives save -> XML -> load (clips, settings, arrangement, mixer, transport)
+    {
+        StepSequencer a; Mixer ma;
+        a.setTempo(133.5); a.setQuantizationIndex(3); a.setSwing(0.4, 0.2); a.setLoop(true, 4.0, 12.0);
+        a.setStartPosition(8.0); a.setCountInBars(2); a.setMetronome(true);
+        auto clip = ClipData::createEmpty(8.0);
+        clip->name = "Lead"; clip->looping = false; clip->colour = 0xFF112233;
+        clip->notes = { { 0.5, 1.25, 72, 99, false }, { 2.0, 0.25, 74, 64, true } };
+        clip->sanitise();
+        a.setClipData(1, 5, clip);
+        a.getClipSettings(1, 5).launchMode = LaunchMode::Gate;
+        a.getClipSettings(1, 5).followEnabled = true;
+        a.getClipSettings(1, 5).followActionA = FollowAction::Other;
+        auto arr = ArrangementData::Ptr(new ArrangementData());
+        arr->place(2, { 16.0, 6.0, clip, 1.0, 5 });
+        arr->render();
+        a.setArrangement(arr);
+        ma.setTrackPan(1, -0.5f); ma.setTrackActive(2, false); ma.setReturnPre(1, true); ma.setTrackDelaySend(0, 0.3f);
+        SetSerializer::Extras extras { 0.8f, false, true, 0.25 };
+
+        const auto xml = SetSerializer::save(a, ma, extras).createXml();
+        CHECK(xml != nullptr, "set serialises to XML");
+        StepSequencer b; Mixer mb; SetSerializer::Extras loaded;
+        CHECK(SetSerializer::load(juce::ValueTree::fromXml(*juce::XmlDocument::parse(xml->toString())), b, mb, loaded), "set loads");
+        CHECK(std::abs(b.getTempo() - 133.5) < 1e-9 && b.getQuantizationIndex() == 3 && b.getCountInBars() == 2, "transport settings");
+        CHECK(b.isLoopEnabled() && b.getLoopStart() == 4.0 && b.getLoopEnd() == 12.0 && b.getStartPosition() == 8.0, "loop + insert marker");
+        auto c = b.getClipData(1, 5);
+        CHECK(c != nullptr && c->name == "Lead" && !c->looping && c->colour == 0xFF112233 && c->notes.size() == 2, "clip content");
+        if (c != nullptr && c->notes.size() == 2) {
+            CHECK(c->notes[0].start == 0.5 && c->notes[0].length == 1.25 && c->notes[0].velocity == 99 && c->notes[1].muted, "notes exact");
+        }
+        CHECK(b.getClipSettings(1, 5).launchMode == LaunchMode::Gate && b.getClipSettings(1, 5).followActionA == FollowAction::Other, "launch settings");
+        auto ba = b.getArrangement();
+        CHECK(ba->clips[2].size() == 1 && ba->clips[2][0].start == 16.0 && ba->clips[2][0].offset == 1.0, "arrangement clip");
+        CHECK(ba->rendered[2].size() == arr->rendered[2].size(), "arrangement re-rendered");
+        CHECK(mb.getTrackPan(1) == -0.5f && !mb.isTrackActive(2) && mb.isReturnPre(1) && std::abs(mb.getTrackDelaySend(0) - 0.3f) < 1e-6, "mixer");
+        CHECK(loaded.metronomeVolume == 0.8f && !loaded.exclusiveSolo && loaded.recordQuantization == 0.25, "extras");
+        CHECK(b.getPlayingClip(0) == -1 && b.followsArrangement(0), "loaded sets open with tracks following the arrangement");
+        CHECK(!SetSerializer::load(juce::ValueTree("SOMETHING_ELSE"), b, mb, loaded), "rejects non-sets");
+    }
+    // G4: MIDI export
+    {
+        auto clip = ClipData::createEmpty(4.0);
+        clip->notes = { { 1.0, 0.5, 60, 100 }, { 2.0, 0.5, 62, 90, true } };
+        auto file = juce::File::createTempFile(".mid");
+        CHECK(SetSerializer::exportMidiClip(*clip, 120.0, file), "midi written");
+        juce::FileInputStream in(file);
+        juce::MidiFile midi;
+        CHECK(midi.readFrom(in), "midi readable");
+        int noteOns = 0; double firstOn = -1;
+        for (const auto* e : *midi.getTrack(0)) if (e->message.isNoteOn()) { if (noteOns++ == 0) firstOn = e->message.getTimeStamp(); }
+        CHECK(noteOns == 1 && firstOn == 960.0, "one unmuted note at beat 1 (960 ticks): %d %f", noteOns, firstOn);
+        file.deleteFile();
     }
 
     std::printf(failures == 0 ? "ALL PASSED\n" : "%d FAILURES\n", failures);

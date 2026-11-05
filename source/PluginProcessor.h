@@ -7,6 +7,7 @@
 #include "Engine/SoundSources/Metronome.h"
 #include "Sequencer/TapTempo.h"
 #include "Sequencer/Recorder.h"
+#include "Project/SetSerializer.h"
 #include <array>
 
 class AndrotoneAudioProcessor : public juce::AudioProcessor {
@@ -150,6 +151,20 @@ public:
 
     juce::UndoManager& getUndoManager() { return undoManager; }
 
+    // ---- sets (UI thread) ----
+    juce::ValueTree createSetState();
+    bool restoreSetState(const juce::ValueTree& set);
+    bool saveSet(const juce::File& file);
+    bool loadSet(const juce::File& file);
+    void newSet();
+    bool exportClipAsMidi(int t, int slot, const juce::File& file) {
+        const auto data = getClipData(t, slot);
+        return data != nullptr && SetSerializer::exportMidiClip(*data, getTempo(), file);
+    }
+    juce::File getCurrentSetFile() const { return currentSetFile; }
+    // Bumped whenever a different set is loaded, so the editor can rebuild its views.
+    int getSetVersion() const { return setVersion.load(); }
+
     // ---- arrangement (UI thread) ----
     ArrangementData::Ptr getArrangement() const { return sequencer.getArrangement(); }
 
@@ -261,6 +276,8 @@ private:
     } };
     Housekeeping housekeeping { recorder, arrangementLogger };
     juce::MidiBuffer inputMidi;
+    juce::File currentSetFile;
+    std::atomic<int> setVersion { 0 };
     Metronome metronome;
     std::atomic<bool> exclusiveSolo { true };
     std::atomic<bool> exclusiveArm { true };
