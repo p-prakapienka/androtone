@@ -11,11 +11,37 @@
 
 // Headless timing tests for the sequencer. Each CHECK names the behaviour it pins down; see
 // docs/rea/checklist.md for the checklist IDs they verify.
+#include <cstdarg>
 #include <cstdio>
 #include <map>
 
+// Every check is reported (ok / FAIL with its line) to stdout and to CliptoneTests.log, flushed as
+// it happens, so a CI log shows exactly how far the run got even if the process dies.
 static int failures = 0;
-#define CHECK(c, ...) do { if (!(c)) { failures++; std::printf("FAIL %s:%d ", __FILE__, __LINE__); std::printf(__VA_ARGS__); std::printf("\n"); } } while (0)
+static int checks = 0;
+static std::FILE* logFile = nullptr;
+
+static void report(const char* format, ...) {
+    char text[1024];
+    va_list args;
+    va_start(args, format);
+    std::vsnprintf(text, sizeof(text), format, args);
+    va_end(args);
+    std::fputs(text, stdout);
+    std::fflush(stdout);
+    if (logFile != nullptr) {
+        std::fputs(text, logFile);
+        std::fflush(logFile);
+    }
+}
+
+#define CHECK(c, ...) do { \
+    checks++; \
+    char detail_[512]; \
+    std::snprintf(detail_, sizeof(detail_), __VA_ARGS__); \
+    if (!(c)) { failures++; report("FAIL line %d: %s\n", __LINE__, detail_); } \
+    else { report("ok   line %d: %s\n", __LINE__, detail_); } \
+} while (0)
 
 struct Ev { long long t; bool on; int ch; int note; };
 constexpr double SR = 48000.0;
@@ -50,6 +76,8 @@ struct Harness {
 };
 
 int main() {
+    logFile = std::fopen("CliptoneTests.log", "w");
+    report("CliptoneTests: starting\n");
     // Default project: scene 1 = only track 3 (arp) plays; track 1 kick clip 2 = 4 on the floor.
     {
         Harness h;
@@ -851,6 +879,13 @@ int main() {
         CHECK(points.size() == 2 && points[1].beat == 4.0 && points[1].value == 1.0f, "automation saved with the set");
     }
 
-    std::printf(failures == 0 ? "ALL PASSED\n" : "%d FAILURES\n", failures);
+    if (failures == 0) {
+        report("ALL PASSED (%d checks)\n", checks);
+    } else {
+        report("%d of %d checks FAILED\n", failures, checks);
+    }
+    if (logFile != nullptr) {
+        std::fclose(logFile);
+    }
     return failures == 0 ? 0 : 1;
 }

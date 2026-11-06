@@ -33,6 +33,14 @@ jobs:
       - name: Run tests
         run: ./build/CliptoneTests_artefacts/Release/CliptoneTests.exe
 
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cliptone-test-log
+          path: CliptoneTests.log
+          if-no-files-found: warn
+
       - name: Package
         shell: pwsh
         run: |
