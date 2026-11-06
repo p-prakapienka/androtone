@@ -6,7 +6,7 @@
 .DESCRIPTION
     Loads the Visual Studio developer environment, then configures JUCE with
     JUCE_BUILD_EXTRAS=ON in a dedicated build tree and builds the Projucer
-    target. Requires the androtone project to have been configured at least
+    target. Requires the cliptone project to have been configured at least
     once so that CPM has fetched JUCE into build/_deps/juce-src.
 
 .PARAMETER Config

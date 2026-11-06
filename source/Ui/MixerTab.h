@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "../PluginProcessor.h"
-#include "AndrotoneLookAndFeel.h"
+#include "CliptoneLookAndFeel.h"
 
 // Vertical peak meter. Polls a peak source (which resets on read) and decays smoothly.
 class PeakMeter : public juce::Component {
@@ -22,12 +22,12 @@ public:
 
     void paint(juce::Graphics& g) override {
         auto bounds = getLocalBounds().toFloat();
-        g.setColour(juce::Colour(AndrotoneLookAndFeel::Palette::SURFACE));
+        g.setColour(juce::Colour(CliptoneLookAndFeel::Palette::SURFACE));
         g.fillRoundedRectangle(bounds, 2.0f);
         const float db = juce::Decibels::gainToDecibels(level, -60.0f);
         const float fill = juce::jlimit(0.0f, 1.0f, (db + 60.0f) / 66.0f);
         auto bar = bounds.removeFromBottom(bounds.getHeight() * fill);
-        g.setColour(level > 1.0f ? juce::Colour(0xFFE57373) : juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
+        g.setColour(level > 1.0f ? juce::Colour(0xFFE57373) : juce::Colour(CliptoneLookAndFeel::Palette::ACCENT));
         g.fillRoundedRectangle(bar, 2.0f);
         const float holdDb = juce::Decibels::gainToDecibels(hold, -60.0f);
         const float holdY = getHeight() * (1.0f - juce::jlimit(0.0f, 1.0f, (holdDb + 60.0f) / 66.0f));
@@ -45,7 +45,7 @@ private:
 // strips (level, pre/post) and the main strip.
 class MixerTab : public juce::Component, private juce::Timer {
 public:
-    explicit MixerTab(AndrotoneAudioProcessor& p) : processorRef(p) {
+    explicit MixerTab(CliptoneAudioProcessor& p) : processorRef(p) {
         const int numTracks = processorRef.getNumActiveTracks();
         for (int t = 0; t < numTracks; t++) {
             strips.push_back(std::make_unique<TrackStrip>(processorRef, t));
@@ -110,9 +110,9 @@ public:
 
 private:
     struct TrackStrip : public juce::Component {
-        TrackStrip(AndrotoneAudioProcessor& p, int t) :
+        TrackStrip(CliptoneAudioProcessor& p, int t) :
             processorRef(p), track(t), meter([&p, t]() { return p.takeTrackPeak(t); }) {
-            const auto colour = AndrotoneAudioProcessor::getTrackColour(track);
+            const auto colour = CliptoneAudioProcessor::getTrackColour(track);
 
             // Track activator: the track number, lit while the track is on.
             activator.setButtonText(juce::String(track + 1));
@@ -137,7 +137,7 @@ private:
                                         std::make_pair(&panLabel, "Pan") }) {
                 label->setText(text, juce::dontSendNotification);
                 label->setJustificationType(juce::Justification::centred);
-                label->setColour(juce::Label::textColourId, juce::Colour(AndrotoneLookAndFeel::Palette::TEXT_MUTED));
+                label->setColour(juce::Label::textColourId, juce::Colour(CliptoneLookAndFeel::Palette::TEXT_MUTED));
                 label->setFont(juce::FontOptions(11.0f));
                 addAndMakeVisible(*label);
             }
@@ -181,7 +181,7 @@ private:
                 panKnob.setValue(processorRef.getTrackPan(track), juce::dontSendNotification);
             }
             const bool automated = processorRef.isAutomated(track, AUTOMATE_VOLUME) || processorRef.isAutomated(track, AUTOMATE_PAN);
-            fader.setColour(juce::Slider::thumbColourId, automated ? juce::Colour(0xFFE57373) : juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
+            fader.setColour(juce::Slider::thumbColourId, automated ? juce::Colour(0xFFE57373) : juce::Colour(CliptoneLookAndFeel::Palette::ACCENT));
         }
 
         void resized() override {
@@ -204,7 +204,7 @@ private:
             fader.setBounds(b);
         }
 
-        AndrotoneAudioProcessor& processorRef;
+        CliptoneAudioProcessor& processorRef;
         int track;
         juce::TextButton activator, solo, arm;
         juce::Slider delaySend, reverbSend, panKnob, fader;
@@ -213,10 +213,10 @@ private:
     };
 
     struct ReturnStrip : public juce::Component {
-        ReturnStrip(AndrotoneAudioProcessor& p, int r, const juce::String& name) : processorRef(p), index(r) {
+        ReturnStrip(CliptoneAudioProcessor& p, int r, const juce::String& name) : processorRef(p), index(r) {
             label.setText(name, juce::dontSendNotification);
             label.setJustificationType(juce::Justification::centred);
-            label.setColour(juce::Label::textColourId, juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
+            label.setColour(juce::Label::textColourId, juce::Colour(CliptoneLookAndFeel::Palette::ACCENT));
             addAndMakeVisible(label);
 
             prePost.setButtonText(processorRef.isReturnPre(index) ? "Pre" : "Post");
@@ -243,7 +243,7 @@ private:
             fader.setBounds(b);
         }
 
-        AndrotoneAudioProcessor& processorRef;
+        CliptoneAudioProcessor& processorRef;
         int index;
         juce::Label label;
         juce::TextButton prePost;
@@ -257,7 +257,7 @@ private:
         masterMeter.poll();
     }
 
-    AndrotoneAudioProcessor& processorRef;
+    CliptoneAudioProcessor& processorRef;
     std::vector<std::unique_ptr<TrackStrip>> strips;
     std::vector<std::unique_ptr<ReturnStrip>> returnStrips;
     juce::Label masterLabel;

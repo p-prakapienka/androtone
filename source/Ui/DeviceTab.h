@@ -5,18 +5,18 @@
 #include <vector>
 
 #include "../PluginProcessor.h"
-#include "AndrotoneLookAndFeel.h"
+#include "CliptoneLookAndFeel.h"
 
 // The selected track's devices: its instrument (Sampler / Synth / Drums) and its insert effects
 // (filter + compressor). Controls are generated from the devices' parameter specs.
 class DeviceTab : public juce::Component, private juce::Timer {
 public:
-    explicit DeviceTab(AndrotoneAudioProcessor& p) : processorRef(p) {
+    explicit DeviceTab(CliptoneAudioProcessor& p) : processorRef(p) {
         for (int t = 0; t < processorRef.getNumActiveTracks(); t++) {
             auto button = std::make_unique<juce::TextButton>(juce::String(t + 1));
             button->setClickingTogglesState(true);
             button->setRadioGroupId(1);
-            button->setColour(juce::TextButton::buttonOnColourId, AndrotoneAudioProcessor::getTrackColour(t));
+            button->setColour(juce::TextButton::buttonOnColourId, CliptoneAudioProcessor::getTrackColour(t));
             button->onClick = [this, t]() { selectTrack(t); };
             addAndMakeVisible(*button);
             trackButtons.push_back(std::move(button));
@@ -30,11 +30,11 @@ public:
         addAndMakeVisible(instrumentChooser);
 
         for (auto* label : { &instrumentHeading, &effectsHeading }) {
-            label->setColour(juce::Label::textColourId, juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
+            label->setColour(juce::Label::textColourId, juce::Colour(CliptoneLookAndFeel::Palette::ACCENT));
             addAndMakeVisible(*label);
         }
         effectsHeading.setText("Effects", juce::dontSendNotification);
-        gainReduction.setColour(juce::Label::textColourId, juce::Colour(AndrotoneLookAndFeel::Palette::TEXT_MUTED));
+        gainReduction.setColour(juce::Label::textColourId, juce::Colour(CliptoneLookAndFeel::Palette::TEXT_MUTED));
         addAndMakeVisible(gainReduction);
 
         selectTrack(0);
@@ -78,7 +78,7 @@ private:
     static constexpr int KNOB_WIDTH = 84;
     static constexpr int KNOB_ROW_HEIGHT = 96;
 
-    AndrotoneAudioProcessor& processorRef;
+    CliptoneAudioProcessor& processorRef;
     int track = 0;
     std::vector<std::unique_ptr<juce::TextButton>> trackButtons;
     juce::ComboBox instrumentChooser;
@@ -135,7 +135,7 @@ private:
             auto knob = std::make_unique<Knob>();
             knob->label.setText(spec.name, juce::dontSendNotification);
             knob->label.setJustificationType(juce::Justification::centred);
-            knob->label.setColour(juce::Label::textColourId, juce::Colour(AndrotoneLookAndFeel::Palette::TEXT_MUTED));
+            knob->label.setColour(juce::Label::textColourId, juce::Colour(CliptoneLookAndFeel::Palette::TEXT_MUTED));
             auto& slider = knob->slider;
             slider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
             slider.setTextBoxStyle(juce::Slider::TextBoxBelow, false, KNOB_WIDTH - 8, 18);

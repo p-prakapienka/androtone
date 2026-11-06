@@ -25,25 +25,25 @@ jobs:
           key: cpm-${{ runner.os }}-${{ hashFiles('Builds/desktop/CMakeLists.txt') }}
 
       - name: Configure
-        run: cmake -S Builds/desktop -B build -A x64 -DANDROTONE_BUILD_TESTS=ON
+        run: cmake -S Builds/desktop -B build -A x64 -DCLIPTONE_BUILD_TESTS=ON
 
       - name: Build
-        run: cmake --build build --config Release --parallel --target Androtone_Standalone Androtone_VST3 AndrotoneTests
+        run: cmake --build build --config Release --parallel --target Cliptone_Standalone Cliptone_VST3 CliptoneTests
 
       - name: Run tests
-        run: ./build/AndrotoneTests_artefacts/Release/AndrotoneTests.exe
+        run: ./build/CliptoneTests_artefacts/Release/CliptoneTests.exe
 
       - name: Package
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          $package = "dist/androtone-windows-x64"
+          $package = "dist/cliptone-windows-x64"
           New-Item -ItemType Directory -Force "$package/VST3" | Out-Null
-          Copy-Item "build/Androtone_artefacts/Release/Standalone/Androtone.exe" $package
-          Copy-Item "build/Androtone_artefacts/Release/VST3/Androtone.vst3" "$package/VST3" -Recurse
+          Copy-Item "build/Cliptone_artefacts/Release/Standalone/Cliptone.exe" $package
+          Copy-Item "build/Cliptone_artefacts/Release/VST3/Cliptone.vst3" "$package/VST3" -Recurse
 
       - uses: actions/upload-artifact@v4
         with:
-          name: androtone-windows-x64
-          path: dist/androtone-windows-x64
+          name: cliptone-windows-x64
+          path: dist/cliptone-windows-x64
           if-no-files-found: error

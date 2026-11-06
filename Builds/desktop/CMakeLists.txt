@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22)
 
-project(Androtone VERSION 0.0.1)
+project(Cliptone VERSION 0.0.1)
 
 file(
     DOWNLOAD
@@ -17,22 +17,22 @@ CPMAddPackage(
     VERSION 8.0.12
 )
 
-set(ANDROTONE_FORMATS VST3 Standalone)
+set(CLIPTONE_FORMATS VST3 Standalone)
 
-juce_add_plugin(Androtone
+juce_add_plugin(Cliptone
     COMPANY_NAME              "Restricted Space"
-    BUNDLE_ID                 com.restrictedspace.androtone
+    BUNDLE_ID                 com.restrictedspace.cliptone
     IS_SYNTH                  TRUE
     NEEDS_MIDI_INPUT          TRUE
     NEEDS_MIDI_OUTPUT         FALSE
     IS_MIDI_EFFECT            FALSE
     EDITOR_WANTS_KEYBOARD_FOCUS TRUE
     PLUGIN_MANUFACTURER_CODE  RstS
-    PLUGIN_CODE               Antn
-    FORMATS                   ${ANDROTONE_FORMATS}
-    PRODUCT_NAME              "Androtone")
+    PLUGIN_CODE               Clpt
+    FORMATS                   ${CLIPTONE_FORMATS}
+    PRODUCT_NAME              "Cliptone")
 
-target_sources(Androtone
+target_sources(Cliptone
     PRIVATE
         ../../source/PluginEditor.cpp
         ../../source/PluginProcessor.cpp
@@ -58,17 +58,17 @@ target_sources(Androtone
         # not; re-save the .jucer in Projucer to regenerate it when resources change.
         ../../JuceLibraryCode/BinaryData.cpp)
 
-target_include_directories(Androtone
+target_include_directories(Cliptone
     PRIVATE
         ../../source)
 
-target_compile_definitions(Androtone
+target_compile_definitions(Cliptone
     PUBLIC
         JUCE_WEB_BROWSER=0
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0)
 
-target_link_libraries(Androtone
+target_link_libraries(Cliptone
     PRIVATE
         juce::juce_audio_utils
     PUBLIC
@@ -76,14 +76,14 @@ target_link_libraries(Androtone
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
-# Headless sequencer tests: cmake -DANDROTONE_BUILD_TESTS=ON, then run AndrotoneTests.
-option(ANDROTONE_BUILD_TESTS "Build the headless sequencer tests" OFF)
-if(ANDROTONE_BUILD_TESTS)
-    juce_add_console_app(AndrotoneTests PRODUCT_NAME "AndrotoneTests")
-    target_sources(AndrotoneTests PRIVATE ../../tests/SequencerTests.cpp)
-    target_include_directories(AndrotoneTests PRIVATE ../../source)
-    target_compile_definitions(AndrotoneTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
-    target_link_libraries(AndrotoneTests PRIVATE juce::juce_audio_processors juce::juce_recommended_config_flags)
+# Headless sequencer tests: cmake -DCLIPTONE_BUILD_TESTS=ON, then run CliptoneTests.
+option(CLIPTONE_BUILD_TESTS "Build the headless sequencer tests" OFF)
+if(CLIPTONE_BUILD_TESTS)
+    juce_add_console_app(CliptoneTests PRODUCT_NAME "CliptoneTests")
+    target_sources(CliptoneTests PRIVATE ../../tests/SequencerTests.cpp)
+    target_include_directories(CliptoneTests PRIVATE ../../source)
+    target_compile_definitions(CliptoneTests PRIVATE JUCE_WEB_BROWSER=0 JUCE_USE_CURL=0)
+    target_link_libraries(CliptoneTests PRIVATE juce::juce_audio_processors juce::juce_recommended_config_flags)
     enable_testing()
-    add_test(NAME AndrotoneTests COMMAND AndrotoneTests)
+    add_test(NAME CliptoneTests COMMAND CliptoneTests)
 endif()

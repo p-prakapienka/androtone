@@ -13,10 +13,10 @@
 #include "Project/SetSerializer.h"
 #include <array>
 
-class AndrotoneAudioProcessor : public juce::AudioProcessor {
+class CliptoneAudioProcessor : public juce::AudioProcessor {
 public:
-    AndrotoneAudioProcessor();
-    ~AndrotoneAudioProcessor() override = default;
+    CliptoneAudioProcessor();
+    ~CliptoneAudioProcessor() override = default;
 
     void prepareToPlay(double sampleRate, int samplesPerBlock) override;
     void releaseResources() override;
@@ -314,5 +314,5 @@ private:
     TapTempo tapTempoState;
     juce::UndoManager undoManager;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AndrotoneAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CliptoneAudioProcessor)
 };

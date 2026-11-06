@@ -4,15 +4,15 @@
 #include <cmath>
 
 #include "../PluginProcessor.h"
-#include "AndrotoneLookAndFeel.h"
+#include "CliptoneLookAndFeel.h"
 
 // Transport controls shown at the bottom of the editor, outside (and shared across) the tabs.
 class ControlPanel : public juce::Component, private juce::Timer {
 public:
-    explicit ControlPanel(AndrotoneAudioProcessor& p) : processorRef(p) {
+    explicit ControlPanel(CliptoneAudioProcessor& p) : processorRef(p) {
         // Play starts from the insert marker; Stop stops, and a second Stop returns to 1.1.1.
         playButton.setButtonText(playGlyph());
-        playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
+        playButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(CliptoneLookAndFeel::Palette::ACCENT));
         playButton.onClick = [this]() {
             processorRef.setPlaying(true);
             refreshPlayGlyph();
@@ -32,8 +32,8 @@ public:
         loopButton.setClickingTogglesState(true);
         loopButton.setToggleState(!processorRef.isSongMode(), juce::dontSendNotification);
         // Active loop is shown by tinting the text accent, not by filling the background.
-        loopButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(AndrotoneLookAndFeel::Palette::SURFACE));
-        loopButton.setColour(juce::TextButton::textColourOnId, juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
+        loopButton.setColour(juce::TextButton::buttonOnColourId, juce::Colour(CliptoneLookAndFeel::Palette::SURFACE));
+        loopButton.setColour(juce::TextButton::textColourOnId, juce::Colour(CliptoneLookAndFeel::Palette::ACCENT));
         loopButton.onClick = [this]() {
             processorRef.setSongMode(!loopButton.getToggleState());
         };
@@ -140,7 +140,7 @@ private:
         // Count-in shows as a negative position.
         position.setColour(juce::Label::textColourId, processorRef.getSongPosition() < 0.0
                                                           ? juce::Colour(0xFF4FC3F7)
-                                                          : juce::Colour(AndrotoneLookAndFeel::Palette::TEXT));
+                                                          : juce::Colour(CliptoneLookAndFeel::Palette::TEXT));
         recordButton.setToggleState(processorRef.isRecording(), juce::dontSendNotification);
         // Reflect state that a loaded set (or the host) may change.
         if (quantization.getSelectedItemIndex() != processorRef.getQuantizationIndex()) {
@@ -183,7 +183,7 @@ private:
     static juce::String playGlyph() { return juce::String::fromUTF8("\xe2\x96\xb6"); }  // ▶
     static juce::String stopGlyph() { return juce::String::fromUTF8("\xe2\x96\xa0"); }  // ■
 
-    AndrotoneAudioProcessor& processorRef;
+    CliptoneAudioProcessor& processorRef;
     juce::TextButton playButton;
     juce::TextButton stopButton;
     juce::TextButton loopButton;

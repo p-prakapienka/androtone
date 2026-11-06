@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "../PluginProcessor.h"
-#include "AndrotoneLookAndFeel.h"
+#include "CliptoneLookAndFeel.h"
 #include "ClipPropertiesPanel.h"
 
 // A clip slot that reports both press and release, which the Gate and Repeat launch modes need.
@@ -69,7 +69,7 @@ public:
     // Asks the editor to show a clip in the Clip tab.
     std::function<void(int, int)> onOpenClip;
 
-    explicit SessionTab(AndrotoneAudioProcessor& p) : processorRef(p) {
+    explicit SessionTab(CliptoneAudioProcessor& p) : processorRef(p) {
         numTracks = processorRef.getNumActiveTracks();
         numClips = processorRef.getNumActiveClips();
 
@@ -78,7 +78,7 @@ public:
         stopButtons = std::vector<juce::TextButton>(static_cast<size_t>(numTracks));
         trackLabels = std::vector<juce::TextButton>(static_cast<size_t>(numTracks));
 
-        const juce::Colour muted { AndrotoneLookAndFeel::Palette::TEXT_MUTED };
+        const juce::Colour muted { CliptoneLookAndFeel::Palette::TEXT_MUTED };
 
         editToggle.setButtonText(juce::String::fromUTF8("\xe2\x9c\x8e")); // ✎
         editToggle.setClickingTogglesState(true);
@@ -216,7 +216,7 @@ public:
     }
 
 private:
-    AndrotoneAudioProcessor& processorRef;
+    CliptoneAudioProcessor& processorRef;
     int numTracks = 0;
     int numClips = 0;
 
@@ -260,7 +260,7 @@ private:
         }
         slot.styledAs = style;
         if (!has && !recording) {
-            const juce::Colour muted = juce::Colour(armed ? 0xFFE57373 : AndrotoneLookAndFeel::Palette::TEXT_MUTED);
+            const juce::Colour muted = juce::Colour(armed ? 0xFFE57373 : CliptoneLookAndFeel::Palette::TEXT_MUTED);
             slot.setButtonText(armed ? juce::String::fromUTF8("\xe2\x97\x8f") : juce::String("+"));
             slot.setColour(juce::TextButton::buttonColourId, juce::Colours::transparentBlack);
             slot.setColour(juce::TextButton::buttonOnColourId, juce::Colours::transparentBlack);
@@ -270,8 +270,8 @@ private:
         } else {
             slot.setColour(juce::TextButton::buttonColourId, colour.withAlpha(0.28f));
             slot.setColour(juce::TextButton::buttonOnColourId, colour);
-            slot.setColour(juce::TextButton::textColourOffId, juce::Colour(AndrotoneLookAndFeel::Palette::TEXT));
-            slot.setColour(juce::TextButton::textColourOnId, juce::Colour(AndrotoneLookAndFeel::Palette::BACKGROUND));
+            slot.setColour(juce::TextButton::textColourOffId, juce::Colour(CliptoneLookAndFeel::Palette::TEXT));
+            slot.setColour(juce::TextButton::textColourOnId, juce::Colour(CliptoneLookAndFeel::Palette::BACKGROUND));
             slot.setColour(juce::ComboBox::outlineColourId, colour.withAlpha(0.6f));
         }
     }

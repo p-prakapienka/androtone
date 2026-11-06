@@ -3,14 +3,14 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <memory>
 #include "PluginProcessor.h"
-#include "Ui/AndrotoneLookAndFeel.h"
+#include "Ui/CliptoneLookAndFeel.h"
 
-class AndrotoneAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer {
+class CliptoneAudioProcessorEditor : public juce::AudioProcessorEditor, private juce::Timer {
 public:
     void openClip(int trackIndex, int clipIndex);
 
-    explicit AndrotoneAudioProcessorEditor(AndrotoneAudioProcessor&);
-    ~AndrotoneAudioProcessorEditor() override;
+    explicit CliptoneAudioProcessorEditor(CliptoneAudioProcessor&);
+    ~CliptoneAudioProcessorEditor() override;
 
     void paint(juce::Graphics&) override;
     void resized() override;
@@ -19,9 +19,9 @@ private:
     void timerCallback() override;
     void buildTabs();
 
-    AndrotoneAudioProcessor& processorRef;
+    CliptoneAudioProcessor& processorRef;
     int shownSetVersion = 0;
-    AndrotoneLookAndFeel lookAndFeel;
+    CliptoneLookAndFeel lookAndFeel;
     std::unique_ptr<juce::Component> projectTab;
     std::unique_ptr<juce::Component> sessionTab;
     std::unique_ptr<juce::Component> clipTab;
@@ -32,5 +32,5 @@ private:
     juce::TabbedComponent tabs { juce::TabbedButtonBar::TabsAtTop };
     std::unique_ptr<juce::Component> controlPanel;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(AndrotoneAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(CliptoneAudioProcessorEditor)
 };

@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "../PluginProcessor.h"
-#include "AndrotoneLookAndFeel.h"
+#include "CliptoneLookAndFeel.h"
 
 // Piano-roll editor for one MIDI clip.
 //
@@ -22,7 +22,7 @@
 // per gesture.
 class NoteGrid : public juce::Component, private juce::Timer {
 public:
-    explicit NoteGrid(AndrotoneAudioProcessor& p) : processorRef(p) {
+    explicit NoteGrid(CliptoneAudioProcessor& p) : processorRef(p) {
         startTimerHz(30);
     }
 
@@ -97,11 +97,11 @@ public:
     }
 
     void paint(juce::Graphics& g) override {
-        const juce::Colour background { AndrotoneLookAndFeel::Palette::BACKGROUND };
-        const juce::Colour surface { AndrotoneLookAndFeel::Palette::SURFACE };
-        const juce::Colour outline { AndrotoneLookAndFeel::Palette::OUTLINE };
-        const juce::Colour muted { AndrotoneLookAndFeel::Palette::TEXT_MUTED };
-        const juce::Colour accent { AndrotoneLookAndFeel::Palette::ACCENT };
+        const juce::Colour background { CliptoneLookAndFeel::Palette::BACKGROUND };
+        const juce::Colour surface { CliptoneLookAndFeel::Palette::SURFACE };
+        const juce::Colour outline { CliptoneLookAndFeel::Palette::OUTLINE };
+        const juce::Colour muted { CliptoneLookAndFeel::Palette::TEXT_MUTED };
+        const juce::Colour accent { CliptoneLookAndFeel::Palette::ACCENT };
 
         g.fillAll(background);
         if (data == nullptr) {
@@ -413,7 +413,7 @@ private:
     static constexpr int VELOCITY_HEIGHT = 60;
     static constexpr float RESIZE_HANDLE = 8.0f;
 
-    AndrotoneAudioProcessor& processorRef;
+    CliptoneAudioProcessor& processorRef;
     int trackIndex = -1;
     int clipIndex = -1;
     ClipData::Ptr data;

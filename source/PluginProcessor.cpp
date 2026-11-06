@@ -8,7 +8,7 @@
 // on the desktop CMake include path; reference it relatively so both builds resolve it.
 #include "../JuceLibraryCode/BinaryData.h"
 
-AndrotoneAudioProcessor::AndrotoneAudioProcessor() :
+CliptoneAudioProcessor::CliptoneAudioProcessor() :
     AudioProcessor(
         BusesProperties().withOutput("Output", juce::AudioChannelSet::stereo(), true)
     ) {
@@ -17,7 +17,7 @@ AndrotoneAudioProcessor::AndrotoneAudioProcessor() :
 
 // Default instruments: track 1 plays the kick sample, tracks 2 and 3 are synths voiced like the
 // original saw (dark, short tail) and sine tracks; the rest are plain synths.
-void AndrotoneAudioProcessor::applyDefaultDevices() {
+void CliptoneAudioProcessor::applyDefaultDevices() {
     for (int t = 0; t < NUM_TRACKS; t++) {
         auto& device = devices[static_cast<size_t>(t)];
         device.effectParams.resetTo(effectSpecs());
@@ -42,7 +42,7 @@ void AndrotoneAudioProcessor::applyDefaultDevices() {
 
 // Rebuilds a track's synthesiser for an instrument type. The audio thread must not be rendering
 // this synth (call from the constructor or with processing suspended).
-void AndrotoneAudioProcessor::configureInstrument(int t, InstrumentType type) {
+void CliptoneAudioProcessor::configureInstrument(int t, InstrumentType type) {
     auto& synth = synths[static_cast<size_t>(t)];
     auto& device = devices[static_cast<size_t>(t)];
     const int channel = t + 1;
@@ -74,7 +74,7 @@ void AndrotoneAudioProcessor::configureInstrument(int t, InstrumentType type) {
     synth.setCurrentPlaybackSampleRate(currentSampleRate);
 }
 
-void AndrotoneAudioProcessor::setInstrument(int t, InstrumentType type) {
+void CliptoneAudioProcessor::setInstrument(int t, InstrumentType type) {
     if (t < 0 || t >= NUM_TRACKS || devices[static_cast<size_t>(t)].instrument.load() == type) {
         return;
     }
@@ -84,7 +84,7 @@ void AndrotoneAudioProcessor::setInstrument(int t, InstrumentType type) {
     suspendProcessing(false);
 }
 
-void AndrotoneAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
+void CliptoneAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlock) {
     currentSampleRate = sampleRate;
     for (auto& synth : synths) {
         synth.setCurrentPlaybackSampleRate(sampleRate);
@@ -104,16 +104,16 @@ void AndrotoneAudioProcessor::prepareToPlay(double sampleRate, int samplesPerBlo
     }
 }
 
-void AndrotoneAudioProcessor::releaseResources() {
+void CliptoneAudioProcessor::releaseResources() {
     mixer.reset();
 }
 
-bool AndrotoneAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
+bool CliptoneAudioProcessor::isBusesLayoutSupported(const BusesLayout& layouts) const {
     const auto& main = layouts.getMainOutputChannelSet();
     return main == juce::AudioChannelSet::mono() || main == juce::AudioChannelSet::stereo();
 }
 
-void AndrotoneAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
+void CliptoneAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi) {
     juce::ScopedNoDenormals noDenormals;
     const int numSamples = buffer.getNumSamples();
 
@@ -161,11 +161,11 @@ void AndrotoneAudioProcessor::processBlock(juce::AudioBuffer<float>& buffer, juc
     metronome.render(buffer, rendered, numSamples - rendered);
 }
 
-juce::AudioProcessorEditor* AndrotoneAudioProcessor::createEditor() {
-    return new AndrotoneAudioProcessorEditor(*this);
+juce::AudioProcessorEditor* CliptoneAudioProcessor::createEditor() {
+    return new CliptoneAudioProcessorEditor(*this);
 }
 
-juce::ValueTree AndrotoneAudioProcessor::createSetState() {
+juce::ValueTree CliptoneAudioProcessor::createSetState() {
     SetSerializer::Extras extras { metronome.getVolume(), exclusiveSolo.load(), exclusiveArm.load(), recorder.getQuantization(), {} };
     for (int t = 0; t < NUM_TRACKS; t++) {
         auto& snapshot = extras.devices[static_cast<size_t>(t)];
@@ -180,8 +180,8 @@ juce::ValueTree AndrotoneAudioProcessor::createSetState() {
     return SetSerializer::save(sequencer, mixer, extras);
 }
 
-bool AndrotoneAudioProcessor::restoreSetState(const juce::ValueTree& set) {
-    if (!set.hasType("ANDROTONE_SET")) {
+bool CliptoneAudioProcessor::restoreSetState(const juce::ValueTree& set) {
+    if (!set.hasType("CLIPTONE_SET")) {
         return false;
     }
     // Swap the whole set with the audio thread held off, then start a fresh undo history.
@@ -213,7 +213,7 @@ bool AndrotoneAudioProcessor::restoreSetState(const juce::ValueTree& set) {
     return ok;
 }
 
-bool AndrotoneAudioProcessor::saveSet(const juce::File& file) {
+bool CliptoneAudioProcessor::saveSet(const juce::File& file) {
     const auto xml = createSetState().createXml();
     if (xml == nullptr || !xml->writeTo(file)) {
         return false;
@@ -222,7 +222,7 @@ bool AndrotoneAudioProcessor::saveSet(const juce::File& file) {
     return true;
 }
 
-bool AndrotoneAudioProcessor::loadSet(const juce::File& file) {
+bool CliptoneAudioProcessor::loadSet(const juce::File& file) {
     const auto xml = juce::XmlDocument::parse(file);
     if (xml == nullptr || !restoreSetState(juce::ValueTree::fromXml(*xml))) {
         return false;
@@ -231,7 +231,7 @@ bool AndrotoneAudioProcessor::loadSet(const juce::File& file) {
     return true;
 }
 
-void AndrotoneAudioProcessor::newSet() {
+void CliptoneAudioProcessor::newSet() {
     suspendProcessing(true);
     sequencer.setPlaying(false);
     sequencer.loadProject(ProjectPresets::defaultProject);
@@ -244,18 +244,18 @@ void AndrotoneAudioProcessor::newSet() {
 }
 
 // Plugin state (host session): the whole set.
-void AndrotoneAudioProcessor::getStateInformation(juce::MemoryBlock& destination) {
+void CliptoneAudioProcessor::getStateInformation(juce::MemoryBlock& destination) {
     if (const auto xml = createSetState().createXml()) {
         copyXmlToBinary(*xml, destination);
     }
 }
 
-void AndrotoneAudioProcessor::setStateInformation(const void* data, int sizeInBytes) {
+void CliptoneAudioProcessor::setStateInformation(const void* data, int sizeInBytes) {
     if (const auto xml = getXmlFromBinary(data, sizeInBytes)) {
         restoreSetState(juce::ValueTree::fromXml(*xml));
     }
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter() {
-    return new AndrotoneAudioProcessor();
+    return new CliptoneAudioProcessor();
 }

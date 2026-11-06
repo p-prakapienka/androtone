@@ -3,7 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "../PluginProcessor.h"
-#include "AndrotoneLookAndFeel.h"
+#include "CliptoneLookAndFeel.h"
 
 // The arrangement timeline: one lane per track holding clips placed in song time.
 //
@@ -12,7 +12,7 @@
 // content fills the new length), double-tap to delete. Edits commit as one undo step per gesture.
 class ArrangementView : public juce::Component, private juce::Timer {
 public:
-    explicit ArrangementView(AndrotoneAudioProcessor& p) : processorRef(p) {
+    explicit ArrangementView(CliptoneAudioProcessor& p) : processorRef(p) {
         startTimerHz(30);
     }
 
@@ -71,11 +71,11 @@ public:
     }
 
     void paint(juce::Graphics& g) override {
-        const juce::Colour background { AndrotoneLookAndFeel::Palette::BACKGROUND };
-        const juce::Colour surface { AndrotoneLookAndFeel::Palette::SURFACE };
-        const juce::Colour outline { AndrotoneLookAndFeel::Palette::OUTLINE };
-        const juce::Colour muted { AndrotoneLookAndFeel::Palette::TEXT_MUTED };
-        const juce::Colour accent { AndrotoneLookAndFeel::Palette::ACCENT };
+        const juce::Colour background { CliptoneLookAndFeel::Palette::BACKGROUND };
+        const juce::Colour surface { CliptoneLookAndFeel::Palette::SURFACE };
+        const juce::Colour outline { CliptoneLookAndFeel::Palette::OUTLINE };
+        const juce::Colour muted { CliptoneLookAndFeel::Palette::TEXT_MUTED };
+        const juce::Colour accent { CliptoneLookAndFeel::Palette::ACCENT };
         const auto data = processorRef.getArrangement();
 
         g.fillAll(background);
@@ -107,7 +107,7 @@ public:
         // Lanes.
         for (int t = 0; t < numTracks(); t++) {
             const auto lane = laneBounds(t);
-            const auto colour = AndrotoneAudioProcessor::getTrackColour(t);
+            const auto colour = CliptoneAudioProcessor::getTrackColour(t);
             g.setColour(t % 2 == 0 ? surface.withAlpha(0.5f) : background);
             g.fillRect(lane.withX(static_cast<float>(HEADER_WIDTH)));
             auto header = lane.withWidth(static_cast<float>(HEADER_WIDTH) - 4.0f);
@@ -133,7 +133,7 @@ public:
                 drawNotes(g, *data, t, clips[static_cast<size_t>(i)], box.reduced(2.0f, 12.0f), colour);
                 const auto& content = clips[static_cast<size_t>(i)].content;
                 if (content != nullptr && content->name.isNotEmpty()) {
-                    g.setColour(juce::Colour(AndrotoneLookAndFeel::Palette::TEXT));
+                    g.setColour(juce::Colour(CliptoneLookAndFeel::Palette::TEXT));
                     g.setFont(juce::FontOptions(10.0f));
                     g.drawText(content->name, box.reduced(4.0f, 1.0f).removeFromTop(11.0f), juce::Justification::centredLeft);
                 }
@@ -330,7 +330,7 @@ private:
     static constexpr int HEADER_WIDTH = 44;
     static constexpr int RULER_HEIGHT = 28;
 
-    AndrotoneAudioProcessor& processorRef;
+    CliptoneAudioProcessor& processorRef;
     double viewStart = 0.0;
     double viewLength = 64.0; // 16 bars
     int selectedTrack = -1;
@@ -527,7 +527,7 @@ private:
 
 class ArrangeTab : public juce::Component, private juce::Timer {
 public:
-    explicit ArrangeTab(AndrotoneAudioProcessor& p) : processorRef(p), view(p) {
+    explicit ArrangeTab(CliptoneAudioProcessor& p) : processorRef(p), view(p) {
         addAndMakeVisible(view);
         view.onSelectionChanged = [this]() { updateButtons(); };
 
@@ -600,7 +600,7 @@ public:
     }
 
 private:
-    AndrotoneAudioProcessor& processorRef;
+    CliptoneAudioProcessor& processorRef;
     ArrangementView view;
     juce::TextButton backButton, recordButton, loopButton, duplicateButton, deleteButton, zoomOut, zoomIn, reenableButton;
     juce::ComboBox automationChooser;

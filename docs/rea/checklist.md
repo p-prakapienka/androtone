@@ -1,6 +1,6 @@
 # Live-style workflow checklist
 
-Androtone implements the clip-based workflow described in public DAW documentation (the
+Cliptone implements the clip-based workflow described in public DAW documentation (the
 Ableton Live 12 manual), as an original program. Nothing is decompiled or copied: the manual is
 read for **behaviour only**, paraphrased here, and every implementation decision is our own.
 
@@ -10,7 +10,7 @@ applied to a clean-room build instead of a binary:
 1. Turn the request into a checklist of questions, each naming the evidence it needs.
 2. Reuse existing state; start from the smallest overview.
 3. Corroborate each conclusion with the evidence type it requires — here, a documented behaviour
-   (manual §) and an automated test or a screenshot check in Androtone.
+   (manual §) and an automated test or a screenshot check in Cliptone.
 4. Keep a ledger (`ledger.md`) separating documented behaviour, design choices and unknowns.
 5. Before finishing, revisit this list and mark each item **done**, **partial** or **open**.
 
@@ -118,7 +118,7 @@ transpose, keyboard shortcut parity, cue outputs, group tracks, MPE, tuning syst
 Every item above was revisited against its evidence: 52 **done**, 1 **partial**, 0 **open**.
 
 - Each "T" item is covered by `tests/SequencerTests.cpp` (headless; build with
-  `-DANDROTONE_BUILD_TESTS=ON`, run `AndrotoneTests`). All checks pass on Linux / GCC.
+  `-DCLIPTONE_BUILD_TESTS=ON`, run `CliptoneTests`). All checks pass on Linux / GCC.
 - Each "S" item was checked by screenshots of the standalone build under Xvfb.
 - **A8 partial:** scene follow actions are not implemented. Song mode (loop button off) covers
   chaining scenes in order.

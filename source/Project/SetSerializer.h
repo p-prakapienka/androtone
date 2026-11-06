@@ -100,7 +100,7 @@ namespace SetSerializer {
     }
 
     inline juce::ValueTree save(StepSequencer& sequencer, const Mixer& mixer, const Extras& extras) {
-        juce::ValueTree set("ANDROTONE_SET");
+        juce::ValueTree set("CLIPTONE_SET");
         set.setProperty("version", FORMAT_VERSION, nullptr);
         set.setProperty("tempo", sequencer.getTempo(), nullptr);
         set.setProperty("quantization", sequencer.getQuantizationIndex(), nullptr);
@@ -203,7 +203,7 @@ namespace SetSerializer {
 
     // Restores a set. Returns false (and changes nothing) when the tree isn't a set.
     inline bool load(const juce::ValueTree& set, StepSequencer& sequencer, Mixer& mixer, Extras& extras) {
-        if (!set.hasType("ANDROTONE_SET")) {
+        if (!set.hasType("CLIPTONE_SET")) {
             return false;
         }
         int numTracks = 0;

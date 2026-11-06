@@ -9,7 +9,7 @@
 #include "Ui/SessionTab.h"
 #include "Ui/SettingsTab.h"
 
-AndrotoneAudioProcessorEditor::AndrotoneAudioProcessorEditor(AndrotoneAudioProcessor& p) :
+CliptoneAudioProcessorEditor::CliptoneAudioProcessorEditor(CliptoneAudioProcessor& p) :
     AudioProcessorEditor(&p), processorRef(p) {
 
     setLookAndFeel(&lookAndFeel);
@@ -27,30 +27,30 @@ AndrotoneAudioProcessorEditor::AndrotoneAudioProcessorEditor(AndrotoneAudioProce
     startTimerHz(4);
 }
 
-AndrotoneAudioProcessorEditor::~AndrotoneAudioProcessorEditor() {
+CliptoneAudioProcessorEditor::~CliptoneAudioProcessorEditor() {
     setLookAndFeel(nullptr);
 }
 
-void AndrotoneAudioProcessorEditor::paint(juce::Graphics& g) {
+void CliptoneAudioProcessorEditor::paint(juce::Graphics& g) {
     g.fillAll(getLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId));
     g.setColour(juce::Colours::white);
     g.setFont(juce::FontOptions(24.0f));
 }
 
-void AndrotoneAudioProcessorEditor::resized() {
+void CliptoneAudioProcessorEditor::resized() {
     auto bounds = getLocalBounds();
     controlPanel->setBounds(bounds.removeFromBottom(60));
     tabs.setBounds(bounds);
 }
 
-void AndrotoneAudioProcessorEditor::openClip(int trackIndex, int clipIndex) {
+void CliptoneAudioProcessorEditor::openClip(int trackIndex, int clipIndex) {
     static_cast<ClipTab*>(clipTab.get())->showClip(trackIndex, clipIndex);
     tabs.setCurrentTabIndex(3);
 }
 
 // (Re)creates every tab — on open, and whenever a different set is loaded (its scene / track
 // counts and content may differ).
-void AndrotoneAudioProcessorEditor::buildTabs() {
+void CliptoneAudioProcessorEditor::buildTabs() {
     const int current = tabs.getNumTabs() > 0 ? tabs.getCurrentTabIndex() : 1;
     tabs.clearTabs();
 
@@ -76,7 +76,7 @@ void AndrotoneAudioProcessorEditor::buildTabs() {
     shownSetVersion = processorRef.getSetVersion();
 }
 
-void AndrotoneAudioProcessorEditor::timerCallback() {
+void CliptoneAudioProcessorEditor::timerCallback() {
     if (processorRef.getSetVersion() != shownSetVersion) {
         buildTabs();
     }

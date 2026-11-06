@@ -2,7 +2,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 
-class AndrotoneLookAndFeel : public juce::LookAndFeel_V4 {
+class CliptoneLookAndFeel : public juce::LookAndFeel_V4 {
 public:
     // Shared palette (ARGB), so components can reference the same colours the look and feel uses.
     struct Palette {
@@ -14,7 +14,7 @@ public:
         static constexpr juce::uint32 TEXT_MUTED = 0xFF6E8A8F; // secondary text (#6E8A8F)
     };
 
-    AndrotoneLookAndFeel() {
+    CliptoneLookAndFeel() {
         const juce::Colour background { Palette::BACKGROUND };
         const juce::Colour surface { Palette::SURFACE };
         const juce::Colour outline { Palette::OUTLINE };

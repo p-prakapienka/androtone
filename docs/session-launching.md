@@ -2,7 +2,7 @@
 
 Behaviour of the Session tab's clip launcher. The feature set follows the clip-launching workflow
 described in public DAW documentation (launch quantization, launch modes, follow actions); the
-implementation, naming and UI are Androtone's own.
+implementation, naming and UI are Cliptone's own.
 
 ## Timing model
 

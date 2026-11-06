@@ -3,7 +3,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "../PluginProcessor.h"
-#include "AndrotoneLookAndFeel.h"
+#include "CliptoneLookAndFeel.h"
 #include "ClipPropertiesPanel.h"
 #include "NoteGrid.h"
 
@@ -13,12 +13,12 @@
 // (transpose, quantize, mute), each as one undo step.
 class ClipTab : public juce::Component, private juce::Timer {
 public:
-    explicit ClipTab(AndrotoneAudioProcessor& p) : processorRef(p), grid(p) {
+    explicit ClipTab(CliptoneAudioProcessor& p) : processorRef(p), grid(p) {
         addAndMakeVisible(grid);
         grid.onSelectionChanged = [this]() { updateButtons(); };
 
         addAndMakeVisible(title);
-        title.setColour(juce::Label::textColourId, juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
+        title.setColour(juce::Label::textColourId, juce::Colour(CliptoneLookAndFeel::Palette::ACCENT));
         // Tap the name to rename the clip.
         title.setEditable(false, true, false);
         title.setTooltip("Double-tap to rename the clip");
@@ -180,7 +180,7 @@ public:
     }
 
 private:
-    AndrotoneAudioProcessor& processorRef;
+    CliptoneAudioProcessor& processorRef;
     NoteGrid grid;
     juce::Label title;
     juce::TextButton lengthDown, lengthUp, loopButton, snapButton, foldButton, quantizeButton;
@@ -216,7 +216,7 @@ private:
                                               0xFF4FC3F7, 0xFF9575CD, 0xFFF06292, 0xFFBDBDBD };
         juce::PopupMenu menu;
         for (int i = 0; i < 10; i++) {
-            const auto colour = palette[i] == 0 ? AndrotoneAudioProcessor::getTrackColour(grid.getTrack()) : juce::Colour(palette[i]);
+            const auto colour = palette[i] == 0 ? CliptoneAudioProcessor::getTrackColour(grid.getTrack()) : juce::Colour(palette[i]);
             menu.addColouredItem(i + 1, i == 0 ? "Track colour" : "Colour " + juce::String(i), colour);
         }
         menu.showMenuAsync(juce::PopupMenu::Options().withTargetComponent(&colourButton), [this](int result) {

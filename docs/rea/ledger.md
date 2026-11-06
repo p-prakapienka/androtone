@@ -52,7 +52,7 @@ app. "Unknown" = not settled by the pages read; resolved here by a design choice
 | Post send + mute   | A muted track's post-fader sends are silent; pre sends keep sounding                             | inferred from pre/post definition         |
 | Back to Arrangement| Resumes at the current song position (mid-clip, chasing notes)                                   | manual silent                             |
 | Count-in           | Applies to session recording too                                                                 | manual silent                             |
-| Plugin transport   | When the host is playing, its tempo and position drive Androtone; otherwise the internal clock  | not a manual topic                        |
+| Plugin transport   | When the host is playing, its tempo and position drive Cliptone; otherwise the internal clock  | not a manual topic                        |
 | Input routing      | Incoming MIDI plays only on armed tracks (re-channelled to each), not on track 1 by default | arm = monitor, simplest model            |
 | New-clip length    | A recorded clip ends on the quantization boundary after stop; rounded up to whole beats | clean loops                               |
 | Arrangement clips  | Placing a clip trims/splits what it covers; looping content fills the clip, notes cut at its end | mirrors note overlap rule            |

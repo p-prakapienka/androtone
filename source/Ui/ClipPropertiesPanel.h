@@ -3,18 +3,18 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "../PluginProcessor.h"
-#include "AndrotoneLookAndFeel.h"
+#include "CliptoneLookAndFeel.h"
 
 // Launch-mode and follow-action settings for one clip, shown in a call-out from the Session tab.
 // Every control writes straight into the clip's (atomic) ClipSettings, so changes apply live.
 class ClipPropertiesPanel : public juce::Component {
 public:
-    ClipPropertiesPanel(AndrotoneAudioProcessor& p, int trackIndex, int clipIndex) :
+    ClipPropertiesPanel(CliptoneAudioProcessor& p, int trackIndex, int clipIndex) :
         settings(p.getClipSettings(trackIndex, clipIndex)) {
 
         title.setText("Track " + juce::String(trackIndex + 1) + "  /  Clip " + juce::String(clipIndex + 1),
                       juce::dontSendNotification);
-        title.setColour(juce::Label::textColourId, juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
+        title.setColour(juce::Label::textColourId, juce::Colour(CliptoneLookAndFeel::Palette::ACCENT));
         addAndMakeVisible(title);
 
         setUpLabel(launchLabel, "Launch");
@@ -181,7 +181,7 @@ private:
 
     void setUpLabel(juce::Label& label, const juce::String& text) {
         label.setText(text, juce::dontSendNotification);
-        label.setColour(juce::Label::textColourId, juce::Colour(AndrotoneLookAndFeel::Palette::TEXT_MUTED));
+        label.setColour(juce::Label::textColourId, juce::Colour(CliptoneLookAndFeel::Palette::TEXT_MUTED));
         addAndMakeVisible(label);
     }
 

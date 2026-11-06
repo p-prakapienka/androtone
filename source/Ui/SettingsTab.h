@@ -3,12 +3,12 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 
 #include "../PluginProcessor.h"
-#include "AndrotoneLookAndFeel.h"
+#include "CliptoneLookAndFeel.h"
 
 // Global settings: groove (swing) and metronome level.
 class SettingsTab : public juce::Component {
 public:
-    explicit SettingsTab(AndrotoneAudioProcessor& p) : processorRef(p) {
+    explicit SettingsTab(CliptoneAudioProcessor& p) : processorRef(p) {
         setUpSlider(swingTiming, swingTimingLabel, "Swing timing",
                     "Delays off-beat 16ths; 100 % puts them on the triplet position",
                     processorRef.getSwingTiming() * 100.0, [this]() { applySwing(); });
@@ -37,7 +37,7 @@ public:
         countInLabel.setText("Count-in", juce::dontSendNotification);
         recordQuantizeLabel.setText("Record quantization", juce::dontSendNotification);
         for (auto* label : { &countInLabel, &recordQuantizeLabel }) {
-            label->setColour(juce::Label::textColourId, juce::Colour(AndrotoneLookAndFeel::Palette::TEXT_MUTED));
+            label->setColour(juce::Label::textColourId, juce::Colour(CliptoneLookAndFeel::Palette::TEXT_MUTED));
             addAndMakeVisible(*label);
         }
         countIn.addItemList({ "None", "1 Bar", "2 Bars", "4 Bars" }, 1);
@@ -57,7 +57,7 @@ public:
         addAndMakeVisible(recordQuantize);
 
         heading.setText("Groove", juce::dontSendNotification);
-        heading.setColour(juce::Label::textColourId, juce::Colour(AndrotoneLookAndFeel::Palette::ACCENT));
+        heading.setColour(juce::Label::textColourId, juce::Colour(CliptoneLookAndFeel::Palette::ACCENT));
         addAndMakeVisible(heading);
     }
 
@@ -86,7 +86,7 @@ public:
     }
 
 private:
-    AndrotoneAudioProcessor& processorRef;
+    CliptoneAudioProcessor& processorRef;
     juce::Label heading;
     juce::ToggleButton exclusiveSolo, exclusiveArm, followActions;
     juce::ComboBox countIn, recordQuantize;
@@ -102,7 +102,7 @@ private:
     void setUpSlider(juce::Slider& slider, juce::Label& label, const juce::String& name, const juce::String& tip,
                      double value, std::function<void()> onChange) {
         label.setText(name, juce::dontSendNotification);
-        label.setColour(juce::Label::textColourId, juce::Colour(AndrotoneLookAndFeel::Palette::TEXT_MUTED));
+        label.setColour(juce::Label::textColourId, juce::Colour(CliptoneLookAndFeel::Palette::TEXT_MUTED));
         addAndMakeVisible(label);
         slider.setSliderStyle(juce::Slider::LinearBar);
         slider.setRange(0.0, 100.0, 1.0);
