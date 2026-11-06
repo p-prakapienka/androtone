@@ -1,0 +1,49 @@
+name: Build
+
+on:
+  push:
+    branches: [ccr-2f1e2138-49ckmf]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # Windows x64 Release: the standalone app and the VST3, plus the headless tests. Download the
+  # zip from the run's Artifacts.
+  windows:
+    name: Windows (standalone + VST3)
+    runs-on: windows-latest
+    env:
+      # CPM downloads JUCE at configure time; keep the download between runs.
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/.cpm-cache
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache JUCE download
+        uses: actions/cache@v4
+        with:
+          path: .cpm-cache
+          key: cpm-${{ runner.os }}-${{ hashFiles('Builds/desktop/CMakeLists.txt') }}
+
+      - name: Configure
+        run: cmake -S Builds/desktop -B build -A x64 -DANDROTONE_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --config Release --parallel --target Androtone_Standalone Androtone_VST3 AndrotoneTests
+
+      - name: Run tests
+        run: ./build/AndrotoneTests_artefacts/Release/AndrotoneTests.exe
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $package = "dist/androtone-windows-x64"
+          New-Item -ItemType Directory -Force "$package/VST3" | Out-Null
+          Copy-Item "build/Androtone_artefacts/Release/Standalone/Androtone.exe" $package
+          Copy-Item "build/Androtone_artefacts/Release/VST3/Androtone.vst3" "$package/VST3" -Recurse
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: androtone-windows-x64
+          path: dist/androtone-windows-x64
+          if-no-files-found: error
