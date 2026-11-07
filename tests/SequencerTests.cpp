@@ -14,6 +14,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <map>
+#include <memory>
 
 // Every check is reported (ok / FAIL with its line) to stdout and to CliptoneTests.log, flushed as
 // it happens, so a CI log shows exactly how far the run got even if the process dies.
@@ -48,8 +49,12 @@ constexpr double SR = 48000.0;
 constexpr int BLOCK = 512;
 // 120 bpm: samplesPerBeat = 24000, step = 6000 samples, bar = 96000
 
+// Sequencers and mixers live on the heap here: each sequencer holds large fixed-size event queues
+// (so the audio thread never allocates), and dozens of them as locals of main() overflow the 1 MB
+// default stack on Windows.
 struct Harness {
-    StepSequencer seq;
+    std::unique_ptr<StepSequencer> owned = std::make_unique<StepSequencer>();
+    StepSequencer& seq = *owned;
     long long now = 0;
     std::vector<Ev> evs;
     Harness() { seq.prepareToPlay(SR); seq.setTempo(120.0); }
@@ -470,7 +475,7 @@ int main() {
             for (int b = 0; b < blocks; b++) mixer.mix(out, tracks); // let gain ramps settle
             return std::make_pair(out.getSample(0, 255), out.getSample(1, 255));
         };
-        Mixer mixer; mixer.prepare(48000.0); mixer.setMasterVolume(1.0f);
+        auto mixerOwned = std::make_unique<Mixer>(); Mixer& mixer = *mixerOwned; mixer.prepare(48000.0); mixer.setMasterVolume(1.0f);
         mixer.setReturnLevel(0, 0.0f); mixer.setReturnLevel(1, 0.0f);
         std::array<float, NUM_TRACKS> in {}; in[0] = 0.5f; in[1] = 0.25f;
         auto lr = runMixer(mixer, in);
@@ -492,7 +497,7 @@ int main() {
     // Sends: post follows mute, pre doesn't (delay return measured through its tail)
     {
         auto energyWithMute = [](bool pre) {
-            Mixer mixer; mixer.prepare(48000.0); mixer.setMasterVolume(1.0f);
+            auto mixerOwned = std::make_unique<Mixer>(); Mixer& mixer = *mixerOwned; mixer.prepare(48000.0); mixer.setMasterVolume(1.0f);
             mixer.setReturnLevel(Mixer::REVERB_RETURN, 0.0f);
             mixer.setReturnPre(Mixer::DELAY_RETURN, pre);
             mixer.setTrackDelaySend(0, 1.0f);
@@ -683,7 +688,7 @@ int main() {
 
     // G1/G2: a set survives save -> XML -> load (clips, settings, arrangement, mixer, transport)
     {
-        StepSequencer a; Mixer ma;
+        auto aOwned = std::make_unique<StepSequencer>(); StepSequencer& a = *aOwned; auto maOwned = std::make_unique<Mixer>(); Mixer& ma = *maOwned;
         a.setTempo(133.5); a.setQuantizationIndex(3); a.setSwing(0.4, 0.2); a.setLoop(true, 4.0, 12.0);
         a.setStartPosition(8.0); a.setCountInBars(2); a.setMetronome(true);
         auto clip = ClipData::createEmpty(8.0);
@@ -703,7 +708,7 @@ int main() {
 
         const auto xml = SetSerializer::save(a, ma, extras).createXml();
         CHECK(xml != nullptr, "set serialises to XML");
-        StepSequencer b; Mixer mb; SetSerializer::Extras loaded;
+        auto bOwned = std::make_unique<StepSequencer>(); StepSequencer& b = *bOwned; auto mbOwned = std::make_unique<Mixer>(); Mixer& mb = *mbOwned; SetSerializer::Extras loaded;
         CHECK(SetSerializer::load(juce::ValueTree::fromXml(*juce::XmlDocument::parse(xml->toString())), b, mb, loaded), "set loads");
         CHECK(std::abs(b.getTempo() - 133.5) < 1e-9 && b.getQuantizationIndex() == 3 && b.getCountInBars() == 2, "transport settings");
         CHECK(b.isLoopEnabled() && b.getLoopStart() == 4.0 && b.getLoopEnd() == 12.0 && b.getStartPosition() == 8.0, "loop + insert marker");
@@ -831,14 +836,14 @@ int main() {
     }
     // Devices saved with the set
     {
-        StepSequencer a; Mixer m;
+        auto aOwned = std::make_unique<StepSequencer>(); StepSequencer& a = *aOwned; auto mOwned = std::make_unique<Mixer>(); Mixer& m = *mOwned;
         SetSerializer::Extras extras;
         extras.devices[1].present = true;
         extras.devices[1].instrument = (int) InstrumentType::Drums;
         extras.devices[1].instrumentValues[DrumParam::Tune] = 1.5f;
         extras.devices[1].effectValues[EffectParam::FilterMode] = 2.0f;
         auto tree = SetSerializer::save(a, m, extras);
-        StepSequencer b; Mixer mb; SetSerializer::Extras loaded;
+        auto bOwned = std::make_unique<StepSequencer>(); StepSequencer& b = *bOwned; auto mbOwned = std::make_unique<Mixer>(); Mixer& mb = *mbOwned; SetSerializer::Extras loaded;
         SetSerializer::load(tree, b, mb, loaded);
         CHECK(loaded.devices[1].present && loaded.devices[1].instrument == (int) InstrumentType::Drums
               && loaded.devices[1].instrumentValues[DrumParam::Tune] == 1.5f && loaded.devices[1].effectValues[EffectParam::FilterMode] == 2.0f,
@@ -854,7 +859,7 @@ int main() {
         CHECK(ArrangementData::valueAt(arr.automation[0][AUTOMATE_VOLUME], 9.0) == 1.0f, "held after last point");
         CHECK(ArrangementData::valueAt(arr.automation[1][AUTOMATE_PAN], 0.0) == -1.0f, "held before first point");
 
-        Mixer mixer;
+        auto mixerOwned = std::make_unique<Mixer>(); Mixer& mixer = *mixerOwned;
         AutomationPlayer player;
         player.apply(arr, 2.0, mixer);
         CHECK(std::abs(mixer.getTrackVolume(0) - 0.5f) < 1e-6 && mixer.getTrackPan(1) == -1.0f, "applied to the mixer");
@@ -869,11 +874,11 @@ int main() {
         player.apply(arr, 3.0, mixer);
         CHECK(std::abs(mixer.getTrackVolume(0) - 0.75f) < 1e-6, "re-enabled automation applies again");
 
-        StepSequencer a; Mixer m; SetSerializer::Extras extras;
+        auto aOwned = std::make_unique<StepSequencer>(); StepSequencer& a = *aOwned; auto mOwned = std::make_unique<Mixer>(); Mixer& m = *mOwned; SetSerializer::Extras extras;
         auto data = ArrangementData::Ptr(new ArrangementData(arr));
         a.setArrangement(data);
         auto tree = SetSerializer::save(a, m, extras);
-        StepSequencer b; Mixer mb; SetSerializer::Extras loaded;
+        auto bOwned = std::make_unique<StepSequencer>(); StepSequencer& b = *bOwned; auto mbOwned = std::make_unique<Mixer>(); Mixer& mb = *mbOwned; SetSerializer::Extras loaded;
         SetSerializer::load(tree, b, mb, loaded);
         const auto& points = b.getArrangement()->automation[0][AUTOMATE_VOLUME];
         CHECK(points.size() == 2 && points[1].beat == 4.0 && points[1].value == 1.0f, "automation saved with the set");

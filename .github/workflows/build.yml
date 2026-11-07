@@ -30,8 +30,15 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel --target Cliptone_Standalone Cliptone_VST3 CliptoneTests
 
+      # Report the program's own exit code (PowerShell otherwise turns any failure, crashes
+      # included, into a plain 1).
       - name: Run tests
-        run: ./build/CliptoneTests_artefacts/Release/CliptoneTests.exe
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $false
+          & ./build/CliptoneTests_artefacts/Release/CliptoneTests.exe
+          $code = $LASTEXITCODE
+          Write-Host ("CliptoneTests exit code: {0} (0x{0:X8})" -f $code)
+          exit $code
 
       - name: Upload test log
         if: always()
