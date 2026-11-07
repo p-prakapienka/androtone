@@ -22,7 +22,7 @@ public:
             tracks[trackIndex].setChannel(trackIndex + 1);
         }
 
-        loadProject(ProjectPresets::defaultProject);
+        loadProject(ProjectPresets::strangerThings);
     }
 
     void prepareToPlay(double sampleRate) {
@@ -30,6 +30,12 @@ public:
     }
 
     void loadProject(const Project& project) {
+        juce::MidiBuffer discardedNoteOffs;
+        for (auto& track : tracks) {
+            track.reset(discardedNoteOffs);
+        }
+        sceneManager.reset();
+
         setTempo(project.tempo);
 
         numActiveTracks = juce::jmin(static_cast<int>(project.tracks.size()), NUM_TRACKS);
@@ -61,6 +67,7 @@ public:
         }
 
         sceneManager.setNumScenes(numActiveClips);
+        sceneManager.setCurrentScene(0);
     }
 
     void processBlock(juce::MidiBuffer& midi, int numSamples) {

@@ -6,7 +6,7 @@
 #include "AndrotoneLookAndFeel.h"
 
 // Transport controls shown at the bottom of the editor, outside (and shared across) the tabs.
-class ControlPanel : public juce::Component {
+class ControlPanel : public juce::Component, private juce::Timer {
 public:
     explicit ControlPanel(AndrotoneAudioProcessor& p) : processorRef(p) {
         playButton.setButtonText(playGlyph());
@@ -52,6 +52,8 @@ public:
         for (auto* button : { &playButton, &loopButton, &undoButton, &redoButton }) {
             button->setColour(juce::ComboBox::outlineColourId, juce::Colours::transparentBlack);
         }
+
+        startTimerHz(15);
     }
 
     void resized() override {
@@ -71,6 +73,13 @@ public:
     }
 
 private:
+    void timerCallback() override {
+        playButton.setButtonText(processorRef.isPlaying() ? stopGlyph() : playGlyph());
+        if (!tempoSlider.isMouseButtonDown()) {
+            tempoSlider.setValue(processorRef.getTempo(), juce::dontSendNotification);
+        }
+    }
+
     static juce::String playGlyph() { return juce::String::fromUTF8("\xe2\x96\xb6"); }  // ▶
     static juce::String stopGlyph() { return juce::String::fromUTF8("\xe2\x96\xa0"); }  // ■
 
