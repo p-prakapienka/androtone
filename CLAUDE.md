@@ -45,8 +45,9 @@ Targets:
 
 ## CI
 
-`.github/workflows/build.yml` builds the Windows x64 Release standalone + VST3 on pushes to this
-branch, runs `CliptoneTests`, and uploads the `cliptone-windows-x64` artifact.
+`.github/workflows/build.yml` builds the Windows x64 Release standalone on pushes to this branch,
+runs `CliptoneTests`, and uploads `Cliptone.exe` as the `cliptone-windows-x64` artifact. The VST3
+is not built in CI.
 
 ## Build (desktop)
 

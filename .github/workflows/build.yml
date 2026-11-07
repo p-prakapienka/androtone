@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  # Windows x64 Release: the standalone app and the VST3, plus the headless tests. Download the
-  # zip from the run's Artifacts.
+  # Windows x64 Release: the standalone app, plus the headless tests. Download Cliptone.exe from
+  # the run's Artifacts.
   windows:
-    name: Windows (standalone + VST3)
+    name: Windows (standalone)
     runs-on: windows-latest
     env:
       # CPM downloads JUCE at configure time; keep the download between runs.
@@ -28,7 +28,7 @@ jobs:
         run: cmake -S Builds/desktop -B build -A x64 -DCLIPTONE_BUILD_TESTS=ON
 
       - name: Build
-        run: cmake --build build --config Release --parallel --target Cliptone_Standalone Cliptone_VST3 CliptoneTests
+        run: cmake --build build --config Release --parallel --target Cliptone_Standalone CliptoneTests
 
       # Report the program's own exit code (PowerShell otherwise turns any failure, crashes
       # included, into a plain 1).
@@ -48,17 +48,8 @@ jobs:
           path: CliptoneTests.log
           if-no-files-found: warn
 
-      - name: Package
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = "Stop"
-          $package = "dist/cliptone-windows-x64"
-          New-Item -ItemType Directory -Force "$package/VST3" | Out-Null
-          Copy-Item "build/Cliptone_artefacts/Release/Standalone/Cliptone.exe" $package
-          Copy-Item "build/Cliptone_artefacts/Release/VST3/Cliptone.vst3" "$package/VST3" -Recurse
-
       - uses: actions/upload-artifact@v4
         with:
           name: cliptone-windows-x64
-          path: dist/cliptone-windows-x64
+          path: build/Cliptone_artefacts/Release/Standalone/Cliptone.exe
           if-no-files-found: error
