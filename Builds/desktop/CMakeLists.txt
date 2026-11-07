@@ -36,6 +36,7 @@ target_sources(Androtone
     PRIVATE
         ../../source/PluginEditor.cpp
         ../../source/PluginProcessor.cpp
+        ../../source/Engine/Processors/Limiter.h
         # Projucer-generated embedded resources (the kick sample). BinaryData is
         # checked in (see .gitignore) even though the rest of JuceLibraryCode is
         # not; re-save the .jucer in Projucer to regenerate it when resources change.
